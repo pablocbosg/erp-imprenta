@@ -854,12 +854,22 @@
         if (session) { showApp(); }
     }
 
+    function syncParamsToCotizador() {
+        const p = appData.parametros;
+        document.getElementById('cotCostoPlaca').value = p.costoPlaca;
+        document.getElementById('cotCostoMillar').value = p.costoMillarColor;
+        document.getElementById('cotMerma').value = p.merma;
+        document.getElementById('cotMargen').value = p.margen;
+        document.getElementById('cotIVA').value = p.iva;
+    }
+
     async function showApp() {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('appContainer').style.display = 'block';
         await loadDataFromDB();
         renderAdmin();
         populateMaterialSelect();
+        syncParamsToCotizador();
         renderTerminadosRef();
         cotCalc();
         calcCalc();
@@ -1596,6 +1606,8 @@
         for (const [clave, valor] of Object.entries(appData.parametros)) {
             await db.from('parametros').update({ valor }).eq('clave', clave);
         }
+        syncParamsToCotizador();
+        cotCalc();
     }
 
     function renderAdmin() {
