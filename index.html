@@ -177,9 +177,39 @@
     </style>
 </head>
 <body>
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" style="display:flex; justify-content:center; align-items:center; min-height:100vh; background:var(--gray-100);">
+        <div style="background:white; border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2.5rem; width:100%; max-width:380px;">
+            <div style="text-align:center; margin-bottom:1.5rem;">
+                <div style="width:50px;height:50px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:0.75rem;">
+                    <span style="color:white;font-size:1.5rem;font-weight:700;">I</span>
+                </div>
+                <h2 style="font-size:1.3rem;color:var(--gray-800);margin-bottom:0.25rem;">ERP Ingenia</h2>
+                <p style="font-size:0.85rem;color:var(--gray-500);">Inicia sesion para continuar</p>
+            </div>
+            <div id="loginError" style="display:none; background:var(--danger-light); color:var(--danger); padding:0.6rem 0.8rem; border-radius:6px; font-size:0.85rem; margin-bottom:1rem;"></div>
+            <div style="margin-bottom:1rem;">
+                <label style="display:block;font-size:0.8rem;font-weight:600;color:var(--gray-600);margin-bottom:0.3rem;text-transform:uppercase;">Email</label>
+                <input type="email" id="loginEmail" placeholder="tu@email.com" style="width:100%;padding:0.6rem 0.8rem;border:1.5px solid var(--gray-300);border-radius:8px;font-size:0.95rem;outline:none;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--gray-300)'">
+            </div>
+            <div style="margin-bottom:1.5rem;">
+                <label style="display:block;font-size:0.8rem;font-weight:600;color:var(--gray-600);margin-bottom:0.3rem;text-transform:uppercase;">Contrasena</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" style="width:100%;padding:0.6rem 0.8rem;border:1.5px solid var(--gray-300);border-radius:8px;font-size:0.95rem;outline:none;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--gray-300)'" onkeydown="if(event.key==='Enter')doLogin()">
+            </div>
+            <button onclick="doLogin()" id="loginBtn" style="width:100%;padding:0.7rem;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;border:none;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;">Iniciar Sesion</button>
+        </div>
+    </div>
+
+    <!-- APP (hidden until login) -->
+    <div id="appContainer" style="display:none;">
     <header>
-        <h1>Cotizador Offset - SM52</h1>
-        <p>Calcula costos, cortes y genera proformas</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h1>Cotizador Offset - SM52</h1>
+                <p>Calcula costos, cortes y genera proformas</p>
+            </div>
+            <button onclick="doLogout()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;">Cerrar Sesion</button>
+        </div>
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('cotizador')">Cotizador</button>
             <button class="tab-btn" onclick="switchTab('calculadora')">Calculadora de Cortes</button>
@@ -694,8 +724,59 @@
             </div>
         </div>
     </div>
+    </div><!-- /appContainer -->
 
     <script>
+    // =====================================================
+    // SUPABASE CLIENT
+    // =====================================================
+    const SUPABASE_URL = 'https://ekrdnfecegwfavdgtgsa.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_56_qwjL_KgJ6hOH7N_VEiQ_uc7GZ3rb';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // =====================================================
+    // AUTH: Login / Logout
+    // =====================================================
+    async function doLogin() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const pass = document.getElementById('loginPassword').value;
+        const errEl = document.getElementById('loginError');
+        const btn = document.getElementById('loginBtn');
+        if (!email || !pass) { errEl.textContent = 'Ingresa email y contrasena'; errEl.style.display = 'block'; return; }
+        btn.textContent = 'Ingresando...'; btn.disabled = true;
+        const { error } = await db.auth.signInWithPassword({ email, password: pass });
+        if (error) {
+            errEl.textContent = error.message === 'Invalid login credentials' ? 'Email o contrasena incorrectos' : error.message;
+            errEl.style.display = 'block';
+            btn.textContent = 'Iniciar Sesion'; btn.disabled = false;
+        } else {
+            showApp();
+        }
+    }
+
+    async function doLogout() {
+        await db.auth.signOut();
+        document.getElementById('appContainer').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('loginPassword').value = '';
+    }
+
+    async function checkSession() {
+        const { data: { session } } = await db.auth.getSession();
+        if (session) { showApp(); }
+    }
+
+    async function showApp() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'block';
+        await loadDataFromDB();
+        renderAdmin();
+        populateMaterialSelect();
+        renderTerminadosRef();
+        cotCalc();
+        calcCalc();
+    }
+
     // =====================================================
     // SHARED: Cut calculation logic
     // =====================================================
@@ -778,10 +859,6 @@
     // =====================================================
     // DATA: Supabase connection
     // =====================================================
-    const SUPABASE_URL = 'https://ekrdnfecegwfavdgtgsa.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_56_qwjL_KgJ6hOH7N_VEiQ_uc7GZ3rb';
-    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
     let appData = { materiales: [], terminados: [], parametros: {} };
 
     async function loadDataFromDB() {
@@ -1300,21 +1377,8 @@
     // =====================================================
     // INIT
     // =====================================================
-    async function initApp() {
-        try {
-            await loadDataFromDB();
-            renderAdmin();
-            populateMaterialSelect();
-            renderTerminadosRef();
-            cotCalc();
-            calcCalc();
-            window.addEventListener('resize', drawPreview);
-        } catch(err) {
-            console.error('Error conectando a Supabase:', err);
-            document.body.innerHTML = '<div style="padding:2rem;text-align:center;color:#dc2626"><h2>Error de conexion</h2><p>No se pudo conectar a la base de datos. Verifica tu conexion a internet.</p></div>';
-        }
-    }
-    initApp();
+    window.addEventListener('resize', drawPreview);
+    checkSession();
     </script>
 </body>
 </html>
