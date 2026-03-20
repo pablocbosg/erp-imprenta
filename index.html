@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotizador Offset - Imprenta</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #dbeafe;
+            --success: #16a34a;
+            --success-light: #dcfce7;
+            --warning: #f59e0b;
+            --warning-light: #fef3c7;
+            --danger: #dc2626;
+            --danger-light: #fee2e2;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --radius: 10px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gray-100); color: var(--gray-800); line-height: 1.5; }
+
+        /* Header & Tabs */
+        header { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; padding: 1rem 2rem 0; box-shadow: var(--shadow-md); }
+        header h1 { font-size: 1.3rem; font-weight: 700; }
+        header p { font-size: 0.8rem; opacity: 0.8; margin-top: 0.15rem; }
+        .tabs { display: flex; gap: 0; margin-top: 0.75rem; }
+        .tab-btn { padding: 0.6rem 1.25rem; background: rgba(255,255,255,0.1); border: none; color: rgba(255,255,255,0.7); font-size: 0.85rem; font-weight: 500; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s; }
+        .tab-btn:hover { background: rgba(255,255,255,0.2); color: white; }
+        .tab-btn.active { background: var(--gray-100); color: var(--primary-dark); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Panels */
+        .panel { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+        .panel-header { padding: 0.85rem 1.1rem; font-weight: 600; font-size: 0.9rem; border-bottom: 1px solid var(--gray-200); color: var(--gray-700); display: flex; align-items: center; gap: 0.5rem; }
+        .panel-body { padding: 1.1rem; }
+
+        /* Forms */
+        .form-group { margin-bottom: 0.85rem; }
+        .form-group:last-child { margin-bottom: 0; }
+        .form-group label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--gray-600); margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+        .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; }
+        input[type="number"], input[type="text"], select, textarea { width: 100%; padding: 0.5rem 0.65rem; border: 1.5px solid var(--gray-300); border-radius: 7px; font-size: 0.9rem; color: var(--gray-800); background: white; transition: border-color 0.15s, box-shadow 0.15s; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+        textarea { resize: vertical; min-height: 50px; font-family: inherit; }
+        select { cursor: pointer; }
+        input[type="number"]::-webkit-inner-spin-button { opacity: 1; }
+        input:disabled, select:disabled { background: var(--gray-50); color: var(--gray-500); }
+        .input-with-unit { position: relative; }
+        .input-with-unit input { padding-right: 2.5rem; }
+        .input-unit { position: absolute; right: 0.65rem; top: 50%; transform: translateY(-50%); font-size: 0.75rem; color: var(--gray-400); font-weight: 500; pointer-events: none; }
+
+        /* Cotizador layout */
+        .cot-layout { max-width: 1400px; margin: 0 auto; padding: 1.25rem; display: grid; grid-template-columns: 400px 1fr; gap: 1.25rem; align-items: start; }
+        .cot-sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
+        .cot-main { display: flex; flex-direction: column; gap: 1.25rem; }
+        @media (max-width: 900px) { .cot-layout { grid-template-columns: 1fr; } }
+
+        /* Results */
+        .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+        .result-card { background: var(--gray-50); border: 1.5px solid var(--gray-200); border-radius: 8px; padding: 0.7rem; text-align: center; }
+        .result-card.highlight { background: var(--primary-light); border-color: var(--primary); }
+        .result-card.success { background: var(--success-light); border-color: var(--success); }
+        .result-card .value { font-size: 1.5rem; font-weight: 700; color: var(--primary); line-height: 1.2; }
+        .result-card.highlight .value { color: var(--primary-dark); }
+        .result-card.success .value { color: var(--success); font-size: 1.75rem; }
+        .result-card .label { font-size: 0.7rem; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.03em; margin-top: 0.1rem; }
+        .result-card.full { grid-column: 1 / -1; }
+
+        /* Cost breakdown */
+        .cost-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-100); font-size: 0.85rem; }
+        .cost-row:last-child { border-bottom: none; }
+        .cost-row .cost-label { color: var(--gray-600); }
+        .cost-row .cost-value { font-weight: 600; }
+        .cost-row.total { border-top: 2px solid var(--gray-300); border-bottom: none; padding-top: 0.75rem; margin-top: 0.25rem; font-size: 1rem; }
+        .cost-row.total .cost-value { color: var(--success); font-size: 1.15rem; }
+        .cost-row.subtotal { font-weight: 600; color: var(--gray-800); }
+
+        /* Info badge */
+        .info-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; border-radius: 5px; font-size: 0.78rem; font-weight: 500; }
+        .info-badge.blue { background: var(--primary-light); color: var(--primary-dark); }
+        .info-badge.green { background: var(--success-light); color: #166534; }
+        .info-badge.yellow { background: var(--warning-light); color: #92400e; }
+
+        /* Separator */
+        .separator { height: 1px; background: var(--gray-200); margin: 0.85rem 0; }
+
+        /* Calculator tab (same layout as before) */
+        .calc-layout { max-width: 1400px; margin: 0 auto; padding: 1.25rem; display: grid; grid-template-columns: 380px 1fr; gap: 1.25rem; align-items: start; }
+        .calc-sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
+        .calc-main { display: flex; flex-direction: column; gap: 1.25rem; }
+        @media (max-width: 900px) { .calc-layout { grid-template-columns: 1fr; } }
+
+        /* Unit toggle */
+        .unit-toggle { display: flex; background: var(--gray-100); border-radius: 7px; padding: 3px; margin-bottom: 0.85rem; }
+        .unit-toggle button { flex: 1; padding: 0.35rem; border: none; background: transparent; font-size: 0.8rem; font-weight: 500; color: var(--gray-500); cursor: pointer; border-radius: 5px; transition: all 0.2s; }
+        .unit-toggle button.active { background: white; color: var(--primary); box-shadow: var(--shadow); font-weight: 600; }
+
+        /* Orientation badges */
+        .orientation-info { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+        .orientation-badge { flex: 1; padding: 0.4rem; border-radius: 6px; text-align: center; font-size: 0.75rem; border: 1.5px solid var(--gray-200); background: var(--gray-50); }
+        .orientation-badge.best { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); font-weight: 600; }
+        .orientation-badge strong { display: block; font-size: 1rem; }
+
+        /* Waste bar */
+        .waste-bar { height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden; margin-top: 0.4rem; }
+        .waste-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+        .waste-good { background: var(--success); }
+        .waste-ok { background: var(--warning); }
+        .waste-bad { background: var(--danger); }
+
+        /* Preview */
+        .preview-area { width: 100%; background: white; border: 2px dashed var(--gray-300); border-radius: 8px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .preview-canvas-wrapper { width: 100%; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+        canvas#previewCanvas { max-width: 100%; box-shadow: var(--shadow-lg); border-radius: 4px; }
+        .preview-legend { display: flex; gap: 1rem; padding: 0.6rem 1rem; background: var(--gray-50); border-top: 1px solid var(--gray-200); font-size: 0.75rem; color: var(--gray-600); flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 0.3rem; }
+        .legend-color { width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); }
+
+        select option[value=""] { display: none; }
+
+        /* Admin tab */
+        .admin-layout { max-width: 1100px; margin: 0 auto; padding: 1.25rem; }
+        .admin-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+        .admin-tab-btn { padding: 0.5rem 1rem; border: 1.5px solid var(--gray-300); background: white; border-radius: 7px; font-size: 0.85rem; cursor: pointer; color: var(--gray-600); transition: all 0.2s; }
+        .admin-tab-btn.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); font-weight: 600; }
+        .admin-content { display: none; }
+        .admin-content.active { display: block; }
+
+        /* Tables */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        .data-table th { background: var(--gray-50); padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; color: var(--gray-600); border-bottom: 2px solid var(--gray-200); font-size: 0.73rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        .data-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--gray-100); }
+        .data-table tr:hover { background: var(--gray-50); }
+        .data-table input, .data-table select { padding: 0.35rem 0.5rem; font-size: 0.82rem; border: 1px solid var(--gray-300); border-radius: 5px; }
+        .data-table input[type="number"] { width: 80px; }
+        .data-table input[type="text"] { min-width: 100px; }
+
+        /* Buttons */
+        .btn { padding: 0.5rem 1rem; border: none; border-radius: 7px; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-danger { background: white; color: var(--danger); border: 1px solid var(--danger); }
+        .btn-danger:hover { background: var(--danger-light); }
+        .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.78rem; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #15803d; }
+
+        .mt-1 { margin-top: 0.5rem; }
+        .mt-2 { margin-top: 0.85rem; }
+        .mb-1 { margin-bottom: 0.5rem; }
+        .text-sm { font-size: 0.8rem; }
+        .text-muted { color: var(--gray-500); }
+
+        /* Print styles */
+        @media print {
+            header, .tabs, .cot-sidebar, .no-print { display: none !important; }
+            .cot-layout { grid-template-columns: 1fr !important; }
+            .panel { box-shadow: none; border: 1px solid #ddd; }
+            body { background: white; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Cotizador Offset - SM52</h1>
+        <p>Calcula costos, cortes y genera proformas</p>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('cotizador')">Cotizador</button>
+            <button class="tab-btn" onclick="switchTab('calculadora')">Calculadora de Cortes</button>
+            <button class="tab-btn" onclick="switchTab('admin')">Administracion</button>
+        </div>
+    </header>
+
+    <!-- ==================== TAB 1: COTIZADOR ==================== -->
+    <div id="tab-cotizador" class="tab-content active">
+        <div class="cot-layout">
+            <div class="cot-sidebar">
+                <!-- Datos del trabajo -->
+                <div class="panel">
+                    <div class="panel-header">Datos del Trabajo</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Cliente</label>
+                            <input type="text" id="cotCliente" placeholder="Nombre del cliente" oninput="cotCalc()">
+                        </div>
+                        <div class="form-group">
+                            <label>Descripcion</label>
+                            <input type="text" id="cotDescripcion" placeholder="Ej: Tarjetas de presentacion" oninput="cotCalc()">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho producto (cm)</label>
+                                <input type="number" id="cotProdW" step="0.1" min="0.1" value="8.5" oninput="cotCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto producto (cm)</label>
+                                <input type="number" id="cotProdH" step="0.1" min="0.1" value="5" oninput="cotCalc()">
+                            </div>
+                        </div>
+                        <div class="form-row-3">
+                            <div class="form-group">
+                                <label>Cantidad final</label>
+                                <input type="number" id="cotCantidad" min="1" value="1000" oninput="cotCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Sangrado por lado (cm)</label>
+                                <input type="number" id="cotSangrado" step="0.1" min="0" value="0.3" oninput="cotCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Lados impresos</label>
+                                <select id="cotLados" onchange="cotCalc()">
+                                    <option value="1">1 lado (solo tiro)</option>
+                                    <option value="2">2 lados (tiro y retiro)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Material -->
+                <div class="panel">
+                    <div class="panel-header">Material</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Material</label>
+                            <select id="cotMaterial" onchange="cotOnMaterialChange()">
+                            </select>
+                        </div>
+                        <div id="cotMaterialInfo" class="text-sm text-muted"></div>
+                        <div class="separator"></div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho pliego (cm)</label>
+                                <input type="number" id="cotPliegoW" step="0.1" value="70" oninput="cotCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto pliego (cm)</label>
+                                <input type="number" id="cotPliegoH" step="0.1" value="100" oninput="cotCalc()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio por pliego ($)</label>
+                            <input type="number" id="cotPrecioPliego" step="0.01" min="0" value="0" oninput="cotCalc()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formato de maquina -->
+                <div class="panel">
+                    <div class="panel-header">Formato de Maquina (SM52)</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Formato frecuente</label>
+                            <select id="cotFormato" onchange="cotOnFormatoChange()">
+                                <option value="50x35">50 x 35 cm</option>
+                                <option value="45x32.5">45 x 32.5 cm</option>
+                                <option value="33x23">33 x 23 cm</option>
+                                <option value="32.5x22.5">32.5 x 22.5 cm</option>
+                                <option value="22.5x32.5">22.5 x 32.5 cm</option>
+                                <option value="14x20">14 x 20 cm</option>
+                                <option value="">Personalizado</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho hoja (cm)</label>
+                                <input type="number" id="cotHojaW" step="0.1" min="1" value="50" oninput="cotOnHojaManualEdit()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto hoja (cm)</label>
+                                <input type="number" id="cotHojaH" step="0.1" min="1" value="35" oninput="cotOnHojaManualEdit()">
+                            </div>
+                        </div>
+                        <div id="cotFormatosInfo" class="mt-1"></div>
+                    </div>
+                </div>
+
+                <!-- Produccion -->
+                <div class="panel">
+                    <div class="panel-header">Produccion</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Juegos de placas</label>
+                                <input type="number" id="cotJuegosPlacas" min="1" value="1" oninput="cotCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Merma por juego (hojas)</label>
+                                <input type="number" id="cotMerma" min="0" value="100" oninput="cotCalc()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Costos -->
+                <div class="panel">
+                    <div class="panel-header">Costos de Impresion</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Numero de colores</label>
+                            <select id="cotColores" onchange="cotCalc()">
+                                <option value="1">1 color</option>
+                                <option value="2">2 colores</option>
+                                <option value="3">3 colores</option>
+                                <option value="4" selected>4 colores (CMYK)</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Costo por placa ($)</label>
+                                <input type="number" id="cotCostoPlaca" step="0.01" min="0" value="3.5" oninput="cotCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Costo millar x color ($)</label>
+                                <input type="number" id="cotCostoMillar" step="0.5" min="0" value="4" oninput="cotCalc()">
+                            </div>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="form-group">
+                            <label>Terminados adicionales ($)</label>
+                            <input type="number" id="cotTerminados" step="0.5" min="0" value="0" oninput="cotCalc()">
+                        </div>
+                        <div id="cotTerminadosRef" class="text-sm text-muted mt-1"></div>
+                    </div>
+                </div>
+
+                <!-- Margen -->
+                <div class="panel">
+                    <div class="panel-header">Margen y Precio</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Margen utilidad %</label>
+                                <input type="number" id="cotMargen" step="1" min="0" max="99" value="35" oninput="cotCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>IVA %</label>
+                                <select id="cotIVA" onchange="cotCalc()">
+                                    <option value="15" selected>15% (normal)</option>
+                                    <option value="0">0% (libros / exento)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cot-main">
+                <!-- Calculo automatico -->
+                <div class="panel">
+                    <div class="panel-header">Calculo de Produccion</div>
+                    <div class="panel-body">
+                        <div class="results-grid">
+                            <div class="result-card">
+                                <div class="value" id="cotResFmtPliego">-</div>
+                                <div class="label">Formatos por pliego</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="cotResPiezasHoja">-</div>
+                                <div class="label">Piezas por hoja maquina</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="cotResHojasNetas">-</div>
+                                <div class="label">Hojas netas</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="cotResHojasTotales">-</div>
+                                <div class="label">Hojas con merma</div>
+                            </div>
+                            <div class="result-card highlight">
+                                <div class="value" id="cotResPliegosNec">-</div>
+                                <div class="label">Pliegos de material</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="cotResMermaInfo">-</div>
+                                <div class="label">Merma total (hojas)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desglose de costos -->
+                <div class="panel">
+                    <div class="panel-header">Desglose de Costos</div>
+                    <div class="panel-body">
+                        <div class="cost-row">
+                            <span class="cost-label">Material (<span id="cotCostMatQty">0</span> pliegos x $<span id="cotCostMatPx">0</span>)</span>
+                            <span class="cost-value">$<span id="cotCostMat">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Placas (<span id="cotCostPlacasQty">0</span> placas x $<span id="cotCostPlacasPx">0</span>)</span>
+                            <span class="cost-value">$<span id="cotCostPlacas">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Impresion (<span id="cotCostImpQty">0</span> millares x <span id="cotCostImpColores">4</span> colores x $<span id="cotCostImpPx">4</span>)</span>
+                            <span class="cost-value">$<span id="cotCostImp">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Terminados</span>
+                            <span class="cost-value">$<span id="cotCostTerm">0.00</span></span>
+                        </div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Subtotal costo</span>
+                            <span class="cost-value">$<span id="cotSubtotalCosto">0.00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="cost-row">
+                            <span class="cost-label">Utilidad <span id="cotMargenPct">35</span>%</span>
+                            <span class="cost-value">$<span id="cotUtilidadNeta">0.00</span></span>
+                        </div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Subtotal sin IVA</span>
+                            <span class="cost-value">$<span id="cotSubtotalSinIVA">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Precio unitario (sin IVA)</span>
+                            <span class="cost-value">$<span id="cotPrecioUnit">0.00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="cost-row">
+                            <span class="cost-label">IVA <span id="cotIVAPct">15</span>%</span>
+                            <span class="cost-value">$<span id="cotMontoIVA">0.00</span></span>
+                        </div>
+                        <div class="cost-row total">
+                            <span class="cost-label">TOTAL CON IVA</span>
+                            <span class="cost-value">$<span id="cotPrecioFinal">0.00</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Precio final grande -->
+                <div class="panel">
+                    <div class="panel-body">
+                        <div class="results-grid">
+                            <div class="result-card success">
+                                <div class="value">$<span id="cotPrecioFinalBig">0.00</span></div>
+                                <div class="label">Total con IVA</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value">$<span id="cotPrecioUnitBig">0.00</span></div>
+                                <div class="label">Unitario sin IVA</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary mt-2 no-print" style="width:100%" onclick="window.print()">Imprimir Proforma</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TAB 2: CALCULADORA DE CORTES ==================== -->
+    <div id="tab-calculadora" class="tab-content">
+        <div class="calc-layout">
+            <div class="calc-sidebar">
+                <div class="panel">
+                    <div class="panel-header">Tamano del Pliego</div>
+                    <div class="panel-body">
+                        <div class="unit-toggle">
+                            <button class="active" onclick="setUnit('cm')" id="btnCm">cm</button>
+                            <button onclick="setUnit('mm')" id="btnMm">mm</button>
+                            <button onclick="setUnit('in')" id="btnIn">pulg</button>
+                        </div>
+                        <div class="form-group">
+                            <label>Formato del pliego</label>
+                            <select id="paperSize" onchange="onPaperSizeChange()">
+                                <option value="90x130">Pliego 90 x 130 cm</option>
+                                <option value="70x100">Pliego 70 x 100 cm</option>
+                                <option value="65x90">Pliego 65 x 90 cm</option>
+                                <option value="">Personalizado</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="paperWidth" step="0.1" min="1" value="90" oninput="onPaperManualEdit()">
+                                    <span class="input-unit unit-label">cm</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Alto</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="paperHeight" step="0.1" min="1" value="130" oninput="onPaperManualEdit()">
+                                    <span class="input-unit unit-label">cm</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">Tamano del Trabajo</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="designWidth" step="0.1" min="0.1" value="22" oninput="calcCalc()">
+                                    <span class="input-unit unit-label">cm</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Alto</label>
+                                <div class="input-with-unit">
+                                    <input type="number" id="designHeight" step="0.1" min="0.1" value="28" oninput="calcCalc()">
+                                    <span class="input-unit unit-label">cm</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">Cantidad de Copias</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Copias necesarias</label>
+                            <input type="number" id="copies" min="1" value="1000" oninput="calcCalc()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="calc-main">
+                <div class="panel">
+                    <div class="panel-header">Resultados</div>
+                    <div class="panel-body">
+                        <div class="results-grid">
+                            <div class="result-card highlight">
+                                <div class="value" id="resCortes">-</div>
+                                <div class="label">Cortes por pliego</div>
+                            </div>
+                            <div class="result-card highlight">
+                                <div class="value" id="resPliegos">-</div>
+                                <div class="label">Pliegos necesarios</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="resTotalPiezas">-</div>
+                                <div class="label">Total de piezas</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="resSobrantes">-</div>
+                                <div class="label">Sobrantes</div>
+                            </div>
+                        </div>
+                        <div class="result-card full mt-1" style="margin-bottom:0.5rem">
+                            <div class="label" style="margin-bottom:0.3rem">Aprovechamiento del pliego</div>
+                            <div class="waste-bar"><div class="waste-bar-fill" id="wasteBar" style="width:0%"></div></div>
+                            <div style="display:flex;justify-content:space-between;margin-top:0.3rem">
+                                <span class="label" id="resAprovechamiento">0%</span>
+                                <span class="label" id="resDesperdicio">Desperdicio: 0%</span>
+                            </div>
+                        </div>
+                        <div class="result-card full">
+                            <div class="label" style="margin-bottom:0.4rem">Distribucion en el pliego</div>
+                            <div id="layoutInfo" style="font-size:0.82rem;color:var(--gray-700)"></div>
+                        </div>
+                        <div class="orientation-info" id="orientationInfo"></div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-header">Vista Previa del Corte</div>
+                    <div class="preview-area">
+                        <div class="preview-canvas-wrapper">
+                            <canvas id="previewCanvas" width="700" height="500"></canvas>
+                        </div>
+                    </div>
+                    <div class="preview-legend">
+                        <div class="legend-item"><div class="legend-color" style="background:#3b82f6"></div> Pieza de corte</div>
+                        <div class="legend-item"><div class="legend-color" style="background:#e5e7eb"></div> Desperdicio</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TAB 3: ADMINISTRACION ==================== -->
+    <div id="tab-admin" class="tab-content">
+        <div class="admin-layout">
+            <div class="admin-tabs">
+                <button class="admin-tab-btn active" onclick="switchAdminTab('materiales')">Materiales</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('terminados')">Terminados</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('parametros')">Parametros</button>
+            </div>
+
+            <!-- Materiales -->
+            <div id="admin-materiales" class="admin-content active">
+                <div class="panel">
+                    <div class="panel-header">
+                        Catalogo de Materiales
+                        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="addMaterial()">+ Agregar</button>
+                    </div>
+                    <div class="panel-body" style="overflow-x:auto">
+                        <table class="data-table" id="materialesTable">
+                            <thead>
+                                <tr>
+                                    <th>Material</th>
+                                    <th>Categoria</th>
+                                    <th>Gramaje</th>
+                                    <th>Ancho (cm)</th>
+                                    <th>Alto (cm)</th>
+                                    <th>Precio/pliego ($)</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="materialesBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminados -->
+            <div id="admin-terminados" class="admin-content">
+                <div class="panel">
+                    <div class="panel-header">
+                        Catalogo de Terminados
+                        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="addTerminado()">+ Agregar</button>
+                    </div>
+                    <div class="panel-body" style="overflow-x:auto">
+                        <table class="data-table" id="terminadosTable">
+                            <thead>
+                                <tr>
+                                    <th>Proceso</th>
+                                    <th>Tipo</th>
+                                    <th>Costo ($)</th>
+                                    <th>Unidad</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="terminadosBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parametros -->
+            <div id="admin-parametros" class="admin-content">
+                <div class="panel">
+                    <div class="panel-header">Parametros Generales (valores por defecto)</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Costo por placa ($)</label>
+                                <input type="number" id="paramCostoPlaca" step="0.01" value="3.5" onchange="saveParams()">
+                            </div>
+                            <div class="form-group">
+                                <label>Costo millar x color ($)</label>
+                                <input type="number" id="paramCostoMillar" step="0.5" value="4" onchange="saveParams()">
+                            </div>
+                            <div class="form-group">
+                                <label>Merma minima por juego (hojas)</label>
+                                <input type="number" id="paramMerma" min="0" value="100" onchange="saveParams()">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Margen utilidad default %</label>
+                                <input type="number" id="paramMargen" min="0" max="99" value="35" onchange="saveParams()">
+                            </div>
+                            <div class="form-group">
+                                <label>IVA default %</label>
+                                <select id="paramIVA" onchange="saveParams()">
+                                    <option value="15" selected>15% (normal)</option>
+                                    <option value="0">0% (libros / exento)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="separator"></div>
+                        <p class="text-sm text-muted">Estos valores se usan como base al crear una nueva cotizacion. Puedes modificarlos en cada cotizacion individual.</p>
+                        <div class="separator"></div>
+                        <div class="form-group">
+                            <label>Exportar / Importar datos</label>
+                            <div style="display:flex;gap:0.5rem;margin-top:0.35rem">
+                                <button class="btn btn-primary btn-sm" onclick="exportData()">Exportar JSON</button>
+                                <button class="btn btn-sm" style="border:1px solid var(--gray-300)" onclick="document.getElementById('importFile').click()">Importar JSON</button>
+                                <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // =====================================================
+    // SHARED: Cut calculation logic
+    // =====================================================
+    function calcLayout(paperW, paperH, pieceW, pieceH, gutter, gripperTop) {
+        const usableH = paperH - gripperTop;
+        if (usableH <= 0 || paperW <= 0 || pieceW <= 0 || pieceH <= 0) return { cols: 0, rows: 0, total: 0 };
+        const cols = Math.floor((paperW + gutter) / (pieceW + gutter));
+        const rows = Math.floor((usableH + gutter) / (pieceH + gutter));
+        return { cols, rows, total: cols * rows };
+    }
+
+    function calcMixedLayout(paperW, paperH, pieceW, pieceH, gutter, gripperTop) {
+        const usableH = paperH - gripperTop;
+        if (usableH <= 0 || paperW <= 0 || pieceW <= 0 || pieceH <= 0) return null;
+        let bestMixed = null;
+
+        const normalCols = Math.floor((paperW + gutter) / (pieceW + gutter));
+        const normalRows = Math.floor((usableH + gutter) / (pieceH + gutter));
+        const normalCount = normalCols * normalRows;
+
+        if (normalRows > 0) {
+            const usedH = normalRows * pieceH + (normalRows - 1) * gutter;
+            const remainH = usableH - usedH - gutter;
+            if (remainH >= pieceW) {
+                const extraCols = Math.floor((paperW + gutter) / (pieceH + gutter));
+                const extraRows = Math.floor((remainH + gutter) / (pieceW + gutter));
+                if (extraCols * extraRows > 0) {
+                    bestMixed = { total: normalCount + extraCols * extraRows,
+                        zones: [{ cols: normalCols, rows: normalRows, pw: pieceW, ph: pieceH, offsetY: 0 },
+                                { cols: extraCols, rows: extraRows, pw: pieceH, ph: pieceW, offsetY: usedH + gutter }] };
+                }
+            }
+            if (normalCols > 0) {
+                const usedW = normalCols * pieceW + (normalCols - 1) * gutter;
+                const remainW = paperW - usedW - gutter;
+                if (remainW >= pieceH) {
+                    const ec = Math.floor((remainW + gutter) / (pieceH + gutter));
+                    const er = Math.floor((usableH + gutter) / (pieceW + gutter));
+                    if (ec * er > 0) {
+                        const c = { total: normalCount + ec * er,
+                            zones: [{ cols: normalCols, rows: normalRows, pw: pieceW, ph: pieceH, offsetY: 0, offsetX: 0 },
+                                    { cols: ec, rows: er, pw: pieceH, ph: pieceW, offsetY: 0, offsetX: usedW + gutter }] };
+                        if (!bestMixed || c.total > bestMixed.total) bestMixed = c;
+                    }
+                }
+            }
+        }
+
+        const rotCols = Math.floor((paperW + gutter) / (pieceH + gutter));
+        const rotRows = Math.floor((usableH + gutter) / (pieceW + gutter));
+        const rotCount = rotCols * rotRows;
+        if (rotRows > 0) {
+            const usedH2 = rotRows * pieceW + (rotRows - 1) * gutter;
+            const remainH2 = usableH - usedH2 - gutter;
+            if (remainH2 >= pieceH) {
+                const ec = Math.floor((paperW + gutter) / (pieceW + gutter));
+                const er = Math.floor((remainH2 + gutter) / (pieceH + gutter));
+                if (ec * er > 0) {
+                    const c = { total: rotCount + ec * er,
+                        zones: [{ cols: rotCols, rows: rotRows, pw: pieceH, ph: pieceW, offsetY: 0 },
+                                { cols: ec, rows: er, pw: pieceW, ph: pieceH, offsetY: usedH2 + gutter }] };
+                    if (!bestMixed || c.total > bestMixed.total) bestMixed = c;
+                }
+            }
+        }
+        return bestMixed;
+    }
+
+    function bestCuts(sheetW, sheetH, pieceW, pieceH) {
+        const n = calcLayout(sheetW, sheetH, pieceW, pieceH, 0, 0);
+        const r = calcLayout(sheetW, sheetH, pieceH, pieceW, 0, 0);
+        const m1 = calcMixedLayout(sheetW, sheetH, pieceW, pieceH, 0, 0);
+        const m2 = calcMixedLayout(sheetW, sheetH, pieceH, pieceW, 0, 0);
+        let best = Math.max(n.total, r.total);
+        if (m1 && m1.total > best) best = m1.total;
+        if (m2 && m2.total > best) best = m2.total;
+        return best;
+    }
+
+    // =====================================================
+    // DATA: localStorage management
+    // =====================================================
+    const STORAGE_KEY = 'cotizador_offset_data';
+    const DATA_VERSION = 3; // Incrementar para forzar reset de datos
+
+    const DEFAULT_DATA = {
+        _version: DATA_VERSION,
+        materiales: [
+            { id: 1,  nombre: 'Bond 75g 65x90',          categoria: 'Bond',       gramaje: 75,  ancho: 65, alto: 90,  precio: 0.069 },
+            { id: 2,  nombre: 'Bond 90g 65x90',          categoria: 'Bond',       gramaje: 90,  ancho: 65, alto: 90,  precio: 0.079 },
+            { id: 3,  nombre: 'Bond 90g 70x100',         categoria: 'Bond',       gramaje: 90,  ancho: 70, alto: 100, precio: 0.087 },
+            { id: 4,  nombre: 'Bond 120g 65x90',         categoria: 'Bond',       gramaje: 120, ancho: 65, alto: 90,  precio: 0.101 },
+            { id: 5,  nombre: 'Bond 75g 90x130',         categoria: 'Bond',       gramaje: 75,  ancho: 90, alto: 130, precio: 0.127 },
+            { id: 6,  nombre: 'Couche 150g 90x130',      categoria: 'Couche',     gramaje: 150, ancho: 90, alto: 130, precio: 0.276 },
+            { id: 7,  nombre: 'Couche 200g 70x100',      categoria: 'Couche',     gramaje: 200, ancho: 70, alto: 100, precio: 0.235 },
+            { id: 8,  nombre: 'Couche 200g 90x130',      categoria: 'Couche',     gramaje: 200, ancho: 90, alto: 130, precio: 0.391 },
+            { id: 9,  nombre: 'Couche 250g 65x90',       categoria: 'Couche',     gramaje: 250, ancho: 65, alto: 90,  precio: 0.237 },
+            { id: 10, nombre: 'Couche 250g 90x130',      categoria: 'Couche',     gramaje: 250, ancho: 90, alto: 130, precio: 0.455 },
+            { id: 11, nombre: 'Plegable .12 70x100',     categoria: 'Plegable',   gramaje: 200, ancho: 70, alto: 100, precio: 0.23 },
+            { id: 12, nombre: 'Plegable .14 (235g) 70x100', categoria: 'Plegable', gramaje: 235, ancho: 70, alto: 100, precio: 0.253 },
+            { id: 13, nombre: 'Plegable .16 (255g) 70x100', categoria: 'Plegable', gramaje: 255, ancho: 70, alto: 100, precio: 0.288 },
+            { id: 14, nombre: 'Plegable .18 70x100',     categoria: 'Plegable',   gramaje: 290, ancho: 70, alto: 100, precio: 0.345 },
+            { id: 15, nombre: 'Plegable .20 70x100',     categoria: 'Plegable',   gramaje: 320, ancho: 70, alto: 100, precio: 0.345 },
+            { id: 16, nombre: 'Marfil 210g 70x100',      categoria: 'Marfil',     gramaje: 210, ancho: 70, alto: 100, precio: 0.305 },
+            { id: 17, nombre: 'Marfil 230g 70x100',      categoria: 'Marfil',     gramaje: 230, ancho: 70, alto: 100, precio: 0.328 },
+            { id: 18, nombre: 'Kraft 120g 90x130',       categoria: 'Kraft',      gramaje: 120, ancho: 90, alto: 130, precio: 0.23 },
+            { id: 19, nombre: 'Esketch 50g 70x100',      categoria: 'Esketch',    gramaje: 50,  ancho: 70, alto: 100, precio: 0.15 },
+        ],
+        terminados: [
+            { id: 1, proceso: 'Barniz acuoso', tipo: 'Barniz', costo: 0, unidad: 'millar' },
+            { id: 2, proceso: 'Plastificado mate 1 cara', tipo: 'Plastico', costo: 0, unidad: 'pliego' },
+            { id: 3, proceso: 'Plastificado brillante 1 cara', tipo: 'Plastico', costo: 0, unidad: 'pliego' },
+            { id: 4, proceso: 'UV selectivo 1 cara', tipo: 'UV', costo: 0, unidad: 'pliego' },
+            { id: 5, proceso: 'Troquel simple', tipo: 'Troquelado', costo: 0, unidad: 'millar' },
+        ],
+        parametros: {
+            costoPlaca: 3.5,
+            costoMillarColor: 4,
+            merma: 100,
+            margen: 35,
+            iva: 15
+        }
+    };
+
+    function loadData() {
+        try {
+            const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
+            if (d && d.materiales && d._version === DATA_VERSION) return d;
+        } catch(e) {}
+        const fresh = JSON.parse(JSON.stringify(DEFAULT_DATA));
+        saveData(fresh);
+        return fresh;
+    }
+
+    function saveData(data) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function exportData() {
+        const data = loadData();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'cotizador_datos.json';
+        a.click();
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.materiales && data.terminados && data.parametros) {
+                    saveData(data);
+                    renderAdmin();
+                    populateMaterialSelect();
+                    alert('Datos importados correctamente');
+                } else {
+                    alert('Archivo no valido');
+                }
+            } catch(err) { alert('Error al leer el archivo'); }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+
+    let appData = loadData();
+
+    // =====================================================
+    // TAB SWITCHING
+    // =====================================================
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + tab).classList.add('active');
+        event.target.classList.add('active');
+        if (tab === 'calculadora') calcCalc();
+        if (tab === 'cotizador') cotCalc();
+    }
+
+    function switchAdminTab(tab) {
+        document.querySelectorAll('.admin-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.admin-tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('admin-' + tab).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // =====================================================
+    // ADMIN: Materiales
+    // =====================================================
+    function renderMateriales() {
+        const tbody = document.getElementById('materialesBody');
+        tbody.innerHTML = '';
+        appData.materiales.forEach((m, i) => {
+            tbody.innerHTML += `<tr>
+                <td><input type="text" value="${m.nombre}" onchange="updateMat(${i},'nombre',this.value)"></td>
+                <td><input type="text" value="${m.categoria}" style="width:90px" onchange="updateMat(${i},'categoria',this.value)"></td>
+                <td><input type="number" value="${m.gramaje}" style="width:65px" onchange="updateMat(${i},'gramaje',+this.value)"></td>
+                <td><input type="number" value="${m.ancho}" step="0.1" style="width:65px" onchange="updateMat(${i},'ancho',+this.value)"></td>
+                <td><input type="number" value="${m.alto}" step="0.1" style="width:65px" onchange="updateMat(${i},'alto',+this.value)"></td>
+                <td><input type="number" value="${m.precio}" step="0.01" style="width:80px" onchange="updateMat(${i},'precio',+this.value)"></td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteMat(${i})">X</button></td>
+            </tr>`;
+        });
+    }
+
+    function updateMat(i, field, val) { appData.materiales[i][field] = val; saveData(appData); populateMaterialSelect(); }
+    function deleteMat(i) { appData.materiales.splice(i, 1); saveData(appData); renderMateriales(); populateMaterialSelect(); }
+    function addMaterial() {
+        const maxId = appData.materiales.reduce((m, x) => Math.max(m, x.id || 0), 0);
+        appData.materiales.push({ id: maxId + 1, nombre: 'Nuevo material', categoria: '', gramaje: 0, ancho: 70, alto: 100, precio: 0 });
+        saveData(appData);
+        renderMateriales();
+        populateMaterialSelect();
+    }
+
+    // =====================================================
+    // ADMIN: Terminados
+    // =====================================================
+    function renderTerminados() {
+        const tbody = document.getElementById('terminadosBody');
+        tbody.innerHTML = '';
+        appData.terminados.forEach((t, i) => {
+            tbody.innerHTML += `<tr>
+                <td><input type="text" value="${t.proceso}" onchange="updateTerm(${i},'proceso',this.value)"></td>
+                <td><input type="text" value="${t.tipo}" style="width:90px" onchange="updateTerm(${i},'tipo',this.value)"></td>
+                <td><input type="number" value="${t.costo}" step="0.01" style="width:80px" onchange="updateTerm(${i},'costo',+this.value)"></td>
+                <td><select onchange="updateTerm(${i},'unidad',this.value)">
+                    <option value="millar" ${t.unidad==='millar'?'selected':''}>por millar</option>
+                    <option value="pliego" ${t.unidad==='pliego'?'selected':''}>por pliego</option>
+                </select></td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteTerm(${i})">X</button></td>
+            </tr>`;
+        });
+        renderTerminadosRef();
+    }
+
+    function updateTerm(i, field, val) { appData.terminados[i][field] = val; saveData(appData); renderTerminadosRef(); }
+    function deleteTerm(i) { appData.terminados.splice(i, 1); saveData(appData); renderTerminados(); }
+    function addTerminado() {
+        const maxId = appData.terminados.reduce((m, x) => Math.max(m, x.id || 0), 0);
+        appData.terminados.push({ id: maxId + 1, proceso: 'Nuevo terminado', tipo: '', costo: 0, unidad: 'millar' });
+        saveData(appData);
+        renderTerminados();
+    }
+
+    function renderTerminadosRef() {
+        const el = document.getElementById('cotTerminadosRef');
+        if (!el) return;
+        const items = appData.terminados.filter(t => t.costo > 0);
+        if (items.length === 0) { el.textContent = 'Configura precios de terminados en Administracion'; return; }
+        el.innerHTML = 'Referencia: ' + items.map(t => `${t.proceso}: $${t.costo}/${t.unidad}`).join(', ');
+    }
+
+    // =====================================================
+    // ADMIN: Parametros
+    // =====================================================
+    function renderParams() {
+        const p = appData.parametros;
+        document.getElementById('paramCostoPlaca').value = p.costoPlaca;
+
+        document.getElementById('paramCostoMillar').value = p.costoMillarColor;
+        document.getElementById('paramMerma').value = p.merma;
+        document.getElementById('paramMargen').value = p.margen;
+        document.getElementById('paramIVA').value = p.iva;
+    }
+
+    function saveParams() {
+        appData.parametros = {
+            costoPlaca: +document.getElementById('paramCostoPlaca').value,
+            costoMillarColor: +document.getElementById('paramCostoMillar').value,
+            merma: +document.getElementById('paramMerma').value,
+            margen: +document.getElementById('paramMargen').value,
+            iva: +document.getElementById('paramIVA').value,
+        };
+        saveData(appData);
+    }
+
+    function renderAdmin() {
+        appData = loadData();
+        renderMateriales();
+        renderTerminados();
+        renderParams();
+    }
+
+    // =====================================================
+    // COTIZADOR: Material select
+    // =====================================================
+    function populateMaterialSelect() {
+        const sel = document.getElementById('cotMaterial');
+        const prev = sel.value;
+        sel.innerHTML = '<option value="">-- Seleccionar material --</option>';
+        appData.materiales.forEach((m, i) => {
+            sel.innerHTML += `<option value="${i}">${m.nombre} (${m.gramaje}g) - ${m.ancho}x${m.alto} - $${m.precio}</option>`;
+        });
+        sel.value = prev;
+    }
+
+    function cotOnMaterialChange() {
+        const idx = document.getElementById('cotMaterial').value;
+        if (idx === '') return;
+        const m = appData.materiales[+idx];
+        document.getElementById('cotPliegoW').value = m.ancho;
+        document.getElementById('cotPliegoH').value = m.alto;
+        document.getElementById('cotPrecioPliego').value = m.precio;
+        document.getElementById('cotMaterialInfo').textContent = `${m.categoria} - ${m.gramaje}g - ${m.ancho}x${m.alto} cm`;
+        cotCalc();
+    }
+
+    // =====================================================
+    // COTIZADOR: Formato de maquina
+    // =====================================================
+    const machineFormats = {
+        '50x35': { w: 50, h: 35 },
+        '45x32.5': { w: 45, h: 32.5 },
+        '33x23': { w: 33, h: 23 },
+        '32.5x22.5': { w: 32.5, h: 22.5 },
+        '22.5x32.5': { w: 22.5, h: 32.5 },
+        '14x20': { w: 14, h: 20 },
+    };
+
+    function cotOnFormatoChange() {
+        const sel = document.getElementById('cotFormato').value;
+        if (machineFormats[sel]) {
+            document.getElementById('cotHojaW').value = machineFormats[sel].w;
+            document.getElementById('cotHojaH').value = machineFormats[sel].h;
+        }
+        cotCalc();
+    }
+
+    function cotOnHojaManualEdit() {
+        const w = +document.getElementById('cotHojaW').value;
+        const h = +document.getElementById('cotHojaH').value;
+        let matched = false;
+        for (const [key, fmt] of Object.entries(machineFormats)) {
+            if (Math.abs(w - fmt.w) < 0.1 && Math.abs(h - fmt.h) < 0.1) {
+                document.getElementById('cotFormato').value = key;
+                matched = true; break;
+            }
+        }
+        if (!matched) document.getElementById('cotFormato').value = '';
+        cotCalc();
+    }
+
+    // =====================================================
+    // COTIZADOR: Main calculation
+    // =====================================================
+    function cotCalc() {
+        const prodW = +document.getElementById('cotProdW').value || 0;
+        const prodH = +document.getElementById('cotProdH').value || 0;
+        const sangrado = +document.getElementById('cotSangrado').value || 0;
+        const cantidad = +document.getElementById('cotCantidad').value || 0;
+        const lados = +document.getElementById('cotLados').value;
+        const pliegoW = +document.getElementById('cotPliegoW').value || 0;
+        const pliegoH = +document.getElementById('cotPliegoH').value || 0;
+        const hojaW = +document.getElementById('cotHojaW').value || 0;
+        const hojaH = +document.getElementById('cotHojaH').value || 0;
+        const precioPliego = +document.getElementById('cotPrecioPliego').value || 0;
+        const juegosPlacas = +document.getElementById('cotJuegosPlacas').value || 1;
+        const mermaPorJuego = +document.getElementById('cotMerma').value || 0;
+        const costoPlaca = +document.getElementById('cotCostoPlaca').value || 0;
+        const colores = +document.getElementById('cotColores').value || 4;
+        const costoMillarColor = +document.getElementById('cotCostoMillar').value || 0;
+        const terminados = +document.getElementById('cotTerminados').value || 0;
+        const margenPct = +document.getElementById('cotMargen').value || 0;
+        const ivaPct = +document.getElementById('cotIVA').value || 0;
+
+        // Tamano de pieza con sangrado (sangrado por cada lado)
+        const piezaW = prodW + 2 * sangrado;
+        const piezaH = prodH + 2 * sangrado;
+
+        // 1. Formatos por pliego
+        const fmtPorPliego = (pliegoW > 0 && pliegoH > 0 && hojaW > 0 && hojaH > 0)
+            ? bestCuts(pliegoW, pliegoH, hojaW, hojaH) : 0;
+
+        // 2. Piezas por hoja maquina (usando tamano con sangrado)
+        const piezasPorHoja = (hojaW > 0 && hojaH > 0 && piezaW > 0 && piezaH > 0)
+            ? bestCuts(hojaW, hojaH, piezaW, piezaH) : 0;
+
+        // 3. Hojas netas
+        const hojasNetas = piezasPorHoja > 0 ? Math.ceil(cantidad / piezasPorHoja) : 0;
+
+        // 4. Merma total: el mayor entre minimo fijo y 3% de hojas netas, por cada juego
+        const merma3pct = Math.ceil(hojasNetas * 0.03);
+        const mermaReal = Math.max(mermaPorJuego, merma3pct);
+        const mermaTotal = mermaReal * juegosPlacas;
+        const hojasTotales = hojasNetas + mermaTotal;
+
+        // 5. Pliegos necesarios
+        const pliegosNec = fmtPorPliego > 0 ? Math.ceil(hojasTotales / fmtPorPliego) : 0;
+
+        // Update production results
+        document.getElementById('cotResFmtPliego').textContent = fmtPorPliego;
+        document.getElementById('cotResPiezasHoja').textContent = piezasPorHoja;
+        document.getElementById('cotResHojasNetas').textContent = hojasNetas;
+        document.getElementById('cotResHojasTotales').textContent = hojasTotales;
+        document.getElementById('cotResPliegosNec').textContent = pliegosNec;
+        document.getElementById('cotResMermaInfo').textContent = mermaTotal;
+
+        // Info badges
+        const infoEl = document.getElementById('cotFormatosInfo');
+        infoEl.innerHTML = `<span class="info-badge blue">${fmtPorPliego} formatos por pliego</span> <span class="info-badge green">${piezasPorHoja} piezas por hoja</span>`;
+
+        // 7. Costs
+        const costoMaterial = pliegosNec * precioPliego;
+        const totalPlacas = colores * juegosPlacas;
+        const costoPlacasTotal = totalPlacas * costoPlaca;
+        // Impresion: se cobra por millar redondeado (1-1000=1, 1001-2000=2, etc.)
+        // Se usa hojas NETAS (sin merma), tiro y retiro se suman
+        const pasadasImpresion = hojasNetas * lados;
+        const millaresImpresion = Math.ceil(pasadasImpresion / 1000);
+        const costoImpresion = millaresImpresion * costoMillarColor * colores;
+        const costoTerminados = terminados;
+
+        const subtotalCosto = costoMaterial + costoPlacasTotal + costoImpresion + costoTerminados;
+        const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
+        const montoIVA = precioSinIVA * (ivaPct / 100);
+        const precioFinal = precioSinIVA + montoIVA;
+        const precioUnit = cantidad > 0 ? precioSinIVA / cantidad : 0;
+
+        // Update cost breakdown
+        document.getElementById('cotCostMatQty').textContent = pliegosNec;
+        document.getElementById('cotCostMatPx').textContent = precioPliego.toFixed(2);
+        document.getElementById('cotCostMat').textContent = costoMaterial.toFixed(2);
+        document.getElementById('cotCostPlacasQty').textContent = totalPlacas;
+        document.getElementById('cotCostPlacasPx').textContent = costoPlaca.toFixed(2);
+        document.getElementById('cotCostPlacas').textContent = costoPlacasTotal.toFixed(2);
+        document.getElementById('cotCostImpQty').textContent = millaresImpresion;
+        document.getElementById('cotCostImpColores').textContent = colores;
+        document.getElementById('cotCostImpPx').textContent = costoMillarColor.toFixed(2);
+        document.getElementById('cotCostImp').textContent = costoImpresion.toFixed(2);
+        document.getElementById('cotCostTerm').textContent = costoTerminados.toFixed(2);
+        document.getElementById('cotSubtotalCosto').textContent = subtotalCosto.toFixed(2);
+        document.getElementById('cotMargenPct').textContent = margenPct;
+        document.getElementById('cotUtilidadNeta').textContent = (precioSinIVA - subtotalCosto).toFixed(2);
+        document.getElementById('cotSubtotalSinIVA').textContent = precioSinIVA.toFixed(2);
+        document.getElementById('cotPrecioUnit').textContent = precioUnit.toFixed(4);
+        document.getElementById('cotIVAPct').textContent = ivaPct;
+        document.getElementById('cotMontoIVA').textContent = montoIVA.toFixed(2);
+        document.getElementById('cotPrecioFinal').textContent = precioFinal.toFixed(2);
+        document.getElementById('cotPrecioFinalBig').textContent = precioFinal.toFixed(2);
+        document.getElementById('cotPrecioUnitBig').textContent = precioUnit.toFixed(4);
+    }
+
+    // =====================================================
+    // CALCULATOR TAB (standalone)
+    // =====================================================
+    let currentUnit = 'cm';
+    let bestLayout = null;
+
+    const paperSizes = { '90x130': { w: 90, h: 130 }, '70x100': { w: 70, h: 100 }, '65x90': { w: 65, h: 90 } };
+
+    function toCm(v) { return currentUnit === 'mm' ? v / 10 : currentUnit === 'in' ? v * 2.54 : v; }
+    function fromCm(v) { return currentUnit === 'mm' ? v * 10 : currentUnit === 'in' ? v / 2.54 : v; }
+    function round(v) { return Math.round(v * 100) / 100; }
+
+    function setUnit(unit) {
+        const fields = ['designWidth', 'designHeight'];
+        const cmVals = {}; fields.forEach(f => cmVals[f] = toCm(+document.getElementById(f).value || 0));
+        const pwCm = toCm(+document.getElementById('paperWidth').value || 0);
+        const phCm = toCm(+document.getElementById('paperHeight').value || 0);
+        currentUnit = unit;
+        document.querySelectorAll('.unit-toggle button').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn' + unit.charAt(0).toUpperCase() + unit.slice(1)).classList.add('active');
+        const ut = unit === 'in' ? 'pulg' : unit;
+        document.querySelectorAll('.unit-label').forEach(el => el.textContent = ut);
+        fields.forEach(f => { document.getElementById(f).value = round(fromCm(cmVals[f])); document.getElementById(f).step = unit === 'mm' ? '1' : '0.1'; });
+        document.getElementById('paperWidth').value = round(fromCm(pwCm));
+        document.getElementById('paperHeight').value = round(fromCm(phCm));
+        ['paperWidth','paperHeight'].forEach(f => document.getElementById(f).step = unit === 'mm' ? '1' : '0.1');
+        calcCalc();
+    }
+
+    function onPaperSizeChange() {
+        const sel = document.getElementById('paperSize').value;
+        if (paperSizes[sel]) { document.getElementById('paperWidth').value = round(fromCm(paperSizes[sel].w)); document.getElementById('paperHeight').value = round(fromCm(paperSizes[sel].h)); }
+        calcCalc();
+    }
+
+    function onPaperManualEdit() {
+        const w = toCm(+document.getElementById('paperWidth').value || 0);
+        const h = toCm(+document.getElementById('paperHeight').value || 0);
+        let matched = false;
+        for (const [k, s] of Object.entries(paperSizes)) { if (Math.abs(w-s.w)<0.1 && Math.abs(h-s.h)<0.1) { document.getElementById('paperSize').value = k; matched = true; break; } }
+        if (!matched) document.getElementById('paperSize').value = '';
+        calcCalc();
+    }
+
+    function calcCalc() {
+        const pw = toCm(+document.getElementById('paperWidth').value || 0);
+        const ph = toCm(+document.getElementById('paperHeight').value || 0);
+        const dw = toCm(+document.getElementById('designWidth').value || 0);
+        const dh = toCm(+document.getElementById('designHeight').value || 0);
+        const copies = +document.getElementById('copies').value || 1;
+
+        if (dw <= 0 || dh <= 0 || pw <= 0 || ph <= 0) { clearCalcResults(); return; }
+
+        const n = calcLayout(pw, ph, dw, dh, 0, 0);
+        const r = calcLayout(pw, ph, dh, dw, 0, 0);
+        const m1 = calcMixedLayout(pw, ph, dw, dh, 0, 0);
+        const m2 = calcMixedLayout(pw, ph, dh, dw, 0, 0);
+        const mx = (!m1&&!m2)?null:(!m1)?m2:(!m2)?m1:(m1.total>=m2.total)?m1:m2;
+
+        let best = n.total >= r.total ? 'normal' : 'rotated';
+        let bestCount = Math.max(n.total, r.total);
+        let isMixed = false;
+        if (mx && mx.total > bestCount) { best = 'mixed'; bestCount = mx.total; isMixed = true; }
+
+        const cuts = bestCount;
+        const sheets = cuts > 0 ? Math.ceil(copies / cuts) : 0;
+        const total = sheets * cuts;
+        const surplus = total - copies;
+        const util = pw * ph > 0 ? (cuts * dw * dh) / (pw * ph) * 100 : 0;
+        const utilR = Math.round(util);
+
+        document.getElementById('resCortes').textContent = cuts;
+        document.getElementById('resPliegos').textContent = sheets;
+        document.getElementById('resTotalPiezas').textContent = total;
+        document.getElementById('resSobrantes').textContent = surplus;
+        document.getElementById('resAprovechamiento').textContent = `Aprovechamiento: ${utilR}%`;
+        document.getElementById('resDesperdicio').textContent = `Desperdicio: ${100 - utilR}%`;
+        const wb = document.getElementById('wasteBar');
+        wb.style.width = utilR + '%';
+        wb.className = 'waste-bar-fill ' + (utilR >= 75 ? 'waste-good' : utilR >= 50 ? 'waste-ok' : 'waste-bad');
+
+        const li = document.getElementById('layoutInfo');
+        if (isMixed) { li.innerHTML = mx.zones.map((z,i) => `Zona ${i+1}: ${z.cols}x${z.rows} (${round(fromCm(z.pw))}x${round(fromCm(z.ph))})`).join('<br>'); }
+        else { const l = best==='normal'?n:r; li.innerHTML = `${l.cols} col x ${l.rows} filas = ${l.total} piezas`; }
+
+        document.getElementById('orientationInfo').innerHTML = `
+            <div class="orientation-badge ${best==='normal'?'best':''}""><strong>${n.total}</strong>Normal</div>
+            <div class="orientation-badge ${best==='rotated'?'best':''}""><strong>${r.total}</strong>Girado 90&deg;</div>
+            ${mx?`<div class="orientation-badge ${best==='mixed'?'best':''}""><strong>${mx.total}</strong>Mixto</div>`:''}`;
+
+        // Store for drawing
+        if (isMixed) {
+            bestLayout = { type:'mixed', paper:{w:pw,h:ph}, pieceW:dw, pieceH:dh, gutter:0, gripper:0, bleed:0, zones:mx.zones };
+        } else {
+            const l = best==='normal'?n:r;
+            bestLayout = { type:'single', paper:{w:pw,h:ph}, pieceW:best==='normal'?dw:dh, pieceH:best==='normal'?dh:dw, cols:l.cols, rows:l.rows, gutter:0, gripper:0, bleed:0 };
+        }
+        drawPreview();
+    }
+
+    function clearCalcResults() {
+        ['resCortes','resPliegos','resTotalPiezas','resSobrantes'].forEach(id => document.getElementById(id).textContent = '-');
+        document.getElementById('resAprovechamiento').textContent = '0%';
+        document.getElementById('resDesperdicio').textContent = 'Desperdicio: 0%';
+        document.getElementById('wasteBar').style.width = '0%';
+        document.getElementById('layoutInfo').innerHTML = '';
+        document.getElementById('orientationInfo').innerHTML = '';
+        bestLayout = null; drawPreview();
+    }
+
+    function drawPreview() {
+        const canvas = document.getElementById('previewCanvas');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const maxW = 700, maxH = 600;
+
+        if (!bestLayout) {
+            canvas.width = maxW*dpr; canvas.height = maxH*dpr; canvas.style.width=maxW+'px'; canvas.style.height=maxH+'px';
+            ctx.scale(dpr,dpr); ctx.fillStyle='#f9fafb'; ctx.fillRect(0,0,maxW,maxH);
+            ctx.fillStyle='#9ca3af'; ctx.font='16px -apple-system, sans-serif'; ctx.textAlign='center';
+            ctx.fillText('Ingresa las dimensiones para ver la vista previa',maxW/2,maxH/2); return;
+        }
+
+        const paper = bestLayout.paper, pad = 50;
+        const scale = Math.min((maxW-pad*2)/paper.w,(maxH-pad*2)/paper.h);
+        const sW = paper.w*scale, sH = paper.h*scale;
+        const cW = sW+pad*2, cH = sH+pad*2;
+        canvas.width=cW*dpr; canvas.height=cH*dpr; canvas.style.width=cW+'px'; canvas.style.height=cH+'px';
+        ctx.scale(dpr,dpr);
+        ctx.fillStyle='#f3f4f6'; ctx.fillRect(0,0,cW,cH);
+        const ox=pad, oy=pad;
+        ctx.fillStyle='#e5e7eb'; ctx.fillRect(ox,oy,sW,sH);
+        ctx.strokeStyle='#9ca3af'; ctx.lineWidth=1.5; ctx.strokeRect(ox,oy,sW,sH);
+
+        function drawPcs(zones) {
+            zones.forEach(z => {
+                const zx=(z.offsetX||0)*scale, zy=(z.offsetY||0)*scale;
+                const pw=z.pw*scale, ph=z.ph*scale;
+                for(let r=0;r<z.rows;r++) for(let c=0;c<z.cols;c++) {
+                    const x=ox+zx+c*pw, y=oy+zy+r*ph;
+                    ctx.fillStyle='#3b82f6'; ctx.fillRect(x,y,pw,ph);
+                    ctx.strokeStyle='#1e40af'; ctx.lineWidth=0.5; ctx.strokeRect(x,y,pw,ph);
+                }
+            });
+        }
+        if (bestLayout.type==='single') drawPcs([{cols:bestLayout.cols,rows:bestLayout.rows,pw:bestLayout.pieceW,ph:bestLayout.pieceH,offsetX:0,offsetY:0}]);
+        else drawPcs(bestLayout.zones);
+
+        ctx.fillStyle='#374151'; ctx.font='12px -apple-system, sans-serif'; ctx.textAlign='center';
+        const ul = currentUnit==='in'?'pulg':currentUnit;
+        ctx.fillText(`${round(fromCm(paper.w))} ${ul}`,ox+sW/2,oy+sH+18);
+        ctx.save(); ctx.translate(ox-18,oy+sH/2); ctx.rotate(-Math.PI/2); ctx.fillText(`${round(fromCm(paper.h))} ${ul}`,0,0); ctx.restore();
+    }
+
+    // =====================================================
+    // INIT
+    // =====================================================
+    renderAdmin();
+    populateMaterialSelect();
+    renderTerminadosRef();
+    cotCalc();
+    calcCalc();
+    window.addEventListener('resize', drawPreview);
+    </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:imprexiones.com.ec)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(command -v npx)",
+      "Bash(command -v python3)",
+      "Bash(pip3 install openpyxl)",
+      "Bash(python3 -c \":*)",
+      "Bash(mkdir -p /tmp/calculadora)",
+      "Bash(cp \"/Users/pablocobos/Desktop/calculadora de cortes/index.html\" /tmp/calculadora/)",
+      "Bash(command -v serve)",
+      "Bash(npx --version)",
+      "Bash(ruby -e 'require \"\"webrick\"\"; puts \"\"ok\"\"')",
+      "Bash(git config:*)",
+      "Bash(git --version)",
+      "Bash(gh auth:*)"
+    ]
+  }
+}
