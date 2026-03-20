@@ -1003,15 +1003,15 @@
     function drawImpositionCropMarks(page, placements, sangradoCm) {
         const markLen = 0.5 * CM_TO_PT;
         const markOff = 0.3 * CM_TO_PT;
-        const sangPt = sangradoCm * CM_TO_PT;
         const { height: pageH } = page.getSize();
-        const lineOpts = { thickness: 0.25, color: PDFLib.rgb(0, 0, 0) };
+        const blackLine = { thickness: 0.25, color: PDFLib.rgb(0, 0, 0) };
+        const redLine = { thickness: 0.25, color: PDFLib.rgb(0.9, 0, 0) };
 
-        // Collect all unique trim edges (exterior cuts only)
-        // Get all unique X positions (left and right trim edges of each column)
-        const trimXs = new Set();
-        const trimYs = new Set();
-        // Get the bounding box of all trim areas
+        // Separate trim edges by piece orientation
+        const normalXs = new Set();
+        const normalYs = new Set();
+        const rotatedXs = new Set();
+        const rotatedYs = new Set();
         let minTrimX = Infinity, maxTrimX = 0, minTrimY = Infinity, maxTrimY = 0;
 
         placements.forEach(p => {
@@ -1019,40 +1019,44 @@
             const ty = p.y + sangradoCm;
             const tw = p.w - 2 * sangradoCm;
             const th = p.h - 2 * sangradoCm;
-            trimXs.add(Math.round(tx * 1000) / 1000);
-            trimXs.add(Math.round((tx + tw) * 1000) / 1000);
-            trimYs.add(Math.round(ty * 1000) / 1000);
-            trimYs.add(Math.round((ty + th) * 1000) / 1000);
+            const xs = p.rotated ? rotatedXs : normalXs;
+            const ys = p.rotated ? rotatedYs : normalYs;
+            xs.add(Math.round(tx * 1000) / 1000);
+            xs.add(Math.round((tx + tw) * 1000) / 1000);
+            ys.add(Math.round(ty * 1000) / 1000);
+            ys.add(Math.round((ty + th) * 1000) / 1000);
             if (tx < minTrimX) minTrimX = tx;
             if (tx + tw > maxTrimX) maxTrimX = tx + tw;
             if (ty < minTrimY) minTrimY = ty;
             if (ty + th > maxTrimY) maxTrimY = ty + th;
         });
 
-        const sortedXs = [...trimXs].sort((a, b) => a - b);
-        const sortedYs = [...trimYs].sort((a, b) => a - b);
+        // Helper to draw a set of marks
+        function drawVerticalMarks(xSet, lineStyle) {
+            [...xSet].sort((a, b) => a - b).forEach(xCm => {
+                const xPt = xCm * CM_TO_PT;
+                const topPt = pageH - minTrimY * CM_TO_PT;
+                const botPt = pageH - maxTrimY * CM_TO_PT;
+                page.drawLine({ start: { x: xPt, y: topPt + markOff }, end: { x: xPt, y: topPt + markOff + markLen }, ...lineStyle });
+                page.drawLine({ start: { x: xPt, y: botPt - markOff }, end: { x: xPt, y: botPt - markOff - markLen }, ...lineStyle });
+            });
+        }
 
-        // Draw vertical crop marks at each unique X, extending beyond top and bottom of the block
-        sortedXs.forEach(xCm => {
-            const xPt = xCm * CM_TO_PT;
-            const topPt = pageH - minTrimY * CM_TO_PT;
-            const botPt = pageH - maxTrimY * CM_TO_PT;
-            // Mark extending above the block
-            page.drawLine({ start: { x: xPt, y: topPt + markOff }, end: { x: xPt, y: topPt + markOff + markLen }, ...lineOpts });
-            // Mark extending below the block
-            page.drawLine({ start: { x: xPt, y: botPt - markOff }, end: { x: xPt, y: botPt - markOff - markLen }, ...lineOpts });
-        });
+        function drawHorizontalMarks(ySet, lineStyle) {
+            [...ySet].sort((a, b) => a - b).forEach(yCm => {
+                const yPt = pageH - yCm * CM_TO_PT;
+                const leftPt = minTrimX * CM_TO_PT;
+                const rightPt = maxTrimX * CM_TO_PT;
+                page.drawLine({ start: { x: leftPt - markOff, y: yPt }, end: { x: leftPt - markOff - markLen, y: yPt }, ...lineStyle });
+                page.drawLine({ start: { x: rightPt + markOff, y: yPt }, end: { x: rightPt + markOff + markLen, y: yPt }, ...lineStyle });
+            });
+        }
 
-        // Draw horizontal crop marks at each unique Y, extending beyond left and right of the block
-        sortedYs.forEach(yCm => {
-            const yPt = pageH - yCm * CM_TO_PT;
-            const leftPt = minTrimX * CM_TO_PT;
-            const rightPt = maxTrimX * CM_TO_PT;
-            // Mark extending to the left of the block
-            page.drawLine({ start: { x: leftPt - markOff, y: yPt }, end: { x: leftPt - markOff - markLen, y: yPt }, ...lineOpts });
-            // Mark extending to the right of the block
-            page.drawLine({ start: { x: rightPt + markOff, y: yPt }, end: { x: rightPt + markOff + markLen, y: yPt }, ...lineOpts });
-        });
+        // Normal pieces = black, rotated pieces = red
+        drawVerticalMarks(normalXs, blackLine);
+        drawHorizontalMarks(normalYs, blackLine);
+        drawVerticalMarks(rotatedXs, redLine);
+        drawHorizontalMarks(rotatedYs, redLine);
     }
 
     async function generateImposedPdf() {
