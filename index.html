@@ -1785,31 +1785,28 @@
             ctx.setLineDash([]);
         }
 
-        // Use usable area for layout calculation
+        // Use usable area and get full layout (including mixed)
         const usableW = containerW - 2 * margin;
         const usableH = containerH - 2 * margin;
 
-        // Try both orientations
-        const layout1 = calcLayout(usableW, usableH, pieceW, pieceH, 0, 0);
-        const layout2 = calcLayout(usableW, usableH, pieceH, pieceW, 0, 0);
-        let cols, rows, pw, ph;
-        if (layout1.total >= layout2.total) {
-            cols = layout1.cols; rows = layout1.rows; pw = pieceW * scale; ph = pieceH * scale;
-        } else {
-            cols = layout2.cols; rows = layout2.rows; pw = pieceH * scale; ph = pieceW * scale;
-        }
+        // Use calcImpositionLayout for mixed support (same as PDF generation)
+        const placements = calcImpositionLayout(containerW, containerH, pieceW, pieceH, margin, true);
 
-        // Draw pieces (offset by margin)
-        const colors = ['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa'];
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                const x = ox + mPx + c * pw, y = oy + mPx + r * ph;
-                ctx.fillStyle = colors[(r + c) % colors.length];
-                ctx.fillRect(x, y, pw, ph);
-                ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 0.5;
-                ctx.strokeRect(x, y, pw, ph);
-            }
-        }
+        // Draw pieces
+        const colorsNormal = ['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa'];
+        const colorsRotated = ['#8b5cf6', '#7c3aed', '#6d28d9', '#a78bfa'];
+        placements.forEach((p, i) => {
+            const px = ox + (p.x * scale);
+            const py = oy + (p.y * scale);
+            const pw = p.w * scale;
+            const ph = p.h * scale;
+            const clrs = p.rotated ? colorsRotated : colorsNormal;
+            ctx.fillStyle = clrs[i % clrs.length];
+            ctx.fillRect(px, py, pw, ph);
+            ctx.strokeStyle = p.rotated ? '#4c1d95' : '#1e3a8a';
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(px, py, pw, ph);
+        });
 
         // Labels
         ctx.fillStyle = '#374151'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center';
@@ -1821,10 +1818,11 @@
         ctx.restore();
 
         // Count badge
-        const total = cols * rows;
+        const total = placements.length;
         if (total > 0) {
+            const hasRotated = placements.some(p => p.rotated);
             ctx.fillStyle = '#1e40af'; ctx.font = 'bold 11px -apple-system, sans-serif'; ctx.textAlign = 'right';
-            ctx.fillText(total + ' pzas', ox + sW - 4, oy - 6);
+            ctx.fillText(total + ' pzas' + (hasRotated ? ' (mixto)' : ''), ox + sW - 4, oy - 6);
         }
     }
 
