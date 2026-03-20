@@ -976,6 +976,27 @@
             });
         }
 
+        // Center placements within the sheet
+        if (placements.length > 0) {
+            let maxX = 0, maxY = 0;
+            placements.forEach(p => {
+                if (p.x + p.w > maxX) maxX = p.x + p.w;
+                if (p.y + p.h > maxY) maxY = p.y + p.h;
+            });
+            const offsetX = (hojaW - maxX) / 2 - placements[0].x + margenMaq > 0
+                ? (hojaW - (maxX - margenMaq + margenMaq)) / 2 - margenMaq
+                : 0;
+            // Simpler: total used width = maxX - margenMaq, center in usableW
+            const usedW = maxX - margenMaq;
+            const usedH = maxY - margenMaq;
+            const shiftX = (usableW - usedW) / 2;
+            const shiftY = (usableH - usedH) / 2;
+            placements.forEach(p => {
+                p.x += shiftX;
+                p.y += shiftY;
+            });
+        }
+
         return placements;
     }
 
