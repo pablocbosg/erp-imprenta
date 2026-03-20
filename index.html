@@ -790,14 +790,7 @@
                         <div class="separator"></div>
                         <p class="text-sm text-muted">Estos valores se usan como base al crear una nueva cotizacion. Puedes modificarlos en cada cotizacion individual.</p>
                         <div class="separator"></div>
-                        <div class="form-group">
-                            <label>Exportar / Importar datos</label>
-                            <div style="display:flex;gap:0.5rem;margin-top:0.35rem">
-                                <button class="btn btn-primary btn-sm" onclick="exportData()">Exportar JSON</button>
-                                <button class="btn btn-sm" style="border:1px solid var(--gray-300)" onclick="document.getElementById('importFile').click()">Importar JSON</button>
-                                <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
-                            </div>
-                        </div>
+                        <button class="btn btn-primary" style="width:100%" onclick="saveParams(); alert('Parametros guardados')">Guardar Cambios</button>
                     </div>
                 </div>
             </div>
