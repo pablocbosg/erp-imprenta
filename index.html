@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cotizador Offset - Imprenta</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -775,67 +776,41 @@
     }
 
     // =====================================================
-    // DATA: localStorage management
+    // DATA: Supabase connection
     // =====================================================
-    const STORAGE_KEY = 'cotizador_offset_data';
-    const DATA_VERSION = 3; // Incrementar para forzar reset de datos
+    const SUPABASE_URL = 'https://ekrdnfecegwfavdgtgsa.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_56_qwjL_KgJ6hOH7N_VEiQ_uc7GZ3rb';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const DEFAULT_DATA = {
-        _version: DATA_VERSION,
-        materiales: [
-            { id: 1,  nombre: 'Bond 75g 65x90',          categoria: 'Bond',       gramaje: 75,  ancho: 65, alto: 90,  precio: 0.069 },
-            { id: 2,  nombre: 'Bond 90g 65x90',          categoria: 'Bond',       gramaje: 90,  ancho: 65, alto: 90,  precio: 0.079 },
-            { id: 3,  nombre: 'Bond 90g 70x100',         categoria: 'Bond',       gramaje: 90,  ancho: 70, alto: 100, precio: 0.087 },
-            { id: 4,  nombre: 'Bond 120g 65x90',         categoria: 'Bond',       gramaje: 120, ancho: 65, alto: 90,  precio: 0.101 },
-            { id: 5,  nombre: 'Bond 75g 90x130',         categoria: 'Bond',       gramaje: 75,  ancho: 90, alto: 130, precio: 0.127 },
-            { id: 6,  nombre: 'Couche 150g 90x130',      categoria: 'Couche',     gramaje: 150, ancho: 90, alto: 130, precio: 0.276 },
-            { id: 7,  nombre: 'Couche 200g 70x100',      categoria: 'Couche',     gramaje: 200, ancho: 70, alto: 100, precio: 0.235 },
-            { id: 8,  nombre: 'Couche 200g 90x130',      categoria: 'Couche',     gramaje: 200, ancho: 90, alto: 130, precio: 0.391 },
-            { id: 9,  nombre: 'Couche 250g 65x90',       categoria: 'Couche',     gramaje: 250, ancho: 65, alto: 90,  precio: 0.237 },
-            { id: 10, nombre: 'Couche 250g 90x130',      categoria: 'Couche',     gramaje: 250, ancho: 90, alto: 130, precio: 0.455 },
-            { id: 11, nombre: 'Plegable .12 70x100',     categoria: 'Plegable',   gramaje: 200, ancho: 70, alto: 100, precio: 0.23 },
-            { id: 12, nombre: 'Plegable .14 (235g) 70x100', categoria: 'Plegable', gramaje: 235, ancho: 70, alto: 100, precio: 0.253 },
-            { id: 13, nombre: 'Plegable .16 (255g) 70x100', categoria: 'Plegable', gramaje: 255, ancho: 70, alto: 100, precio: 0.288 },
-            { id: 14, nombre: 'Plegable .18 70x100',     categoria: 'Plegable',   gramaje: 290, ancho: 70, alto: 100, precio: 0.345 },
-            { id: 15, nombre: 'Plegable .20 70x100',     categoria: 'Plegable',   gramaje: 320, ancho: 70, alto: 100, precio: 0.345 },
-            { id: 16, nombre: 'Marfil 210g 70x100',      categoria: 'Marfil',     gramaje: 210, ancho: 70, alto: 100, precio: 0.305 },
-            { id: 17, nombre: 'Marfil 230g 70x100',      categoria: 'Marfil',     gramaje: 230, ancho: 70, alto: 100, precio: 0.328 },
-            { id: 18, nombre: 'Kraft 120g 90x130',       categoria: 'Kraft',      gramaje: 120, ancho: 90, alto: 130, precio: 0.23 },
-            { id: 19, nombre: 'Esketch 50g 70x100',      categoria: 'Esketch',    gramaje: 50,  ancho: 70, alto: 100, precio: 0.15 },
-        ],
-        terminados: [
-            { id: 1, proceso: 'Barniz acuoso', tipo: 'Barniz', costo: 0, unidad: 'millar' },
-            { id: 2, proceso: 'Plastificado mate 1 cara', tipo: 'Plastico', costo: 0, unidad: 'pliego' },
-            { id: 3, proceso: 'Plastificado brillante 1 cara', tipo: 'Plastico', costo: 0, unidad: 'pliego' },
-            { id: 4, proceso: 'UV selectivo 1 cara', tipo: 'UV', costo: 0, unidad: 'pliego' },
-            { id: 5, proceso: 'Troquel simple', tipo: 'Troquelado', costo: 0, unidad: 'millar' },
-        ],
-        parametros: {
-            costoPlaca: 3.5,
-            costoMillarColor: 4,
-            merma: 100,
-            margen: 35,
-            iva: 15
-        }
-    };
+    let appData = { materiales: [], terminados: [], parametros: {} };
 
-    function loadData() {
-        try {
-            const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
-            if (d && d.materiales && d._version === DATA_VERSION) return d;
-        } catch(e) {}
-        const fresh = JSON.parse(JSON.stringify(DEFAULT_DATA));
-        saveData(fresh);
-        return fresh;
-    }
-
-    function saveData(data) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    async function loadDataFromDB() {
+        const [matRes, termRes, paramRes] = await Promise.all([
+            db.from('materiales').select('*').order('id'),
+            db.from('terminados').select('*').order('id'),
+            db.from('parametros').select('*')
+        ]);
+        appData.materiales = (matRes.data || []).map(m => ({
+            id: m.id, nombre: m.nombre, categoria: m.categoria,
+            gramaje: +m.gramaje, ancho: +m.ancho, alto: +m.alto, precio: +m.precio
+        }));
+        appData.terminados = (termRes.data || []).map(t => ({
+            id: t.id, proceso: t.proceso, tipo: t.tipo, costo: +t.costo, unidad: t.unidad
+        }));
+        const params = {};
+        (paramRes.data || []).forEach(p => { params[p.clave] = +p.valor; });
+        appData.parametros = {
+            costoPlaca: params.costoPlaca || 3.5,
+            costoMillarColor: params.costoMillarColor || 4,
+            merma: params.merma || 100,
+            margen: params.margen || 35,
+            iva: params.iva || 15
+        };
+        return appData;
     }
 
     function exportData() {
-        const data = loadData();
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'cotizador_datos.json';
@@ -846,24 +821,27 @@
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
             try {
                 const data = JSON.parse(e.target.result);
                 if (data.materiales && data.terminados && data.parametros) {
-                    saveData(data);
+                    // Sync imported data to Supabase
+                    for (const m of data.materiales) {
+                        await db.from('materiales').upsert({
+                            nombre: m.nombre, categoria: m.categoria, gramaje: m.gramaje,
+                            ancho: m.ancho, alto: m.alto, precio: m.precio
+                        });
+                    }
+                    await loadDataFromDB();
                     renderAdmin();
                     populateMaterialSelect();
                     alert('Datos importados correctamente');
-                } else {
-                    alert('Archivo no valido');
-                }
+                } else { alert('Archivo no valido'); }
             } catch(err) { alert('Error al leer el archivo'); }
         };
         reader.readAsText(file);
         event.target.value = '';
     }
-
-    let appData = loadData();
 
     // =====================================================
     // TAB SWITCHING
@@ -903,12 +881,24 @@
         });
     }
 
-    function updateMat(i, field, val) { appData.materiales[i][field] = val; saveData(appData); populateMaterialSelect(); }
-    function deleteMat(i) { appData.materiales.splice(i, 1); saveData(appData); renderMateriales(); populateMaterialSelect(); }
-    function addMaterial() {
-        const maxId = appData.materiales.reduce((m, x) => Math.max(m, x.id || 0), 0);
-        appData.materiales.push({ id: maxId + 1, nombre: 'Nuevo material', categoria: '', gramaje: 0, ancho: 70, alto: 100, precio: 0 });
-        saveData(appData);
+    async function updateMat(i, field, val) {
+        appData.materiales[i][field] = val;
+        const m = appData.materiales[i];
+        await db.from('materiales').update({ [field]: val }).eq('id', m.id);
+        populateMaterialSelect();
+    }
+    async function deleteMat(i) {
+        const id = appData.materiales[i].id;
+        appData.materiales.splice(i, 1);
+        await db.from('materiales').delete().eq('id', id);
+        renderMateriales();
+        populateMaterialSelect();
+    }
+    async function addMaterial() {
+        const { data } = await db.from('materiales')
+            .insert({ nombre: 'Nuevo material', categoria: '', gramaje: 0, ancho: 70, alto: 100, precio: 0 })
+            .select().single();
+        if (data) appData.materiales.push({ id: data.id, nombre: data.nombre, categoria: data.categoria, gramaje: +data.gramaje, ancho: +data.ancho, alto: +data.alto, precio: +data.precio });
         renderMateriales();
         populateMaterialSelect();
     }
@@ -934,12 +924,23 @@
         renderTerminadosRef();
     }
 
-    function updateTerm(i, field, val) { appData.terminados[i][field] = val; saveData(appData); renderTerminadosRef(); }
-    function deleteTerm(i) { appData.terminados.splice(i, 1); saveData(appData); renderTerminados(); }
-    function addTerminado() {
-        const maxId = appData.terminados.reduce((m, x) => Math.max(m, x.id || 0), 0);
-        appData.terminados.push({ id: maxId + 1, proceso: 'Nuevo terminado', tipo: '', costo: 0, unidad: 'millar' });
-        saveData(appData);
+    async function updateTerm(i, field, val) {
+        appData.terminados[i][field] = val;
+        const t = appData.terminados[i];
+        await db.from('terminados').update({ [field]: val }).eq('id', t.id);
+        renderTerminadosRef();
+    }
+    async function deleteTerm(i) {
+        const id = appData.terminados[i].id;
+        appData.terminados.splice(i, 1);
+        await db.from('terminados').delete().eq('id', id);
+        renderTerminados();
+    }
+    async function addTerminado() {
+        const { data } = await db.from('terminados')
+            .insert({ proceso: 'Nuevo terminado', tipo: '', costo: 0, unidad: 'millar' })
+            .select().single();
+        if (data) appData.terminados.push({ id: data.id, proceso: data.proceso, tipo: data.tipo, costo: +data.costo, unidad: data.unidad });
         renderTerminados();
     }
 
@@ -964,7 +965,7 @@
         document.getElementById('paramIVA').value = p.iva;
     }
 
-    function saveParams() {
+    async function saveParams() {
         appData.parametros = {
             costoPlaca: +document.getElementById('paramCostoPlaca').value,
             costoMillarColor: +document.getElementById('paramCostoMillar').value,
@@ -972,11 +973,12 @@
             margen: +document.getElementById('paramMargen').value,
             iva: +document.getElementById('paramIVA').value,
         };
-        saveData(appData);
+        for (const [clave, valor] of Object.entries(appData.parametros)) {
+            await db.from('parametros').update({ valor }).eq('clave', clave);
+        }
     }
 
     function renderAdmin() {
-        appData = loadData();
         renderMateriales();
         renderTerminados();
         renderParams();
@@ -1298,12 +1300,21 @@
     // =====================================================
     // INIT
     // =====================================================
-    renderAdmin();
-    populateMaterialSelect();
-    renderTerminadosRef();
-    cotCalc();
-    calcCalc();
-    window.addEventListener('resize', drawPreview);
+    async function initApp() {
+        try {
+            await loadDataFromDB();
+            renderAdmin();
+            populateMaterialSelect();
+            renderTerminadosRef();
+            cotCalc();
+            calcCalc();
+            window.addEventListener('resize', drawPreview);
+        } catch(err) {
+            console.error('Error conectando a Supabase:', err);
+            document.body.innerHTML = '<div style="padding:2rem;text-align:center;color:#dc2626"><h2>Error de conexion</h2><p>No se pudo conectar a la base de datos. Verifica tu conexion a internet.</p></div>';
+        }
+    }
+    initApp();
     </script>
 </body>
 </html>
