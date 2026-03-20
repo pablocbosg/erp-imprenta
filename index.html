@@ -455,6 +455,24 @@
                     </div>
                 </div>
 
+                <!-- Vista previa de imposicion -->
+                <div class="panel">
+                    <div class="panel-header">Vista Previa de Imposicion</div>
+                    <div class="panel-body" style="padding:0.75rem;">
+                        <div id="cotFormatosInfo" style="margin-bottom:0.5rem;"></div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                            <div>
+                                <div style="font-size:0.7rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:0.35rem;">Piezas en hoja maquina</div>
+                                <canvas id="cotPreviewHoja" style="width:100%;border:1px solid var(--gray-200);border-radius:6px;background:var(--gray-50);"></canvas>
+                            </div>
+                            <div>
+                                <div style="font-size:0.7rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:0.35rem;">Hojas en pliego de material</div>
+                                <canvas id="cotPreviewPliego" style="width:100%;border:1px solid var(--gray-200);border-radius:6px;background:var(--gray-50);"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Desglose de costos -->
                 <div class="panel">
                     <div class="panel-header">Desglose de Costos</div>
@@ -1399,6 +1417,82 @@
         document.getElementById('cotPrecioFinal').textContent = precioFinal.toFixed(2);
         document.getElementById('cotPrecioFinalBig').textContent = precioFinal.toFixed(2);
         document.getElementById('cotPrecioUnitBig').textContent = precioUnit.toFixed(4);
+
+        // Draw previews
+        cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH);
+        cotDrawPreview('cotPreviewPliego', pliegoW, pliegoH, hojaW, hojaH);
+    }
+
+    function cotDrawPreview(canvasId, containerW, containerH, pieceW, pieceH) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const maxW = canvas.offsetWidth || 300;
+        const maxH = 220;
+
+        canvas.width = maxW * dpr;
+        canvas.height = maxH * dpr;
+        canvas.style.height = maxH + 'px';
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+
+        ctx.fillStyle = '#f9fafb';
+        ctx.fillRect(0, 0, maxW, maxH);
+
+        if (containerW <= 0 || containerH <= 0 || pieceW <= 0 || pieceH <= 0) {
+            ctx.fillStyle = '#9ca3af'; ctx.font = '12px -apple-system, sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('Sin datos', maxW / 2, maxH / 2);
+            return;
+        }
+
+        const pad = 35;
+        const scale = Math.min((maxW - pad * 2) / containerW, (maxH - pad * 2) / containerH);
+        const sW = containerW * scale, sH = containerH * scale;
+        const ox = (maxW - sW) / 2, oy = (maxH - sH) / 2;
+
+        // Container background
+        ctx.fillStyle = '#e5e7eb';
+        ctx.fillRect(ox, oy, sW, sH);
+        ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1;
+        ctx.strokeRect(ox, oy, sW, sH);
+
+        // Try both orientations
+        const layout1 = calcLayout(containerW, containerH, pieceW, pieceH, 0, 0);
+        const layout2 = calcLayout(containerW, containerH, pieceH, pieceW, 0, 0);
+        let cols, rows, pw, ph;
+        if (layout1.total >= layout2.total) {
+            cols = layout1.cols; rows = layout1.rows; pw = pieceW * scale; ph = pieceH * scale;
+        } else {
+            cols = layout2.cols; rows = layout2.rows; pw = pieceH * scale; ph = pieceW * scale;
+        }
+
+        // Draw pieces
+        const colors = ['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa'];
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const x = ox + c * pw, y = oy + r * ph;
+                ctx.fillStyle = colors[(r + c) % colors.length];
+                ctx.fillRect(x, y, pw, ph);
+                ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 0.5;
+                ctx.strokeRect(x, y, pw, ph);
+            }
+        }
+
+        // Labels
+        ctx.fillStyle = '#374151'; ctx.font = '10px -apple-system, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(containerW + ' cm', ox + sW / 2, oy + sH + 14);
+        ctx.save();
+        ctx.translate(ox - 12, oy + sH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(containerH + ' cm', 0, 0);
+        ctx.restore();
+
+        // Count badge
+        const total = cols * rows;
+        if (total > 0) {
+            ctx.fillStyle = '#1e40af'; ctx.font = 'bold 11px -apple-system, sans-serif'; ctx.textAlign = 'right';
+            ctx.fillText(total + ' pzas', ox + sW - 4, oy - 6);
+        }
     }
 
     // =====================================================
