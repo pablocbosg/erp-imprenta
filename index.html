@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cotizador Offset - Imprenta</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -347,6 +348,11 @@
                                 <input type="number" id="cotHojaH" step="0.1" min="1" value="35" oninput="cotOnHojaManualEdit()">
                             </div>
                         </div>
+                        <div class="form-group" style="margin-top:0.5rem;">
+                            <label>Margen de maquina por lado (cm)</label>
+                            <input type="number" id="cotMargenMaquina" step="0.1" min="0" value="1" oninput="cotCalc()">
+                        </div>
+                        <div id="cotAreaUtil" class="text-sm text-muted mt-1"></div>
                         <div id="cotFormatosInfo" class="mt-1"></div>
                     </div>
                 </div>
@@ -469,6 +475,31 @@
                                 <div style="font-size:0.7rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:0.35rem;">Hojas en pliego de material</div>
                                 <canvas id="cotPreviewPliego" style="width:100%;border:1px solid var(--gray-200);border-radius:6px;background:var(--gray-50);"></canvas>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generador de PDF de Imposicion -->
+                <div class="panel">
+                    <div class="panel-header">Generar PDF de Imposicion</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Archivo PDF del diseno</label>
+                            <input type="file" id="pdfFileInput" accept=".pdf" onchange="onPdfFileSelected(event)" style="width:100%;padding:0.4rem;border:1.5px dashed var(--gray-300);border-radius:8px;font-size:0.85rem;cursor:pointer;">
+                        </div>
+                        <div id="pdfFileInfo" style="display:none;background:var(--gray-50);border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.75rem;font-size:0.8rem;">
+                            <div id="pdfFileName" style="font-weight:600;"></div>
+                            <div id="pdfFileDims" style="color:var(--gray-500);"></div>
+                            <div id="pdfFileWarn" style="color:var(--warning);display:none;margin-top:0.25rem;"></div>
+                        </div>
+                        <div style="display:flex;gap:1rem;margin-bottom:0.75rem;">
+                            <label style="font-size:0.8rem;display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" id="impCropMarks" checked> Marcas de corte</label>
+                            <label style="font-size:0.8rem;display:flex;align-items:center;gap:0.3rem;cursor:pointer;"><input type="checkbox" id="impMixedLayout" checked> Imposicion mixta</label>
+                        </div>
+                        <button class="btn btn-primary" style="width:100%;" onclick="generateImposedPdf()" id="btnGeneratePdf" disabled>Generar PDF Impuesto</button>
+                        <div id="pdfProgress" style="display:none;margin-top:0.5rem;text-align:center;font-size:0.85rem;color:var(--gray-500);">Generando...</div>
+                        <div id="pdfDownloadArea" style="display:none;margin-top:0.5rem;">
+                            <a id="pdfDownloadLink" class="btn" style="width:100%;display:block;text-align:center;background:var(--success);color:white;text-decoration:none;padding:0.6rem;">Descargar PDF Impuesto</a>
                         </div>
                     </div>
                 </div>
@@ -823,6 +854,276 @@
         renderTerminadosRef();
         cotCalc();
         calcCalc();
+    }
+
+    // =====================================================
+    // PDF IMPOSITION
+    // =====================================================
+    const CM_TO_PT = 72 / 2.54; // 1 cm = 28.3465 points
+    let sourcePdfBytes = null;
+    let prevPdfUrl = null;
+
+    async function onPdfFileSelected(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                sourcePdfBytes = new Uint8Array(e.target.result);
+                const srcPdf = await PDFLib.PDFDocument.load(sourcePdfBytes);
+                const page0 = srcPdf.getPage(0);
+                const { width, height } = page0.getSize();
+                const wCm = (width / CM_TO_PT).toFixed(2);
+                const hCm = (height / CM_TO_PT).toFixed(2);
+
+                document.getElementById('pdfFileName').textContent = file.name + ' (' + srcPdf.getPageCount() + ' pagina' + (srcPdf.getPageCount() > 1 ? 's' : '') + ')';
+                document.getElementById('pdfFileDims').textContent = 'Dimensiones: ' + wCm + ' x ' + hCm + ' cm (' + Math.round(width) + ' x ' + Math.round(height) + ' pt)';
+                document.getElementById('pdfFileInfo').style.display = 'block';
+
+                // Warn if dimensions don't match
+                const prodW = +document.getElementById('cotProdW').value || 0;
+                const prodH = +document.getElementById('cotProdH').value || 0;
+                const sangrado = +document.getElementById('cotSangrado').value || 0;
+                const piezaW = prodW + 2 * sangrado;
+                const piezaH = prodH + 2 * sangrado;
+                const warnEl = document.getElementById('pdfFileWarn');
+
+                const matchesWithBleed = (Math.abs(+wCm - piezaW) < 0.2 && Math.abs(+hCm - piezaH) < 0.2) ||
+                                         (Math.abs(+wCm - piezaH) < 0.2 && Math.abs(+hCm - piezaW) < 0.2);
+                const matchesNoBleed = (Math.abs(+wCm - prodW) < 0.2 && Math.abs(+hCm - prodH) < 0.2) ||
+                                       (Math.abs(+wCm - prodH) < 0.2 && Math.abs(+hCm - prodW) < 0.2);
+
+                if (!matchesWithBleed && !matchesNoBleed) {
+                    warnEl.textContent = 'Atencion: las dimensiones del PDF (' + wCm + 'x' + hCm + ') no coinciden con el producto (' + piezaW + 'x' + piezaH + ' con sangrado)';
+                    warnEl.style.display = 'block';
+                } else if (matchesNoBleed && !matchesWithBleed) {
+                    warnEl.textContent = 'El PDF parece no tener sangrado. Se escalara al tamano con sangrado.';
+                    warnEl.style.display = 'block';
+                } else {
+                    warnEl.style.display = 'none';
+                }
+
+                document.getElementById('btnGeneratePdf').disabled = false;
+                document.getElementById('pdfDownloadArea').style.display = 'none';
+            } catch(err) {
+                alert('Error al leer el PDF: ' + err.message);
+                sourcePdfBytes = null;
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function calcImpositionLayout(hojaW, hojaH, piezaW, piezaH, margenMaq, useMixed) {
+        const usableW = hojaW - 2 * margenMaq;
+        const usableH = hojaH - 2 * margenMaq;
+        const placements = [];
+
+        if (usableW <= 0 || usableH <= 0 || piezaW <= 0 || piezaH <= 0) return placements;
+
+        // Normal and rotated simple layouts
+        const layoutN = calcLayout(usableW, usableH, piezaW, piezaH, 0, 0);
+        const layoutR = calcLayout(usableW, usableH, piezaH, piezaW, 0, 0);
+
+        // Mixed layouts
+        const m1 = useMixed ? calcMixedLayout(usableW, usableH, piezaW, piezaH, 0, 0) : null;
+        const m2 = useMixed ? calcMixedLayout(usableW, usableH, piezaH, piezaW, 0, 0) : null;
+
+        // Find best
+        let bestTotal = Math.max(layoutN.total, layoutR.total);
+        let bestType = layoutN.total >= layoutR.total ? 'normal' : 'rotated';
+
+        if (m1 && m1.total > bestTotal) { bestTotal = m1.total; bestType = 'mixed1'; }
+        if (m2 && m2.total > bestTotal) { bestTotal = m2.total; bestType = 'mixed2'; }
+
+        if (bestType === 'normal') {
+            for (let r = 0; r < layoutN.rows; r++) {
+                for (let c = 0; c < layoutN.cols; c++) {
+                    placements.push({
+                        x: margenMaq + c * piezaW,
+                        y: margenMaq + r * piezaH,
+                        w: piezaW, h: piezaH, rotated: false
+                    });
+                }
+            }
+        } else if (bestType === 'rotated') {
+            for (let r = 0; r < layoutR.rows; r++) {
+                for (let c = 0; c < layoutR.cols; c++) {
+                    placements.push({
+                        x: margenMaq + c * piezaH,
+                        y: margenMaq + r * piezaW,
+                        w: piezaH, h: piezaW, rotated: true
+                    });
+                }
+            }
+        } else {
+            // Mixed layout
+            const mx = bestType === 'mixed1' ? m1 : m2;
+            const origW = bestType === 'mixed1' ? piezaW : piezaH;
+            const origH = bestType === 'mixed1' ? piezaH : piezaW;
+            mx.zones.forEach(zone => {
+                const isRotated = (Math.abs(zone.pw - origH) < 0.01 && Math.abs(zone.ph - origW) < 0.01);
+                for (let r = 0; r < zone.rows; r++) {
+                    for (let c = 0; c < zone.cols; c++) {
+                        placements.push({
+                            x: margenMaq + (zone.offsetX || 0) + c * zone.pw,
+                            y: margenMaq + (zone.offsetY || 0) + r * zone.ph,
+                            w: zone.pw, h: zone.ph,
+                            rotated: isRotated
+                        });
+                    }
+                }
+            });
+        }
+
+        return placements;
+    }
+
+    function drawImpositionCropMarks(page, placements, sangradoCm) {
+        const markLen = 0.3 * CM_TO_PT;
+        const markOff = 0.2 * CM_TO_PT;
+        const sangPt = sangradoCm * CM_TO_PT;
+        const { height: pageH } = page.getSize();
+
+        for (const p of placements) {
+            // Convert to PDF coords (bottom-left origin)
+            const bx = p.x * CM_TO_PT;
+            const by = pageH - (p.y + p.h) * CM_TO_PT;
+            const pw = p.w * CM_TO_PT;
+            const ph = p.h * CM_TO_PT;
+
+            // Trim box (inside the bleed)
+            const tx = bx + sangPt;
+            const ty = by + sangPt;
+            const tw = pw - 2 * sangPt;
+            const th = ph - 2 * sangPt;
+
+            // 4 corners, each with H and V mark
+            const corners = [
+                { cx: tx, cy: ty + th, dx: -1, dy: 1 },   // top-left
+                { cx: tx + tw, cy: ty + th, dx: 1, dy: 1 }, // top-right
+                { cx: tx, cy: ty, dx: -1, dy: -1 },         // bottom-left
+                { cx: tx + tw, cy: ty, dx: 1, dy: -1 },     // bottom-right
+            ];
+
+            for (const corner of corners) {
+                // Horizontal mark
+                page.drawLine({
+                    start: { x: corner.cx + corner.dx * markOff, y: corner.cy },
+                    end: { x: corner.cx + corner.dx * (markOff + markLen), y: corner.cy },
+                    thickness: 0.25,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+                // Vertical mark
+                page.drawLine({
+                    start: { x: corner.cx, y: corner.cy + corner.dy * markOff },
+                    end: { x: corner.cx, y: corner.cy + corner.dy * (markOff + markLen) },
+                    thickness: 0.25,
+                    color: PDFLib.rgb(0, 0, 0),
+                });
+            }
+        }
+    }
+
+    async function generateImposedPdf() {
+        if (!sourcePdfBytes) { alert('Sube un archivo PDF primero'); return; }
+
+        const btn = document.getElementById('btnGeneratePdf');
+        const progress = document.getElementById('pdfProgress');
+        btn.disabled = true;
+        btn.textContent = 'Generando...';
+        progress.style.display = 'block';
+        document.getElementById('pdfDownloadArea').style.display = 'none';
+
+        try {
+            const prodW = +document.getElementById('cotProdW').value || 0;
+            const prodH = +document.getElementById('cotProdH').value || 0;
+            const sangrado = +document.getElementById('cotSangrado').value || 0;
+            const hojaW = +document.getElementById('cotHojaW').value || 0;
+            const hojaH = +document.getElementById('cotHojaH').value || 0;
+            const margenMaq = +document.getElementById('cotMargenMaquina').value || 0;
+            const useMixed = document.getElementById('impMixedLayout').checked;
+            const addCropMarks = document.getElementById('impCropMarks').checked;
+
+            const piezaW = prodW + 2 * sangrado;
+            const piezaH = prodH + 2 * sangrado;
+
+            // Calculate layout
+            const placements = calcImpositionLayout(hojaW, hojaH, piezaW, piezaH, margenMaq, useMixed);
+            if (placements.length === 0) { alert('No caben piezas en la hoja'); return; }
+
+            // Create output PDF
+            const sheetWpt = hojaW * CM_TO_PT;
+            const sheetHpt = hojaH * CM_TO_PT;
+            const outPdf = await PDFLib.PDFDocument.create();
+            const page = outPdf.addPage([sheetWpt, sheetHpt]);
+
+            // Load and embed source PDF
+            const srcPdf = await PDFLib.PDFDocument.load(sourcePdfBytes);
+            const [embeddedPage] = await outPdf.embedPdf(srcPdf, [0]);
+
+            // Place each piece
+            for (const p of placements) {
+                const xPt = p.x * CM_TO_PT;
+                // PDF y is from bottom, our y is from top
+                const yPt = sheetHpt - (p.y + p.h) * CM_TO_PT;
+                const wPt = p.w * CM_TO_PT;
+                const hPt = p.h * CM_TO_PT;
+
+                if (p.rotated) {
+                    page.drawPage(embeddedPage, {
+                        x: xPt,
+                        y: yPt + hPt,
+                        width: hPt,
+                        height: wPt,
+                        rotate: PDFLib.degrees(-90),
+                    });
+                } else {
+                    page.drawPage(embeddedPage, {
+                        x: xPt, y: yPt,
+                        width: wPt, height: hPt,
+                    });
+                }
+            }
+
+            // Crop marks
+            if (addCropMarks) {
+                drawImpositionCropMarks(page, placements, sangrado);
+            }
+
+            // Draw margin area outline
+            if (margenMaq > 0) {
+                const mPt = margenMaq * CM_TO_PT;
+                page.drawRectangle({
+                    x: mPt, y: mPt,
+                    width: sheetWpt - 2 * mPt,
+                    height: sheetHpt - 2 * mPt,
+                    borderColor: PDFLib.rgb(0.8, 0.8, 0.8),
+                    borderWidth: 0.25,
+                    color: undefined,
+                });
+            }
+
+            // Save and download
+            const pdfBytes = await outPdf.save();
+            if (prevPdfUrl) URL.revokeObjectURL(prevPdfUrl);
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            prevPdfUrl = URL.createObjectURL(blob);
+
+            const link = document.getElementById('pdfDownloadLink');
+            link.href = prevPdfUrl;
+            link.download = 'imposicion_' + hojaW + 'x' + hojaH + '_' + placements.length + 'up.pdf';
+            link.textContent = 'Descargar PDF (' + placements.length + ' piezas en ' + hojaW + 'x' + hojaH + ')';
+            document.getElementById('pdfDownloadArea').style.display = 'block';
+
+        } catch(err) {
+            alert('Error al generar PDF: ' + err.message);
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Generar PDF Impuesto';
+            progress.style.display = 'none';
+        }
     }
 
     // =====================================================
@@ -1342,17 +1643,31 @@
         const margenPct = +document.getElementById('cotMargen').value || 0;
         const ivaPct = +document.getElementById('cotIVA').value || 0;
 
+        const margenMaq = +document.getElementById('cotMargenMaquina').value || 0;
+
         // Tamano de pieza con sangrado (sangrado por cada lado)
         const piezaW = prodW + 2 * sangrado;
         const piezaH = prodH + 2 * sangrado;
 
-        // 1. Formatos por pliego
+        // Area util de la hoja (restar margenes de maquina por cada lado)
+        const hojaUtilW = hojaW - 2 * margenMaq;
+        const hojaUtilH = hojaH - 2 * margenMaq;
+
+        // Mostrar area util
+        const areaUtilEl = document.getElementById('cotAreaUtil');
+        if (areaUtilEl && margenMaq > 0) {
+            areaUtilEl.textContent = `Area util: ${hojaUtilW} x ${hojaUtilH} cm (descontando ${margenMaq} cm por lado)`;
+        } else if (areaUtilEl) {
+            areaUtilEl.textContent = '';
+        }
+
+        // 1. Formatos por pliego (hojas completas en el pliego, sin margen)
         const fmtPorPliego = (pliegoW > 0 && pliegoH > 0 && hojaW > 0 && hojaH > 0)
             ? bestCuts(pliegoW, pliegoH, hojaW, hojaH) : 0;
 
-        // 2. Piezas por hoja maquina (usando tamano con sangrado)
-        const piezasPorHoja = (hojaW > 0 && hojaH > 0 && piezaW > 0 && piezaH > 0)
-            ? bestCuts(hojaW, hojaH, piezaW, piezaH) : 0;
+        // 2. Piezas por hoja maquina (usando area util y pieza con sangrado)
+        const piezasPorHoja = (hojaUtilW > 0 && hojaUtilH > 0 && piezaW > 0 && piezaH > 0)
+            ? bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH) : 0;
 
         // 3. Hojas netas
         const hojasNetas = piezasPorHoja > 0 ? Math.ceil(cantidad / piezasPorHoja) : 0;
@@ -1418,12 +1733,13 @@
         document.getElementById('cotPrecioFinalBig').textContent = precioFinal.toFixed(2);
         document.getElementById('cotPrecioUnitBig').textContent = precioUnit.toFixed(4);
 
-        // Draw previews
-        cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH);
-        cotDrawPreview('cotPreviewPliego', pliegoW, pliegoH, hojaW, hojaH);
+        // Draw previews (hoja uses area util, pliego uses full sheet)
+        cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq);
+        cotDrawPreview('cotPreviewPliego', pliegoW, pliegoH, hojaW, hojaH, 0);
     }
 
-    function cotDrawPreview(canvasId, containerW, containerH, pieceW, pieceH) {
+    function cotDrawPreview(canvasId, containerW, containerH, pieceW, pieceH, margin) {
+        margin = margin || 0;
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
         const dpr = window.devicePixelRatio || 1;
@@ -1456,9 +1772,26 @@
         ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1;
         ctx.strokeRect(ox, oy, sW, sH);
 
+        // Draw margins if any
+        const mPx = margin * scale;
+        if (margin > 0) {
+            ctx.fillStyle = '#fecaca';
+            ctx.fillRect(ox, oy, sW, mPx); // top
+            ctx.fillRect(ox, oy + sH - mPx, sW, mPx); // bottom
+            ctx.fillRect(ox, oy + mPx, mPx, sH - 2 * mPx); // left
+            ctx.fillRect(ox + sW - mPx, oy + mPx, mPx, sH - 2 * mPx); // right
+            ctx.strokeStyle = '#f87171'; ctx.lineWidth = 0.5; ctx.setLineDash([3,3]);
+            ctx.strokeRect(ox + mPx, oy + mPx, sW - 2 * mPx, sH - 2 * mPx);
+            ctx.setLineDash([]);
+        }
+
+        // Use usable area for layout calculation
+        const usableW = containerW - 2 * margin;
+        const usableH = containerH - 2 * margin;
+
         // Try both orientations
-        const layout1 = calcLayout(containerW, containerH, pieceW, pieceH, 0, 0);
-        const layout2 = calcLayout(containerW, containerH, pieceH, pieceW, 0, 0);
+        const layout1 = calcLayout(usableW, usableH, pieceW, pieceH, 0, 0);
+        const layout2 = calcLayout(usableW, usableH, pieceH, pieceW, 0, 0);
         let cols, rows, pw, ph;
         if (layout1.total >= layout2.total) {
             cols = layout1.cols; rows = layout1.rows; pw = pieceW * scale; ph = pieceH * scale;
@@ -1466,11 +1799,11 @@
             cols = layout2.cols; rows = layout2.rows; pw = pieceH * scale; ph = pieceW * scale;
         }
 
-        // Draw pieces
+        // Draw pieces (offset by margin)
         const colors = ['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa'];
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
-                const x = ox + c * pw, y = oy + r * ph;
+                const x = ox + mPx + c * pw, y = oy + mPx + r * ph;
                 ctx.fillStyle = colors[(r + c) % colors.length];
                 ctx.fillRect(x, y, pw, ph);
                 ctx.strokeStyle = '#1e3a8a'; ctx.lineWidth = 0.5;
