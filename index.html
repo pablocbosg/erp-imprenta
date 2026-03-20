@@ -413,6 +413,14 @@
                                 </select>
                             </label>
                             <div id="cotPlastificadoInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="cotBarnizUV" onchange="cotCalc()"> Barniz UV brillante
+                                <select id="cotBarnizUVCaras" onchange="cotCalc()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="1">1 cara</option>
+                                    <option value="2">2 caras</option>
+                                </select>
+                            </label>
+                            <div id="cotBarnizUVInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
                         </div>
                         <div class="form-group">
                             <label>Otros terminados ($)</label>
@@ -539,6 +547,10 @@
                         <div class="cost-row" id="cotCostPlastRow" style="display:none;">
                             <span class="cost-label">Plastificado <span id="cotCostPlastLabel"></span></span>
                             <span class="cost-value">$<span id="cotCostPlast">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="cotCostUVRow" style="display:none;">
+                            <span class="cost-label">Barniz UV <span id="cotCostUVLabel"></span></span>
+                            <span class="cost-value">$<span id="cotCostUV">0.00</span></span>
                         </div>
                         <div class="cost-row">
                             <span class="cost-label">Otros terminados</span>
@@ -1779,7 +1791,23 @@
             plastificadoInfo.style.display = 'none';
         }
 
-        const costoTerminados = terminados + costoPlastificado;
+        // Barniz UV
+        let costoBarnizUV = 0;
+        const barnizUVChecked = document.getElementById('cotBarnizUV').checked;
+        const barnizUVInfo = document.getElementById('cotBarnizUVInfo');
+        if (barnizUVChecked && hojaW > 0 && hojaH > 0) {
+            const carasUV = +document.getElementById('cotBarnizUVCaras').value || 1;
+            const areaCm2 = hojaW * hojaH;
+            const hojasUV = hojasNetas + Math.ceil(mermaTotal / 2);
+            costoBarnizUV = areaCm2 * hojasUV * 0.000009 * carasUV;
+            if (costoBarnizUV < 10) costoBarnizUV = 10;
+            barnizUVInfo.textContent = areaCm2 + ' cm2 x ' + hojasUV + ' hojas x ' + carasUV + ' cara' + (carasUV > 1 ? 's' : '') + ' = $' + costoBarnizUV.toFixed(2) + (costoBarnizUV === 10 ? ' (minimo)' : '');
+            barnizUVInfo.style.display = 'block';
+        } else {
+            barnizUVInfo.style.display = 'none';
+        }
+
+        const costoTerminados = terminados + costoPlastificado + costoBarnizUV;
 
         const subtotalCosto = costoMaterial + costoPlacasTotal + costoImpresion + costoTerminados;
         const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
@@ -1804,6 +1832,12 @@
             const tp = document.getElementById('cotPlastificadoTipo').value;
             const cr = +document.getElementById('cotPlastificadoCaras').value;
             document.getElementById('cotCostPlastLabel').textContent = '(' + (tp === 'mate' ? 'mate' : 'brillante') + ', ' + cr + ' cara' + (cr > 1 ? 's' : '') + ')';
+        }
+        document.getElementById('cotCostUV').textContent = costoBarnizUV.toFixed(2);
+        document.getElementById('cotCostUVRow').style.display = costoBarnizUV > 0 ? 'flex' : 'none';
+        if (costoBarnizUV > 0) {
+            const crUV = +document.getElementById('cotBarnizUVCaras').value;
+            document.getElementById('cotCostUVLabel').textContent = '(brillante, ' + crUV + ' cara' + (crUV > 1 ? 's' : '') + ')';
         }
         document.getElementById('cotCostTerm').textContent = terminados.toFixed(2);
         document.getElementById('cotSubtotalCosto').textContent = subtotalCosto.toFixed(2);
