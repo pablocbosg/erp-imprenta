@@ -167,6 +167,26 @@
         .text-sm { font-size: 0.8rem; }
         .text-muted { color: var(--gray-500); }
 
+        /* Client autocomplete */
+        .client-search-wrap { position: relative; }
+        .client-search-wrap input { padding-right: 2.5rem; }
+        .client-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1.5px solid var(--primary); border-top: none; border-radius: 0 0 8px 8px; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-lg); display: none; }
+        .client-dropdown.open { display: block; }
+        .client-option { padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.9rem; border-bottom: 1px solid var(--gray-100); }
+        .client-option:hover, .client-option.active { background: var(--primary-light); }
+        .client-option .client-name { font-weight: 600; color: var(--gray-800); }
+        .client-option .client-detail { font-size: 0.75rem; color: var(--gray-500); }
+        .client-option.new-client { color: var(--primary); font-weight: 600; border-top: 2px solid var(--gray-200); }
+        .client-selected { display: flex; align-items: center; gap: 0.5rem; background: var(--primary-light); border: 1.5px solid var(--primary); border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.9rem; }
+        .client-selected .client-remove { cursor: pointer; color: var(--gray-500); font-size: 1.1rem; margin-left: auto; }
+        .client-selected .client-remove:hover { color: var(--danger); }
+
+        /* New client modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .modal { background: white; border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 90%; max-width: 450px; padding: 1.5rem; }
+        .modal h3 { margin-bottom: 1rem; font-size: 1.1rem; }
+        .modal .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
         /* Print styles */
         @media print {
             header, .tabs, .cot-sidebar, .no-print { display: none !important; }
@@ -227,7 +247,17 @@
                     <div class="panel-body">
                         <div class="form-group">
                             <label>Cliente</label>
-                            <input type="text" id="cotCliente" placeholder="Nombre del cliente" oninput="cotCalc()">
+                            <div id="clientSearchWrap" class="client-search-wrap">
+                                <input type="text" id="cotCliente" placeholder="Buscar cliente..." autocomplete="off" oninput="searchClients(this.value)" onfocus="searchClients(this.value)">
+                                <div id="clientDropdown" class="client-dropdown"></div>
+                            </div>
+                            <div id="clientSelected" class="client-selected" style="display:none;">
+                                <div>
+                                    <span id="clientSelectedName" class="client-name"></span>
+                                    <span id="clientSelectedDetail" class="client-detail" style="display:block;font-size:0.75rem;color:var(--gray-500);"></span>
+                                </div>
+                                <span class="client-remove" onclick="clearClient()">&times;</span>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Descripcion</label>
@@ -775,6 +805,157 @@
         renderTerminadosRef();
         cotCalc();
         calcCalc();
+    }
+
+    // =====================================================
+    // CLIENTS: Search, select, create
+    // =====================================================
+    let selectedClient = null;
+    let clientSearchTimeout = null;
+    let clientsCache = [];
+
+    async function searchClients(query) {
+        const dropdown = document.getElementById('clientDropdown');
+        const q = query.trim().toLowerCase();
+
+        if (q.length === 0) {
+            // Show recent clients
+            if (clientsCache.length === 0) {
+                const { data } = await db.from('clientes').select('*').order('created_at', { ascending: false }).limit(10);
+                clientsCache = data || [];
+            }
+            renderClientDropdown(clientsCache, q);
+            return;
+        }
+
+        clearTimeout(clientSearchTimeout);
+        clientSearchTimeout = setTimeout(async () => {
+            const { data } = await db.from('clientes').select('*').or(`nombre.ilike.%${q}%,empresa.ilike.%${q}%,rfc.ilike.%${q}%`).order('nombre').limit(10);
+            renderClientDropdown(data || [], q);
+        }, 200);
+    }
+
+    function renderClientDropdown(clients, query) {
+        const dropdown = document.getElementById('clientDropdown');
+        let html = '';
+
+        if (clients.length > 0) {
+            clients.forEach(c => {
+                const detail = [c.empresa, c.rfc, c.telefono].filter(Boolean).join(' | ');
+                html += `<div class="client-option" onmousedown="selectClient(${c.id}, '${c.nombre.replace(/'/g, "\\'")}', '${(detail).replace(/'/g, "\\'")}')">
+                    <div class="client-name">${c.nombre}</div>
+                    ${detail ? `<div class="client-detail">${detail}</div>` : ''}
+                </div>`;
+            });
+        } else if (query.length > 0) {
+            html += `<div class="client-option" style="color:var(--gray-400);font-style:italic;">No se encontraron clientes</div>`;
+        }
+
+        html += `<div class="client-option new-client" onmousedown="openNewClientModal()">+ Crear nuevo cliente</div>`;
+        dropdown.innerHTML = html;
+        dropdown.classList.add('open');
+    }
+
+    function selectClient(id, nombre, detail) {
+        selectedClient = id;
+        document.getElementById('cotCliente').style.display = 'none';
+        document.getElementById('clientDropdown').classList.remove('open');
+        const selDiv = document.getElementById('clientSelected');
+        selDiv.style.display = 'flex';
+        document.getElementById('clientSelectedName').textContent = nombre;
+        document.getElementById('clientSelectedDetail').textContent = detail;
+    }
+
+    function clearClient() {
+        selectedClient = null;
+        document.getElementById('clientSelected').style.display = 'none';
+        const input = document.getElementById('cotCliente');
+        input.style.display = 'block';
+        input.value = '';
+        input.focus();
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.client-search-wrap')) {
+            document.getElementById('clientDropdown').classList.remove('open');
+        }
+    });
+
+    // =====================================================
+    // CLIENTS: New client modal
+    // =====================================================
+    function openNewClientModal() {
+        const prefill = document.getElementById('cotCliente').value.trim();
+        document.getElementById('clientDropdown').classList.remove('open');
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'newClientModal';
+        modal.innerHTML = `
+            <div class="modal">
+                <h3>Nuevo Cliente</h3>
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <input type="text" id="ncNombre" value="${prefill}">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Empresa</label>
+                        <input type="text" id="ncEmpresa">
+                    </div>
+                    <div class="form-group">
+                        <label>RUC / CI</label>
+                        <input type="text" id="ncRFC">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="ncEmail">
+                    </div>
+                    <div class="form-group">
+                        <label>Telefono</label>
+                        <input type="text" id="ncTelefono">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Direccion</label>
+                    <input type="text" id="ncDireccion">
+                </div>
+                <div class="form-group">
+                    <label>Notas</label>
+                    <input type="text" id="ncNotas">
+                </div>
+                <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+                    <button class="btn btn-primary" onclick="saveNewClient()" style="flex:1;">Guardar</button>
+                    <button class="btn" style="border:1px solid var(--gray-300)" onclick="document.getElementById('newClientModal').remove()">Cancelar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById(prefill ? 'ncEmpresa' : 'ncNombre').focus();
+    }
+
+    async function saveNewClient() {
+        const nombre = document.getElementById('ncNombre').value.trim();
+        if (!nombre) { alert('El nombre es requerido'); return; }
+
+        const { data, error } = await db.from('clientes').insert({
+            nombre,
+            empresa: document.getElementById('ncEmpresa').value.trim() || null,
+            rfc: document.getElementById('ncRFC').value.trim() || null,
+            email: document.getElementById('ncEmail').value.trim() || null,
+            telefono: document.getElementById('ncTelefono').value.trim() || null,
+            direccion: document.getElementById('ncDireccion').value.trim() || null,
+            notas: document.getElementById('ncNotas').value.trim() || null,
+        }).select().single();
+
+        if (error) { alert('Error al guardar: ' + error.message); return; }
+
+        clientsCache = []; // Reset cache
+        document.getElementById('newClientModal').remove();
+        const detail = [data.empresa, data.rfc, data.telefono].filter(Boolean).join(' | ');
+        selectClient(data.id, data.nombre, detail);
     }
 
     // =====================================================
