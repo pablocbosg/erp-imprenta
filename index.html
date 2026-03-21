@@ -728,9 +728,12 @@
                             <option value="rechazada">Rechazada</option>
                         </select>
                     </div>
-                    <div style="display:flex;gap:0.5rem;">
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
                         <button class="btn btn-primary btn-sm" onclick="guardarProforma()">Guardar</button>
-                        <button class="btn btn-sm" style="border:1px solid var(--gray-300);" onclick="imprimirProforma()">Imprimir</button>
+                        <button class="btn btn-sm" style="border:1px solid var(--gray-300);" onclick="imprimirProforma()">🖨</button>
+                        <button class="btn btn-sm" style="background:#dc3545;color:#fff;" onclick="descargarProformaPDF()">PDF</button>
+                        <button class="btn btn-sm" style="background:#25D366;color:#fff;" onclick="enviarProformaWhatsApp()">💬</button>
+                        <button class="btn btn-sm" style="background:#0078D4;color:#fff;" onclick="enviarProformaEmail()">✉</button>
                     </div>
                 </div>
 
@@ -771,6 +774,7 @@
                         <table class="proforma-items-table">
                             <thead><tr>
                                 <th style="width:40px;">#</th>
+                                <th style="width:90px;">Codigo</th>
                                 <th>Descripcion</th>
                                 <th style="width:80px;">Cant.</th>
                                 <th style="width:100px;">P. Unitario</th>
@@ -816,7 +820,10 @@
 
                 <div class="proforma-actions no-print">
                     <button class="btn btn-primary" onclick="guardarProforma()" style="flex:1;">Guardar Proforma</button>
-                    <button class="btn btn-success" onclick="imprimirProforma()">Imprimir</button>
+                    <button class="btn btn-success" onclick="imprimirProforma()">🖨 Imprimir</button>
+                    <button class="btn" style="background:#dc3545;color:#fff;" onclick="descargarProformaPDF()">📄 PDF</button>
+                    <button class="btn" style="background:#25D366;color:#fff;" onclick="enviarProformaWhatsApp()">💬 WhatsApp</button>
+                    <button class="btn" style="background:#0078D4;color:#fff;" onclick="enviarProformaEmail()">✉ Email</button>
                 </div>
             </div>
         </div>
@@ -2486,7 +2493,12 @@
         document.getElementById('profClienteEmail').textContent = c.email || '-';
         document.getElementById('profClienteTelefono').textContent = c.telefono || '-';
         document.getElementById('profClienteDireccion').textContent = c.direccion || '-';
-        if (proformaActiva) proformaActiva.cliente_id = c.id;
+        if (proformaActiva) {
+            proformaActiva.cliente_id = c.id;
+            proformaActiva.cliente_nombre = c.nombre || '';
+            proformaActiva.cliente_email = c.email || '';
+            proformaActiva.cliente_telefono = c.telefono || '';
+        }
     }
 
     function cambiarClienteProforma() {
@@ -2538,6 +2550,7 @@
             const importe = (item.cantidad || 0) * (item.precio_unitario || 0);
             return `<tr>
                 <td style="text-align:center;color:var(--gray-400);">${i + 1}</td>
+                <td><input type="text" placeholder="COD" value="${item.codigo || ''}" onchange="updateProformaItem(${i},'codigo',this.value)" style="width:80px;font-size:0.8rem;"></td>
                 <td><textarea onchange="updateProformaItem(${i},'descripcion',this.value)">${item.descripcion || ''}</textarea></td>
                 <td><input type="number" min="0" value="${item.cantidad || 0}" onchange="updateProformaItem(${i},'cantidad',parseFloat(this.value)||0)"></td>
                 <td><input type="number" min="0" step="0.01" value="${item.precio_unitario || 0}" onchange="updateProformaItem(${i},'precio_unitario',parseFloat(this.value)||0)"></td>
@@ -2575,6 +2588,7 @@
         if (!proformaActiva) return;
         proformaActiva.items.push({
             orden: proformaActiva.items.length + 1,
+            codigo: '',
             descripcion: '',
             cantidad: 1,
             precio_unitario: 0,
@@ -2700,6 +2714,7 @@
             const itemsToInsert = proformaActiva.items.map((it, i) => ({
                 proforma_id: proformaActiva.id,
                 orden: i + 1,
+                codigo: it.codigo || null,
                 descripcion: it.descripcion,
                 cantidad: it.cantidad,
                 precio_unitario: it.precio_unitario,
@@ -2735,6 +2750,69 @@
 
     function imprimirProforma() {
         window.print();
+    }
+
+    function descargarProformaPDF() {
+        if (!proformaActiva) return;
+        // Use browser print-to-PDF (most reliable for single-page apps)
+        alert('Se abrira el dialogo de impresion. Selecciona "Guardar como PDF" como destino para descargar el archivo.\n\nProforma #' + proformaActiva.numero);
+        window.print();
+    }
+
+    function enviarProformaWhatsApp() {
+        if (!proformaActiva) return;
+        const items = proformaActiva.items || [];
+        const subtotal = items.reduce((s, it) => s + (it.cantidad || 0) * (it.precio_unitario || 0), 0);
+        const ivaPct = parseFloat(document.getElementById('profIVA').value) || 15;
+        const iva = subtotal * ivaPct / 100;
+        const total = subtotal + iva;
+
+        let msg = `*PROFORMA #${proformaActiva.numero}*\n`;
+        msg += `INGENIA - Experiencia Creativa\n\n`;
+        if (proformaActiva.cliente_nombre) msg += `Cliente: ${proformaActiva.cliente_nombre}\n`;
+        msg += `Fecha: ${new Date().toLocaleDateString('es-EC')}\n\n`;
+        msg += `*Items:*\n`;
+        items.forEach((it, i) => {
+            const imp = (it.cantidad || 0) * (it.precio_unitario || 0);
+            msg += `${i+1}. ${it.codigo ? '['+it.codigo+'] ' : ''}${it.descripcion} - ${it.cantidad} x $${(it.precio_unitario||0).toFixed(2)} = $${imp.toFixed(2)}\n`;
+        });
+        msg += `\n*Subtotal:* $${subtotal.toFixed(2)}\n`;
+        msg += `*IVA ${ivaPct}%:* $${iva.toFixed(2)}\n`;
+        msg += `*TOTAL:* $${total.toFixed(2)}\n\n`;
+        msg += `Tiempo entrega: ${document.getElementById('profTiempoEntrega').value}\n`;
+        msg += `Forma pago: ${document.getElementById('profFormaPago').value}`;
+
+        const phone = proformaActiva.cliente_telefono ? proformaActiva.cliente_telefono.replace(/\D/g, '') : '';
+        const url = phone
+            ? `https://wa.me/${phone.startsWith('593') ? phone : '593' + phone}?text=${encodeURIComponent(msg)}`
+            : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        window.open(url, '_blank');
+    }
+
+    function enviarProformaEmail() {
+        if (!proformaActiva) return;
+        const items = proformaActiva.items || [];
+        const subtotal = items.reduce((s, it) => s + (it.cantidad || 0) * (it.precio_unitario || 0), 0);
+        const ivaPct = parseFloat(document.getElementById('profIVA').value) || 15;
+        const iva = subtotal * ivaPct / 100;
+        const total = subtotal + iva;
+
+        const subject = `Proforma #${proformaActiva.numero} - INGENIA`;
+        let body = `Estimado/a ${proformaActiva.cliente_nombre || 'cliente'},\n\n`;
+        body += `Adjunto la Proforma #${proformaActiva.numero} con el siguiente detalle:\n\n`;
+        items.forEach((it, i) => {
+            const imp = (it.cantidad || 0) * (it.precio_unitario || 0);
+            body += `${i+1}. ${it.codigo ? '['+it.codigo+'] ' : ''}${it.descripcion} - ${it.cantidad} x $${(it.precio_unitario||0).toFixed(2)} = $${imp.toFixed(2)}\n`;
+        });
+        body += `\nSubtotal: $${subtotal.toFixed(2)}\n`;
+        body += `IVA ${ivaPct}%: $${iva.toFixed(2)}\n`;
+        body += `TOTAL: $${total.toFixed(2)}\n\n`;
+        body += `Tiempo de entrega: ${document.getElementById('profTiempoEntrega').value}\n`;
+        body += `Forma de pago: ${document.getElementById('profFormaPago').value}\n\n`;
+        body += `Quedamos atentos.\nINGENIA - Experiencia Creativa`;
+
+        const email = proformaActiva.cliente_email || '';
+        window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
     }
 
     // =====================================================
