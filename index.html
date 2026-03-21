@@ -188,13 +188,75 @@
         .modal h3 { margin-bottom: 1rem; font-size: 1.1rem; }
         .modal .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 
+        /* Clientes tab */
+        .clientes-layout { max-width: 1100px; margin: 0 auto; padding: 1.25rem; }
+        .search-bar { display: flex; gap: 0.75rem; margin-bottom: 1.25rem; }
+        .search-bar input { flex: 1; }
+        .clientes-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .clientes-table th { background: var(--gray-50); padding: 0.65rem 0.75rem; text-align: left; font-weight: 600; color: var(--gray-600); border-bottom: 2px solid var(--gray-200); font-size: 0.73rem; text-transform: uppercase; }
+        .clientes-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--gray-100); }
+        .clientes-table tr:hover { background: var(--primary-light); cursor: pointer; }
+        .clientes-table .editing td { background: var(--warning-light); }
+        .client-edit-row input { width: 100%; padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1.5px solid var(--primary); border-radius: 5px; }
+
+        /* Proformas tab */
+        .proformas-layout { max-width: 1200px; margin: 0 auto; padding: 1.25rem; }
+        .proformas-list-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .proformas-list-table th { background: var(--gray-50); padding: 0.65rem 0.75rem; text-align: left; font-weight: 600; color: var(--gray-600); border-bottom: 2px solid var(--gray-200); font-size: 0.73rem; text-transform: uppercase; }
+        .proformas-list-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--gray-100); }
+        .proformas-list-table tr:hover { background: var(--primary-light); cursor: pointer; }
+        .estado-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.73rem; font-weight: 600; text-transform: uppercase; }
+        .estado-borrador { background: var(--warning-light); color: #92400e; }
+        .estado-enviada { background: var(--primary-light); color: var(--primary-dark); }
+        .estado-aprobada { background: var(--success-light); color: #166534; }
+        .estado-rechazada { background: var(--danger-light); color: var(--danger); }
+
+        /* Proforma editor */
+        .proforma-editor { display: none; }
+        .proforma-editor.active { display: block; }
+        .proforma-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+        .proforma-header-bar h2 { font-size: 1.15rem; color: var(--gray-800); }
+        .proforma-cliente-info { background: var(--gray-50); border: 1.5px solid var(--gray-200); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
+        .proforma-cliente-info .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; margin-top: 0.5rem; }
+        .proforma-cliente-info .info-grid span { color: var(--gray-500); font-size: 0.73rem; text-transform: uppercase; display: block; }
+        .proforma-items-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 1rem; }
+        .proforma-items-table th { background: var(--gray-50); padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; color: var(--gray-600); border-bottom: 2px solid var(--gray-200); font-size: 0.73rem; text-transform: uppercase; }
+        .proforma-items-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+        .proforma-items-table input, .proforma-items-table textarea { width: 100%; padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1px solid var(--gray-300); border-radius: 5px; font-family: inherit; }
+        .proforma-items-table input[type="number"] { min-width: 70px; }
+        .proforma-items-table textarea { min-height: 60px; resize: vertical; }
+        .proforma-items-table .item-img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid var(--gray-200); cursor: pointer; }
+        .proforma-items-table .item-img-placeholder { width: 60px; height: 60px; border: 2px dashed var(--gray-300); border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--gray-400); font-size: 1.2rem; }
+        .proforma-totals { display: flex; justify-content: flex-end; }
+        .proforma-totals-box { min-width: 280px; }
+        .proforma-totals-row { display: flex; justify-content: space-between; padding: 0.45rem 0; font-size: 0.9rem; border-bottom: 1px solid var(--gray-100); }
+        .proforma-totals-row:last-child { border-bottom: none; }
+        .proforma-totals-row.total { border-top: 2px solid var(--gray-300); font-size: 1.1rem; font-weight: 700; color: var(--success); padding-top: 0.6rem; margin-top: 0.3rem; }
+        .proforma-footer-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gray-200); }
+        .proforma-footer-fields textarea { min-height: 40px; }
+        .proforma-actions { display: flex; gap: 0.5rem; margin-top: 1.25rem; }
+
+        /* Boton agregar a proforma en cotizador */
+        .btn-add-proforma { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 0.6rem 1rem; border-radius: 7px; font-size: 0.85rem; font-weight: 600; cursor: pointer; width: 100%; margin-top: 0.5rem; display: none; }
+        .btn-add-proforma:hover { background: linear-gradient(135deg, #d97706, #b45309); }
+        .btn-add-proforma.visible { display: block; }
+
         /* Print styles */
         @media print {
-            header, .tabs, .cot-sidebar, .no-print { display: none !important; }
+            header, .tabs, .cot-sidebar, .no-print, .proforma-actions, .btn-add-proforma, .search-bar { display: none !important; }
             .cot-layout { grid-template-columns: 1fr !important; }
             .panel { box-shadow: none; border: 1px solid #ddd; }
             body { background: white; }
+            .proforma-editor { box-shadow: none !important; }
+            .proforma-items-table .item-img-placeholder { display: none; }
+            .print-proforma-header { display: flex !important; }
         }
+
+        /* Print proforma header (hidden on screen) */
+        .print-proforma-header { display: none; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 3px solid var(--primary); }
+        .print-proforma-header img { height: 60px; }
+        .print-proforma-header .company-info { text-align: right; font-size: 0.8rem; color: var(--gray-600); }
+        .print-proforma-header .proforma-num { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
     </style>
 </head>
 <body>
@@ -233,6 +295,8 @@
         </div>
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('cotizador')">Cotizador</button>
+            <button class="tab-btn" onclick="switchTab('proformas')">Proformas</button>
+            <button class="tab-btn" onclick="switchTab('clientes')">Clientes</button>
             <button class="tab-btn" onclick="switchTab('calculadora')">Calculadora de Cortes</button>
             <button class="tab-btn" onclick="switchTab('admin')">Administracion</button>
         </div>
@@ -611,8 +675,171 @@
                             </div>
                         </div>
                         <button class="btn btn-primary mt-2 no-print" style="width:100%" onclick="window.print()">Imprimir Proforma</button>
+                        <button id="btnAddToProforma" class="btn-add-proforma no-print" onclick="addItemToProforma()">+ Agregar a Proforma #<span id="proformaActivaNum"></span></button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TAB: PROFORMAS ==================== -->
+    <div id="tab-proformas" class="tab-content">
+        <div class="proformas-layout">
+            <!-- VISTA LISTA -->
+            <div id="proformasLista">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <h2 style="font-size:1.15rem;color:var(--gray-800);">Proformas</h2>
+                    <button class="btn btn-primary" onclick="nuevaProforma()">+ Nueva Proforma</button>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="proformaBuscar" placeholder="Buscar por numero, cliente..." oninput="buscarProformas()">
+                </div>
+                <div class="panel">
+                    <table class="proformas-list-table">
+                        <thead><tr>
+                            <th>#</th><th>Cliente</th><th>Fecha</th><th>Items</th><th>Total</th><th>Estado</th>
+                        </tr></thead>
+                        <tbody id="proformasListBody"></tbody>
+                    </table>
+                    <div id="proformasEmpty" style="padding:2rem;text-align:center;color:var(--gray-400);font-size:0.9rem;">No hay proformas aun. Crea la primera!</div>
+                </div>
+            </div>
+
+            <!-- VISTA EDITOR -->
+            <div id="proformaEditor" class="proforma-editor">
+                <div class="print-proforma-header">
+                    <div>
+                        <img src="data:image/png;base64," alt="Ingenia" id="printLogo">
+                        <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.25rem;">experiencia creativa</div>
+                    </div>
+                    <div class="company-info">
+                        <div class="proforma-num">PROFORMA #<span id="printProformaNum"></span></div>
+                        <div id="printProformaFecha"></div>
+                    </div>
+                </div>
+                <div class="proforma-header-bar no-print">
+                    <div style="display:flex;align-items:center;gap:0.75rem;">
+                        <button class="btn" style="border:1px solid var(--gray-300);padding:0.4rem 0.7rem;" onclick="cerrarEditor()">← Volver</button>
+                        <h2>Proforma #<span id="editorProformaNum"></span></h2>
+                        <select id="editorEstado" onchange="cambiarEstadoProforma()" style="padding:0.3rem 0.5rem;font-size:0.8rem;border-radius:12px;font-weight:600;">
+                            <option value="borrador">Borrador</option>
+                            <option value="enviada">Enviada</option>
+                            <option value="aprobada">Aprobada</option>
+                            <option value="rechazada">Rechazada</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;gap:0.5rem;">
+                        <button class="btn btn-primary btn-sm" onclick="guardarProforma()">Guardar</button>
+                        <button class="btn btn-sm" style="border:1px solid var(--gray-300);" onclick="imprimirProforma()">Imprimir</button>
+                    </div>
+                </div>
+
+                <!-- Cliente -->
+                <div class="panel" style="margin-bottom:1rem;">
+                    <div class="panel-header">Cliente</div>
+                    <div class="panel-body">
+                        <div id="editorClienteSearch" class="client-search-wrap">
+                            <input type="text" id="profCliente" placeholder="Buscar cliente..." autocomplete="off" oninput="searchClientsProforma(this.value)" onfocus="searchClientsProforma(this.value)">
+                            <div id="profClientDropdown" class="client-dropdown"></div>
+                        </div>
+                        <div id="profClienteInfo" class="proforma-cliente-info" style="display:none;">
+                            <div style="display:flex;justify-content:space-between;align-items:start;">
+                                <strong id="profClienteNombre" style="font-size:1rem;"></strong>
+                                <button class="btn btn-sm" style="border:1px solid var(--gray-300);font-size:0.75rem;" onclick="cambiarClienteProforma()">Cambiar</button>
+                            </div>
+                            <div class="info-grid">
+                                <div><span>Empresa</span><div id="profClienteEmpresa">-</div></div>
+                                <div><span>RUC/CI</span><div id="profClienteRUC">-</div></div>
+                                <div><span>Email</span><div id="profClienteEmail">-</div></div>
+                                <div><span>Telefono</span><div id="profClienteTelefono">-</div></div>
+                                <div><span>Direccion</span><div id="profClienteDireccion">-</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Items -->
+                <div class="panel" style="margin-bottom:1rem;">
+                    <div class="panel-header" style="justify-content:space-between;">
+                        <span>Items</span>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button class="btn btn-sm btn-primary" onclick="agregarItemDesdeEditor()">+ Item Manual</button>
+                            <button class="btn btn-sm btn-success" onclick="irACotizadorParaItem()">+ Desde Cotizador</button>
+                        </div>
+                    </div>
+                    <div class="panel-body" style="padding:0;overflow-x:auto;">
+                        <table class="proforma-items-table">
+                            <thead><tr>
+                                <th style="width:40px;">#</th>
+                                <th>Descripcion</th>
+                                <th style="width:80px;">Cant.</th>
+                                <th style="width:100px;">P. Unitario</th>
+                                <th style="width:100px;">Importe</th>
+                                <th style="width:80px;">Ref.</th>
+                                <th style="width:40px;" class="no-print"></th>
+                            </tr></thead>
+                            <tbody id="proformaItemsBody"></tbody>
+                        </table>
+                        <div id="proformaItemsEmpty" style="padding:1.5rem;text-align:center;color:var(--gray-400);font-size:0.85rem;">Sin items. Agrega uno manualmente o desde el cotizador.</div>
+                    </div>
+                </div>
+
+                <!-- Totales -->
+                <div class="proforma-totals">
+                    <div class="proforma-totals-box">
+                        <div class="proforma-totals-row">
+                            <span>Subtotal</span>
+                            <strong>$<span id="profSubtotal">0.00</span></strong>
+                        </div>
+                        <div class="proforma-totals-row">
+                            <span>IVA <input type="number" id="profIVA" value="15" min="0" max="100" step="1" style="width:50px;padding:0.2rem 0.4rem;font-size:0.85rem;border:1px solid var(--gray-300);border-radius:4px;text-align:center;" oninput="recalcTotalesProforma()">%</span>
+                            <strong>$<span id="profIVAMonto">0.00</span></strong>
+                        </div>
+                        <div class="proforma-totals-row total">
+                            <span>TOTAL</span>
+                            <span>$<span id="profTotal">0.00</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer fields -->
+                <div class="proforma-footer-fields">
+                    <div class="form-group">
+                        <label>Tiempo de entrega</label>
+                        <textarea id="profTiempoEntrega">7 dias Calendario a partir de la aprobacion del diseno</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Forma de pago</label>
+                        <textarea id="profFormaPago">50% Anticipo 50% CONTRAENTREGA</textarea>
+                    </div>
+                </div>
+
+                <div class="proforma-actions no-print">
+                    <button class="btn btn-primary" onclick="guardarProforma()" style="flex:1;">Guardar Proforma</button>
+                    <button class="btn btn-success" onclick="imprimirProforma()">Imprimir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TAB: CLIENTES ==================== -->
+    <div id="tab-clientes" class="tab-content">
+        <div class="clientes-layout">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <h2 style="font-size:1.15rem;color:var(--gray-800);">Clientes</h2>
+                <button class="btn btn-primary" onclick="openNewClientModal()">+ Nuevo Cliente</button>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="clientesBuscar" placeholder="Buscar por nombre, empresa o RUC..." oninput="buscarClientesTab()">
+            </div>
+            <div class="panel" style="overflow-x:auto;">
+                <table class="clientes-table" style="min-width:900px;">
+                    <thead><tr>
+                        <th>Nombre</th><th>Empresa</th><th>RUC/CI</th><th>Email</th><th>Telefono</th><th>Direccion</th><th style="width:120px;"></th>
+                    </tr></thead>
+                    <tbody id="clientesTabBody"></tbody>
+                </table>
+                <div id="clientesEmpty" style="padding:2rem;text-align:center;color:var(--gray-400);font-size:0.9rem;">No se encontraron clientes.</div>
             </div>
         </div>
     </div>
@@ -1279,6 +1506,8 @@
     document.addEventListener('click', function(e) {
         if (!e.target.closest('.client-search-wrap')) {
             document.getElementById('clientDropdown').classList.remove('open');
+            const pdd = document.getElementById('profClientDropdown');
+            if (pdd) pdd.classList.remove('open');
         }
     });
 
@@ -1508,9 +1737,12 @@
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById('tab-' + tab).classList.add('active');
-        event.target.classList.add('active');
+        const btns = document.querySelectorAll('.tab-btn');
+        btns.forEach(b => { if (b.textContent.toLowerCase().includes(tab === 'admin' ? 'administracion' : tab)) b.classList.add('active'); });
         if (tab === 'calculadora') calcCalc();
-        if (tab === 'cotizador') cotCalc();
+        if (tab === 'cotizador') { cotCalc(); updateAddToProformaBtn(); }
+        if (tab === 'proformas') cargarProformas();
+        if (tab === 'clientes') cargarClientesTab();
     }
 
     function switchAdminTab(tab) {
@@ -2134,6 +2366,471 @@
         const ul = currentUnit==='in'?'pulg':currentUnit;
         ctx.fillText(`${round(fromCm(paper.w))} ${ul}`,ox+sW/2,oy+sH+18);
         ctx.save(); ctx.translate(ox-18,oy+sH/2); ctx.rotate(-Math.PI/2); ctx.fillText(`${round(fromCm(paper.h))} ${ul}`,0,0); ctx.restore();
+    }
+
+    // =====================================================
+    // PROFORMAS MODULE
+    // =====================================================
+    let proformaActiva = null; // {id, numero, cliente_id, items:[...]}
+    let proformasCache = [];
+
+    async function cargarProformas() {
+        const { data, error } = await db.from('proformas')
+            .select('*, clientes(nombre, empresa)')
+            .order('numero', { ascending: false })
+            .limit(50);
+        if (error) { console.error(error); return; }
+        proformasCache = data || [];
+        renderProformasList(proformasCache);
+    }
+
+    function buscarProformas() {
+        const q = document.getElementById('proformaBuscar').value.toLowerCase().trim();
+        if (!q) { renderProformasList(proformasCache); return; }
+        const filtered = proformasCache.filter(p =>
+            String(p.numero).includes(q) ||
+            (p.clientes?.nombre || '').toLowerCase().includes(q) ||
+            (p.clientes?.empresa || '').toLowerCase().includes(q)
+        );
+        renderProformasList(filtered);
+    }
+
+    function renderProformasList(proformas) {
+        const body = document.getElementById('proformasListBody');
+        const empty = document.getElementById('proformasEmpty');
+        if (!proformas.length) { body.innerHTML = ''; empty.style.display = 'block'; return; }
+        empty.style.display = 'none';
+        body.innerHTML = proformas.map(p => {
+            const estadoClass = 'estado-' + (p.estado || 'borrador');
+            return `<tr onclick="abrirProforma(${p.id})">
+                <td><strong>${p.numero}</strong></td>
+                <td>${p.clientes?.nombre || '-'} ${p.clientes?.empresa ? '<span style=\"color:var(--gray-400);font-size:0.8rem;\">(' + p.clientes.empresa + ')</span>' : ''}</td>
+                <td>${new Date(p.fecha).toLocaleDateString('es-EC')}</td>
+                <td id="profListItems${p.id}">-</td>
+                <td id="profListTotal${p.id}">-</td>
+                <td><span class="estado-badge ${estadoClass}">${p.estado || 'borrador'}</span></td>
+            </tr>`;
+        }).join('');
+        // Load items count & totals
+        proformas.forEach(async p => {
+            const { data } = await db.from('proforma_items').select('cantidad, precio_unitario').eq('proforma_id', p.id);
+            if (data) {
+                const el1 = document.getElementById('profListItems' + p.id);
+                const el2 = document.getElementById('profListTotal' + p.id);
+                if (el1) el1.textContent = data.length;
+                const sub = data.reduce((s, i) => s + (i.cantidad * i.precio_unitario), 0);
+                const iva = sub * (p.iva_porcentaje || 15) / 100;
+                if (el2) el2.textContent = '$' + (sub + iva).toFixed(2);
+            }
+        });
+    }
+
+    async function nuevaProforma() {
+        // Get next number
+        const { data: maxRow } = await db.from('proformas').select('numero').order('numero', { ascending: false }).limit(1);
+        const nextNum = (maxRow && maxRow.length > 0) ? maxRow[0].numero + 1 : 6001;
+
+        const { data, error } = await db.from('proformas').insert({
+            numero: nextNum,
+            estado: 'borrador'
+        }).select().single();
+
+        if (error) { alert('Error: ' + error.message); return; }
+
+        await abrirProforma(data.id);
+    }
+
+    async function abrirProforma(id) {
+        const { data: prof, error } = await db.from('proformas')
+            .select('*, clientes(id, nombre, empresa, rfc, email, telefono, direccion)')
+            .eq('id', id).single();
+        if (error) { alert('Error: ' + error.message); return; }
+
+        const { data: items } = await db.from('proforma_items')
+            .select('*').eq('proforma_id', id).order('orden');
+
+        proformaActiva = { ...prof, items: items || [] };
+
+        // Switch to editor view
+        document.getElementById('proformasLista').style.display = 'none';
+        document.getElementById('proformaEditor').classList.add('active');
+
+        // Fill header
+        document.getElementById('editorProformaNum').textContent = prof.numero;
+        document.getElementById('printProformaNum').textContent = prof.numero;
+        document.getElementById('printProformaFecha').textContent = new Date(prof.fecha).toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('editorEstado').value = prof.estado || 'borrador';
+        document.getElementById('profIVA').value = prof.iva_porcentaje || 15;
+        document.getElementById('profTiempoEntrega').value = prof.tiempo_entrega || '';
+        document.getElementById('profFormaPago').value = prof.forma_pago || '';
+
+        // Fill client
+        if (prof.clientes) {
+            mostrarClienteProforma(prof.clientes);
+        } else {
+            document.getElementById('editorClienteSearch').style.display = 'block';
+            document.getElementById('profClienteInfo').style.display = 'none';
+        }
+
+        // Fill items
+        renderProformaItems();
+        updateAddToProformaBtn();
+    }
+
+    function mostrarClienteProforma(c) {
+        document.getElementById('editorClienteSearch').style.display = 'none';
+        document.getElementById('profClienteInfo').style.display = 'block';
+        document.getElementById('profClienteNombre').textContent = c.nombre || '-';
+        document.getElementById('profClienteEmpresa').textContent = c.empresa || '-';
+        document.getElementById('profClienteRUC').textContent = c.rfc || '-';
+        document.getElementById('profClienteEmail').textContent = c.email || '-';
+        document.getElementById('profClienteTelefono').textContent = c.telefono || '-';
+        document.getElementById('profClienteDireccion').textContent = c.direccion || '-';
+        if (proformaActiva) proformaActiva.cliente_id = c.id;
+    }
+
+    function cambiarClienteProforma() {
+        document.getElementById('editorClienteSearch').style.display = 'block';
+        document.getElementById('profClienteInfo').style.display = 'none';
+        document.getElementById('profCliente').value = '';
+        document.getElementById('profCliente').focus();
+    }
+
+    // Client search for proforma editor (reuse logic)
+    let profClientTimer = null;
+    async function searchClientsProforma(query) {
+        const q = query.trim();
+        if (q.length < 1) { document.getElementById('profClientDropdown').classList.remove('open'); return; }
+        clearTimeout(profClientTimer);
+        profClientTimer = setTimeout(async () => {
+            const { data } = await db.from('clientes')
+                .select('*')
+                .or(`nombre.ilike.%${q}%,empresa.ilike.%${q}%,rfc.ilike.%${q}%`)
+                .order('nombre').limit(8);
+            const dropdown = document.getElementById('profClientDropdown');
+            let html = '';
+            (data || []).forEach(c => {
+                const detail = [c.empresa, c.rfc, c.telefono].filter(Boolean).join(' | ');
+                html += `<div class="client-option" onmousedown="seleccionarClienteProforma(${c.id})">
+                    <div class="client-name">${c.nombre}</div>
+                    ${detail ? `<div class="client-detail">${detail}</div>` : ''}
+                </div>`;
+            });
+            html += `<div class="client-option new-client" onmousedown="openNewClientModal()">+ Crear nuevo cliente</div>`;
+            dropdown.innerHTML = html;
+            dropdown.classList.add('open');
+        }, 200);
+    }
+
+    async function seleccionarClienteProforma(clienteId) {
+        const { data } = await db.from('clientes').select('*').eq('id', clienteId).single();
+        if (data) mostrarClienteProforma(data);
+        document.getElementById('profClientDropdown').classList.remove('open');
+    }
+
+    function renderProformaItems() {
+        const items = proformaActiva?.items || [];
+        const body = document.getElementById('proformaItemsBody');
+        const empty = document.getElementById('proformaItemsEmpty');
+        if (!items.length) { body.innerHTML = ''; empty.style.display = 'block'; recalcTotalesProforma(); return; }
+        empty.style.display = 'none';
+        body.innerHTML = items.map((item, i) => {
+            const importe = (item.cantidad || 0) * (item.precio_unitario || 0);
+            return `<tr>
+                <td style="text-align:center;color:var(--gray-400);">${i + 1}</td>
+                <td><textarea onchange="updateProformaItem(${i},'descripcion',this.value)">${item.descripcion || ''}</textarea></td>
+                <td><input type="number" min="0" value="${item.cantidad || 0}" onchange="updateProformaItem(${i},'cantidad',parseFloat(this.value)||0)"></td>
+                <td><input type="number" min="0" step="0.01" value="${item.precio_unitario || 0}" onchange="updateProformaItem(${i},'precio_unitario',parseFloat(this.value)||0)"></td>
+                <td style="text-align:right;font-weight:600;">$${importe.toFixed(2)}</td>
+                <td>${item.imagen_url
+                    ? `<img src="${item.imagen_url}" class="item-img" onclick="cambiarImagenItem(${i})" title="Click para cambiar">`
+                    : `<div class="item-img-placeholder" onclick="cambiarImagenItem(${i})" title="Subir imagen">+</div>`
+                }</td>
+                <td class="no-print"><button class="btn btn-danger btn-sm" onclick="eliminarItemProforma(${i})" title="Eliminar">×</button></td>
+            </tr>`;
+        }).join('');
+        recalcTotalesProforma();
+    }
+
+    function updateProformaItem(index, field, value) {
+        if (!proformaActiva) return;
+        proformaActiva.items[index][field] = value;
+        if (field === 'cantidad' || field === 'precio_unitario') {
+            renderProformaItems();
+        }
+    }
+
+    function recalcTotalesProforma() {
+        const items = proformaActiva?.items || [];
+        const subtotal = items.reduce((s, i) => s + (i.cantidad || 0) * (i.precio_unitario || 0), 0);
+        const ivaPct = parseFloat(document.getElementById('profIVA').value) || 0;
+        const ivaMonto = subtotal * ivaPct / 100;
+        const total = subtotal + ivaMonto;
+        document.getElementById('profSubtotal').textContent = subtotal.toFixed(2);
+        document.getElementById('profIVAMonto').textContent = ivaMonto.toFixed(2);
+        document.getElementById('profTotal').textContent = total.toFixed(2);
+    }
+
+    function agregarItemDesdeEditor() {
+        if (!proformaActiva) return;
+        proformaActiva.items.push({
+            orden: proformaActiva.items.length + 1,
+            descripcion: '',
+            cantidad: 1,
+            precio_unitario: 0,
+            imagen_url: null,
+            datos_cotizacion: null
+        });
+        renderProformaItems();
+    }
+
+    function eliminarItemProforma(index) {
+        if (!proformaActiva) return;
+        proformaActiva.items.splice(index, 1);
+        proformaActiva.items.forEach((it, i) => it.orden = i + 1);
+        renderProformaItems();
+    }
+
+    // Image upload for items
+    function cambiarImagenItem(index) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const ext = file.name.split('.').pop();
+            const fileName = `proforma_${proformaActiva.numero}_item${index}_${Date.now()}.${ext}`;
+            const { data, error } = await db.storage.from('imagenes-referencia').upload(fileName, file, { upsert: true });
+            if (error) { alert('Error subiendo imagen: ' + error.message); return; }
+            const { data: urlData } = db.storage.from('imagenes-referencia').getPublicUrl(fileName);
+            proformaActiva.items[index].imagen_url = urlData.publicUrl;
+            renderProformaItems();
+        };
+        input.click();
+    }
+
+    // Navigate to cotizador to add item
+    function irACotizadorParaItem() {
+        if (!proformaActiva) return;
+        // Switch to cotizador tab
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-cotizador').classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(b => { if (b.textContent.toLowerCase().includes('cotizador')) b.classList.add('active'); });
+        updateAddToProformaBtn();
+        cotCalc();
+    }
+
+    function updateAddToProformaBtn() {
+        const btn = document.getElementById('btnAddToProforma');
+        const numSpan = document.getElementById('proformaActivaNum');
+        if (proformaActiva) {
+            btn.classList.add('visible');
+            numSpan.textContent = proformaActiva.numero;
+        } else {
+            btn.classList.remove('visible');
+        }
+    }
+
+    function addItemToProforma() {
+        if (!proformaActiva) return;
+
+        // Capture current cotizador data
+        const descripcion = document.getElementById('cotDescripcion').value.trim() || 'Producto sin descripcion';
+        const cantidad = parseFloat(document.getElementById('cotCantidad').value) || 0;
+
+        // Get the unit price (sin IVA) from cotizador results
+        const precioUnit = parseFloat(document.getElementById('cotPrecioUnit')?.textContent) || 0;
+
+        // Snapshot of all calculation data
+        const snapshot = {
+            producto: { w: document.getElementById('cotProdW').value, h: document.getElementById('cotProdH').value },
+            sangrado: document.getElementById('cotSangrado').value,
+            lados: document.getElementById('cotLados').value,
+            material: document.getElementById('cotMaterialSelect')?.value,
+            pliego: { w: document.getElementById('cotPliegoW').value, h: document.getElementById('cotPliegoH').value, precio: document.getElementById('cotPrecioPliego').value },
+            hoja: { w: document.getElementById('cotHojaW').value, h: document.getElementById('cotHojaH').value },
+            colores: document.getElementById('cotColores').value,
+            margen: document.getElementById('cotMargen').value,
+            iva: document.getElementById('cotIVA').value,
+            // Costs
+            costoMaterial: document.getElementById('cotCostoMaterialVal')?.textContent,
+            costoPlacas: document.getElementById('cotCostoPlacasVal')?.textContent,
+            costoImpresion: document.getElementById('cotCostoImpresionVal')?.textContent,
+            costoTotal: document.getElementById('cotSubtotalCosto')?.textContent,
+            precioFinal: document.getElementById('cotPrecioFinal')?.textContent,
+        };
+
+        proformaActiva.items.push({
+            orden: proformaActiva.items.length + 1,
+            descripcion: descripcion,
+            cantidad: cantidad,
+            precio_unitario: precioUnit,
+            imagen_url: null,
+            datos_cotizacion: snapshot
+        });
+
+        // Switch back to proformas tab
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-proformas').classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(b => { if (b.textContent.toLowerCase().includes('proformas')) b.classList.add('active'); });
+        renderProformaItems();
+    }
+
+    async function guardarProforma() {
+        if (!proformaActiva) return;
+
+        // Update proforma record
+        const { error: profErr } = await db.from('proformas').update({
+            cliente_id: proformaActiva.cliente_id || null,
+            estado: document.getElementById('editorEstado').value,
+            iva_porcentaje: parseFloat(document.getElementById('profIVA').value) || 15,
+            tiempo_entrega: document.getElementById('profTiempoEntrega').value.trim(),
+            forma_pago: document.getElementById('profFormaPago').value.trim()
+        }).eq('id', proformaActiva.id);
+
+        if (profErr) { alert('Error guardando proforma: ' + profErr.message); return; }
+
+        // Delete existing items and re-insert
+        await db.from('proforma_items').delete().eq('proforma_id', proformaActiva.id);
+
+        if (proformaActiva.items.length > 0) {
+            const itemsToInsert = proformaActiva.items.map((it, i) => ({
+                proforma_id: proformaActiva.id,
+                orden: i + 1,
+                descripcion: it.descripcion,
+                cantidad: it.cantidad,
+                precio_unitario: it.precio_unitario,
+                imagen_url: it.imagen_url || null,
+                datos_cotizacion: it.datos_cotizacion || null
+            }));
+
+            const { error: itemsErr } = await db.from('proforma_items').insert(itemsToInsert);
+            if (itemsErr) { alert('Error guardando items: ' + itemsErr.message); return; }
+        }
+
+        // Reload items from DB to get IDs
+        const { data: freshItems } = await db.from('proforma_items')
+            .select('*').eq('proforma_id', proformaActiva.id).order('orden');
+        proformaActiva.items = freshItems || [];
+
+        alert('Proforma #' + proformaActiva.numero + ' guardada correctamente');
+    }
+
+    async function cambiarEstadoProforma() {
+        if (!proformaActiva) return;
+        const estado = document.getElementById('editorEstado').value;
+        await db.from('proformas').update({ estado }).eq('id', proformaActiva.id);
+    }
+
+    function cerrarEditor() {
+        document.getElementById('proformaEditor').classList.remove('active');
+        document.getElementById('proformasLista').style.display = 'block';
+        proformaActiva = null;
+        updateAddToProformaBtn();
+        cargarProformas();
+    }
+
+    function imprimirProforma() {
+        window.print();
+    }
+
+    // =====================================================
+    // CLIENTES TAB MODULE
+    // =====================================================
+    let clientesTabCache = [];
+    let editingClienteId = null;
+
+    async function cargarClientesTab() {
+        const { data, error } = await db.from('clientes').select('*').order('nombre');
+        if (error) { console.error(error); return; }
+        clientesTabCache = data || [];
+        renderClientesTab(clientesTabCache);
+    }
+
+    function buscarClientesTab() {
+        const q = document.getElementById('clientesBuscar').value.toLowerCase().trim();
+        if (!q) { renderClientesTab(clientesTabCache); return; }
+        const filtered = clientesTabCache.filter(c =>
+            (c.nombre || '').toLowerCase().includes(q) ||
+            (c.empresa || '').toLowerCase().includes(q) ||
+            (c.rfc || '').toLowerCase().includes(q)
+        );
+        renderClientesTab(filtered);
+    }
+
+    function renderClientesTab(clientes) {
+        const body = document.getElementById('clientesTabBody');
+        const empty = document.getElementById('clientesEmpty');
+        if (!clientes.length) { body.innerHTML = ''; empty.style.display = 'block'; return; }
+        empty.style.display = 'none';
+
+        body.innerHTML = clientes.map(c => {
+            if (editingClienteId === c.id) {
+                return `<tr class="editing">
+                    <td><input type="text" id="editNombre${c.id}" value="${c.nombre || ''}"></td>
+                    <td><input type="text" id="editEmpresa${c.id}" value="${c.empresa || ''}"></td>
+                    <td><input type="text" id="editRFC${c.id}" value="${c.rfc || ''}"></td>
+                    <td><input type="email" id="editEmail${c.id}" value="${c.email || ''}"></td>
+                    <td><input type="text" id="editTelefono${c.id}" value="${c.telefono || ''}"></td>
+                    <td><input type="text" id="editDireccion${c.id}" value="${c.direccion || ''}"></td>
+                    <td>
+                        <button class="btn btn-success btn-sm" onclick="guardarClienteEdit(${c.id})">Guardar</button>
+                        <button class="btn btn-sm" style="border:1px solid var(--gray-300);margin-top:0.25rem;" onclick="cancelarClienteEdit()">Cancelar</button>
+                    </td>
+                </tr>`;
+            }
+            return `<tr>
+                <td><strong>${c.nombre || '-'}</strong></td>
+                <td>${c.empresa || '-'}</td>
+                <td>${c.rfc || '-'}</td>
+                <td>${c.email || '-'}</td>
+                <td>${c.telefono || '-'}</td>
+                <td>${c.direccion || '-'}</td>
+                <td>
+                    <button class="btn btn-sm" style="border:1px solid var(--gray-300);" onclick="editarCliente(${c.id})">Editar</button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function editarCliente(id) {
+        editingClienteId = id;
+        renderClientesTab(document.getElementById('clientesBuscar').value.trim()
+            ? clientesTabCache.filter(c =>
+                (c.nombre || '').toLowerCase().includes(document.getElementById('clientesBuscar').value.toLowerCase()) ||
+                (c.empresa || '').toLowerCase().includes(document.getElementById('clientesBuscar').value.toLowerCase()) ||
+                (c.rfc || '').toLowerCase().includes(document.getElementById('clientesBuscar').value.toLowerCase())
+            )
+            : clientesTabCache
+        );
+    }
+
+    function cancelarClienteEdit() {
+        editingClienteId = null;
+        buscarClientesTab();
+    }
+
+    async function guardarClienteEdit(id) {
+        const updates = {
+            nombre: document.getElementById('editNombre' + id).value.trim(),
+            empresa: document.getElementById('editEmpresa' + id).value.trim() || null,
+            rfc: document.getElementById('editRFC' + id).value.trim() || null,
+            email: document.getElementById('editEmail' + id).value.trim() || null,
+            telefono: document.getElementById('editTelefono' + id).value.trim() || null,
+            direccion: document.getElementById('editDireccion' + id).value.trim() || null
+        };
+
+        if (!updates.nombre) { alert('El nombre es requerido'); return; }
+
+        const { error } = await db.from('clientes').update(updates).eq('id', id);
+        if (error) { alert('Error: ' + error.message); return; }
+
+        editingClienteId = null;
+        clientsCache = []; // Reset autocomplete cache
+        await cargarClientesTab();
     }
 
     // =====================================================
