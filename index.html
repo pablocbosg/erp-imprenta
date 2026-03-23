@@ -250,11 +250,24 @@
             .proforma-editor { box-shadow: none !important; }
             .proforma-items-table .item-img-placeholder { display: none; }
             .print-proforma-header { display: flex !important; }
+            /* Ocultar botones y controles en impresion */
+            .client-remove, .btn, button, .proforma-header-bar { display: none !important; }
+            .print-proforma-header, .proforma-editor.active, .panel, .proforma-totals, .proforma-items-table { display: block !important; }
+            .print-proforma-header { display: flex !important; }
+            /* Quitar bordes de inputs/textareas al imprimir */
+            .proforma-items-table input, .proforma-items-table textarea, .proforma-items-table select,
+            #profIVA, #profTiempoEntrega, #profFormaPago, #editorEstado {
+                border: none !important; background: transparent !important; box-shadow: none !important;
+                -webkit-appearance: none; appearance: none; resize: none;
+            }
+            .proforma-items-table input[type="number"]::-webkit-inner-spin-button { display: none; }
+            /* Ocultar el boton X de eliminar item */
+            .proforma-items-table .btn-danger { display: none !important; }
         }
 
         /* Print proforma header (hidden on screen) */
         .print-proforma-header { display: none; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 3px solid var(--primary); }
-        .print-proforma-header img { height: 60px; }
+        .print-proforma-header img { height: 90px; }
         .print-proforma-header .company-info { text-align: right; font-size: 0.8rem; color: var(--gray-600); }
         .print-proforma-header .proforma-num { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
     </style>
