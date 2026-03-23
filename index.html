@@ -6,6 +6,7 @@
     <title>Cotizador Offset - Imprenta</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -2751,9 +2752,126 @@
 
     function descargarProformaPDF() {
         if (!proformaActiva) return;
-        // Use browser print-to-PDF (most reliable for single-page apps)
-        alert('Se abrira el dialogo de impresion. Selecciona "Guardar como PDF" como destino para descargar el archivo.\n\nProforma #' + proformaActiva.numero);
-        window.print();
+        const items = proformaActiva.items || [];
+        const subtotal = items.reduce((s, it) => s + (it.cantidad || 0) * (it.precio_unitario || 0), 0);
+        const ivaPct = parseFloat(document.getElementById('profIVA')?.value) || 15;
+        const iva = subtotal * ivaPct / 100;
+        const total = subtotal + iva;
+        const fecha = document.getElementById('printProformaFecha')?.textContent || new Date().toLocaleDateString('es-EC');
+        const tiempoEntrega = document.getElementById('profTiempoEntrega')?.value || '';
+        const formaPago = document.getElementById('profFormaPago')?.value || '';
+
+        // Datos del cliente
+        const cNombre = document.getElementById('profClienteNombre')?.textContent || '-';
+        const cEmpresa = document.getElementById('profClienteEmpresa')?.textContent || '-';
+        const cRUC = document.getElementById('profClienteRUC')?.textContent || '-';
+        const cEmail = document.getElementById('profClienteEmail')?.textContent || '-';
+        const cTelefono = document.getElementById('profClienteTelefono')?.textContent || '-';
+        const cDireccion = document.getElementById('profClienteDireccion')?.textContent || '-';
+
+        // Logo base64
+        const logoSrc = document.getElementById('printLogo')?.src || '';
+
+        // Items HTML
+        let itemsRows = '';
+        items.forEach((it, i) => {
+            const imp = (it.cantidad || 0) * (it.precio_unitario || 0);
+            const imgHtml = it.imagen_url ? `<img src="${it.imagen_url}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;">` : '';
+            itemsRows += `<tr>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${i + 1}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;">${it.codigo || ''}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;">${it.descripcion || ''}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${it.cantidad || 0}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${(it.precio_unitario || 0).toFixed(2)}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">$${imp.toFixed(2)}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${imgHtml}</td>
+            </tr>`;
+        });
+
+        const pdfHTML = `
+        <div style="font-family:Arial,Helvetica,sans-serif;color:#333;padding:20px;">
+            <!-- Header -->
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #2563eb;padding-bottom:15px;margin-bottom:20px;">
+                <img src="${logoSrc}" style="height:70px;">
+                <div style="text-align:right;">
+                    <div style="font-size:20px;font-weight:700;color:#2563eb;">PROFORMA #${proformaActiva.numero}</div>
+                    <div style="font-size:12px;color:#666;">${fecha}</div>
+                </div>
+            </div>
+
+            <!-- Cliente -->
+            <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:15px;margin-bottom:20px;">
+                <div style="font-weight:700;font-size:15px;margin-bottom:8px;">${cNombre}</div>
+                <div style="display:flex;gap:30px;font-size:11px;">
+                    <div><span style="color:#888;text-transform:uppercase;display:block;font-size:10px;">Empresa</span>${cEmpresa}</div>
+                    <div><span style="color:#888;text-transform:uppercase;display:block;font-size:10px;">RUC/CI</span>${cRUC}</div>
+                    <div><span style="color:#888;text-transform:uppercase;display:block;font-size:10px;">Email</span>${cEmail}</div>
+                </div>
+                <div style="display:flex;gap:30px;font-size:11px;margin-top:6px;">
+                    <div><span style="color:#888;text-transform:uppercase;display:block;font-size:10px;">Teléfono</span>${cTelefono}</div>
+                    <div><span style="color:#888;text-transform:uppercase;display:block;font-size:10px;">Dirección</span>${cDireccion}</div>
+                </div>
+            </div>
+
+            <!-- Items -->
+            <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:20px;">
+                <thead>
+                    <tr style="background:#f1f5f9;">
+                        <th style="padding:8px;text-align:center;font-size:10px;text-transform:uppercase;color:#666;border-bottom:2px solid #dee2e6;">#</th>
+                        <th style="padding:8px;text-align:left;font-size:10px;text-transform:uppercase;color:#666;border-bottom:2px solid #dee2e6;">Código</th>
+                        <th style="padding:8px;text-align:left;font-size:10px;text-transform:uppercase;color:#666;border-bottom:2px solid #dee2e6;">Descripción</th>
+                        <th style="padding:8px;text-align:center;font-size:10px;text-transform:uppercase;color:#666;border-bottom:2px solid #dee2e6;">Cant.</th>
+                        <th style="padding:8px;text-align:right;font-size:10px;text-transform:uppercase;color:#666;border-bottom:2px solid #dee2e6;">P. Unit.</th>
+                        <th style="padding:8px;text-align:right;font-size:10px;text-transform:uppercase;color:#666;border-bottom:2px solid #dee2e6;">Importe</th>
+                        <th style="padding:8px;text-align:center;font-size:10px;text-transform:uppercase;color:#666;border-bottom:2px solid #dee2e6;">Ref.</th>
+                    </tr>
+                </thead>
+                <tbody>${itemsRows}</tbody>
+            </table>
+
+            <!-- Totales -->
+            <div style="display:flex;justify-content:flex-end;margin-bottom:25px;">
+                <div style="width:250px;">
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid #eee;">
+                        <span>Subtotal</span><span style="font-weight:600;">$${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid #eee;">
+                        <span>IVA ${ivaPct}%</span><span>$${iva.toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:16px;font-weight:700;border-top:2px solid #2563eb;">
+                        <span style="color:#2563eb;">TOTAL</span><span style="color:#16a34a;">$${total.toFixed(2)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Condiciones -->
+            <div style="border-top:1px solid #dee2e6;padding-top:15px;display:flex;gap:40px;font-size:11px;">
+                <div>
+                    <span style="font-weight:700;text-transform:uppercase;color:#666;font-size:10px;display:block;margin-bottom:3px;">Tiempo de Entrega</span>
+                    ${tiempoEntrega}
+                </div>
+                <div>
+                    <span style="font-weight:700;text-transform:uppercase;color:#666;font-size:10px;display:block;margin-bottom:3px;">Forma de Pago</span>
+                    ${formaPago}
+                </div>
+            </div>
+        </div>`;
+
+        const opt = {
+            margin: [10, 10, 10, 10],
+            filename: `Proforma_${proformaActiva.numero}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        const container = document.createElement('div');
+        container.innerHTML = pdfHTML;
+        document.body.appendChild(container);
+
+        html2pdf().set(opt).from(container).save().then(() => {
+            document.body.removeChild(container);
+        });
     }
 
     function enviarProformaWhatsApp() {
