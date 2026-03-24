@@ -7,6 +7,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
     <style>
         :root {
             --primary: #2563eb;
@@ -525,6 +527,12 @@
                             <div id="cotTroqueladoInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
                             <div id="cotTroquelSection" style="display:none;margin-top:0.4rem;padding:0.5rem;background:var(--gray-50);border-radius:6px;border:1px solid var(--gray-200);">
                                 <label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.3rem;display:block;">Troquel (cuchilla)</label>
+                                <div id="cotTroquelUploadArea" style="border:2px dashed var(--gray-300);border-radius:6px;padding:0.6rem;text-align:center;cursor:pointer;margin-bottom:0.5rem;transition:all 0.2s;" ondragover="event.preventDefault();this.style.borderColor='var(--primary)';this.style.background='var(--primary-light)';" ondragleave="this.style.borderColor='var(--gray-300)';this.style.background='transparent';" ondrop="event.preventDefault();this.style.borderColor='var(--gray-300)';this.style.background='transparent';procesarTroquelPDF(event.dataTransfer.files[0]);" onclick="document.getElementById('cotTroquelFile').click();">
+                                    <input type="file" id="cotTroquelFile" accept=".pdf" style="display:none;" onchange="if(this.files[0])procesarTroquelPDF(this.files[0]);">
+                                    <div style="font-size:0.8rem;color:var(--gray-500);">📄 Subir PDF del troquel o arrastrarlo aqui</div>
+                                    <div style="font-size:0.7rem;color:var(--gray-400);margin-top:0.2rem;">Calcula cm lineales automaticamente</div>
+                                </div>
+                                <div id="cotTroquelPDFResult" style="display:none;font-size:0.75rem;padding:0.4rem;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:5px;margin-bottom:0.5rem;"></div>
                                 <div style="display:flex;gap:0.5rem;align-items:center;">
                                     <div style="flex:1;">
                                         <label style="font-size:0.72rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray-500);">CM lineales cuchilla</label>
@@ -1828,6 +1836,140 @@
     }
 
     // Calcula bajadas de guillotina para el mejor layout
+    // ===== Procesamiento de PDF de Troquel =====
+    async function procesarTroquelPDF(file) {
+        if (!file || file.type !== 'application/pdf') {
+            alert('Por favor selecciona un archivo PDF');
+            return;
+        }
+        const resultDiv = document.getElementById('cotTroquelPDFResult');
+        resultDiv.style.display = 'block';
+        resultDiv.style.background = '#fef3c7';
+        resultDiv.style.borderColor = '#fcd34d';
+        resultDiv.textContent = 'Analizando troquel...';
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 1 });
+            const pageWcm = viewport.width * 0.03528;
+            const pageHcm = viewport.height * 0.03528;
+
+            const ops = await page.getOperatorList();
+            // PDF operator codes from pdf.js
+            const OPS = pdfjsLib.OPS;
+
+            // Track paths by parsing operator list
+            let paths = [];
+            let currentPath = [];
+            let currentX = 0, currentY = 0;
+            let pathStartX = 0, pathStartY = 0;
+
+            function bezierLength(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y) {
+                let len = 0;
+                let px = p0x, py = p0y;
+                for (let t = 1; t <= 20; t++) {
+                    const u = t / 20;
+                    const cu = 1 - u;
+                    const x = cu*cu*cu*p0x + 3*cu*cu*u*p1x + 3*cu*u*u*p2x + u*u*u*p3x;
+                    const y = cu*cu*cu*p0y + 3*cu*cu*u*p1y + 3*cu*u*u*p2y + u*u*u*p3y;
+                    len += Math.sqrt((x-px)*(x-px) + (y-py)*(y-py));
+                    px = x; py = y;
+                }
+                return len;
+            }
+
+            function lineLength(x1, y1, x2, y2) {
+                return Math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+            }
+
+            let pathLength = 0;
+            let allPathLengths = [];
+
+            for (let i = 0; i < ops.fnArray.length; i++) {
+                const fn = ops.fnArray[i];
+                const args = ops.argsArray[i];
+
+                if (fn === OPS.moveTo) {
+                    // If there was a previous sub-path, save it
+                    if (pathLength > 0) {
+                        allPathLengths.push(pathLength);
+                    }
+                    pathLength = 0;
+                    currentX = args[0]; currentY = args[1];
+                    pathStartX = currentX; pathStartY = currentY;
+                }
+                else if (fn === OPS.lineTo) {
+                    pathLength += lineLength(currentX, currentY, args[0], args[1]);
+                    currentX = args[0]; currentY = args[1];
+                }
+                else if (fn === OPS.curveTo) {
+                    pathLength += bezierLength(currentX, currentY, args[0], args[1], args[2], args[3], args[4], args[5]);
+                    currentX = args[4]; currentY = args[5];
+                }
+                else if (fn === OPS.curveTo2) {
+                    pathLength += bezierLength(currentX, currentY, currentX, currentY, args[0], args[1], args[2], args[3]);
+                    currentX = args[2]; currentY = args[3];
+                }
+                else if (fn === OPS.curveTo3) {
+                    pathLength += bezierLength(currentX, currentY, args[0], args[1], args[2], args[3], args[2], args[3]);
+                    currentX = args[2]; currentY = args[3];
+                }
+                else if (fn === OPS.closePath) {
+                    pathLength += lineLength(currentX, currentY, pathStartX, pathStartY);
+                    currentX = pathStartX; currentY = pathStartY;
+                }
+                else if (fn === OPS.rectangle) {
+                    // Rectangle: x, y, w, h
+                    pathLength += 2 * (Math.abs(args[2]) + Math.abs(args[3]));
+                }
+                else if (fn === OPS.endPath || fn === OPS.stroke || fn === OPS.fill ||
+                         fn === OPS.fillStroke || fn === OPS.eoFill || fn === OPS.eoFillStroke ||
+                         fn === OPS.strokeAndClip || fn === OPS.closeStroke || fn === OPS.closeFillStroke) {
+                    if (pathLength > 0) {
+                        allPathLengths.push(pathLength);
+                    }
+                    pathLength = 0;
+                }
+            }
+            if (pathLength > 0) allPathLengths.push(pathLength);
+
+            // Convert from points to cm (1pt = 0.03528cm)
+            const ptToCm = 0.03528;
+            let pathsCm = allPathLengths.map(p => p * ptToCm);
+
+            // Filter: separate cutting paths from guide marks
+            // Guide marks / crop marks are typically small (<3cm)
+            // Cutting paths are the actual die shapes (>3cm)
+            const minCuttingLength = 3; // cm threshold
+            const cuttingPaths = pathsCm.filter(p => p >= minCuttingLength);
+            const guidePaths = pathsCm.filter(p => p < minCuttingLength && p > 0.1);
+
+            const totalCuttingCm = cuttingPaths.reduce((a, b) => a + b, 0);
+            const totalCuttingRounded = Math.round(totalCuttingCm * 10) / 10;
+
+            // Update fields
+            document.getElementById('cotTroquelCuchilla').value = totalCuttingRounded;
+            document.getElementById('cotTroquelGrafa').value = 0;
+
+            // Show result
+            resultDiv.style.background = '#ecfdf5';
+            resultDiv.style.borderColor = '#a7f3d0';
+            resultDiv.innerHTML = '<strong>✅ ' + file.name + '</strong> (' + pageWcm.toFixed(1) + ' x ' + pageHcm.toFixed(1) + ' cm)<br>'
+                + cuttingPaths.length + ' formas de corte detectadas | '
+                + guidePaths.length + ' guias ignoradas<br>'
+                + '<strong>Total cuchilla: ' + totalCuttingRounded + ' cm lineales</strong>';
+
+            cotCalc();
+        } catch (err) {
+            resultDiv.style.background = '#fee2e2';
+            resultDiv.style.borderColor = '#fca5a5';
+            resultDiv.textContent = 'Error al procesar PDF: ' + err.message;
+            console.error('Troquel PDF error:', err);
+        }
+    }
+
     function calcGuillotineCuts(sheetW, sheetH, pieceW, pieceH) {
         const n = calcLayout(sheetW, sheetH, pieceW, pieceH, 0, 0);
         const r = calcLayout(sheetW, sheetH, pieceH, pieceW, 0, 0);
