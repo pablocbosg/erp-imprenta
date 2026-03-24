@@ -1989,18 +1989,25 @@
             ? bestCuts(pliegoW, pliegoH, hojaW, hojaH) : 0;
 
         // 2. Piezas por hoja maquina (usando area util y pieza con sangrado)
-        let piezasPorHoja = (hojaUtilW > 0 && hojaUtilH > 0 && piezaW > 0 && piezaH > 0)
-            ? bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH) : 0;
-
-        // Tiro y retiro en mismo juego de placas:
-        // Las piezas se dividen mitad tiro / mitad retiro, debe ser par
+        let piezasPorHoja = 0;
         let tiroRetiroInfo = '';
-        if (lados === 2 && piezasPorHoja > 0) {
-            if (piezasPorHoja % 2 !== 0) {
-                piezasPorHoja = piezasPorHoja - 1; // Forzar par (quitar 1)
+
+        if (hojaUtilW > 0 && hojaUtilH > 0 && piezaW > 0 && piezaH > 0) {
+            if (lados === 2) {
+                // Tiro y retiro en mismo juego de placas:
+                // NO usar imposicion mixta (al voltear no cuadra)
+                // Solo orientacion simple, la que de mas piezas, y forzar par
+                const n = calcLayout(hojaUtilW, hojaUtilH, piezaW, piezaH, 0, 0);
+                const r = calcLayout(hojaUtilW, hojaUtilH, piezaH, piezaW, 0, 0);
+                piezasPorHoja = Math.max(n.total, r.total);
+                // Forzar par para dividir mitad tiro / mitad retiro
+                if (piezasPorHoja % 2 !== 0) piezasPorHoja = piezasPorHoja - 1;
+                const porLado = piezasPorHoja / 2;
+                tiroRetiroInfo = `${porLado} tiros + ${porLado} retiros = ${piezasPorHoja} piezas por hoja`;
+            } else {
+                // Solo tiro: usar bestCuts con imposicion mixta
+                piezasPorHoja = bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
             }
-            const porLado = piezasPorHoja / 2;
-            tiroRetiroInfo = `${porLado} tiros + ${porLado} retiros = ${piezasPorHoja} piezas por hoja`;
         }
 
         // 3. Hojas netas
@@ -2145,11 +2152,12 @@
         document.getElementById('cotPrecioUnitBig').textContent = precioUnit.toFixed(4);
 
         // Draw previews (hoja uses area util, pliego uses full sheet)
-        cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq);
-        cotDrawPreview('cotPreviewPliego', pliegoW, pliegoH, hojaW, hojaH, 0);
+        // Cuando es 2 lados (tiro/retiro), no usar imposicion mixta
+        cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, lados === 2);
+        cotDrawPreview('cotPreviewPliego', pliegoW, pliegoH, hojaW, hojaH, 0, false);
     }
 
-    function cotDrawPreview(canvasId, containerW, containerH, pieceW, pieceH, margin) {
+    function cotDrawPreview(canvasId, containerW, containerH, pieceW, pieceH, margin, noMixto) {
         margin = margin || 0;
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
@@ -2200,8 +2208,12 @@
         const usableW = containerW - 2 * margin;
         const usableH = containerH - 2 * margin;
 
-        // Use calcImpositionLayout for mixed support (same as PDF generation)
-        const placements = calcImpositionLayout(containerW, containerH, pieceW, pieceH, margin, true);
+        // Use calcImpositionLayout: sin mixto cuando es tiro/retiro (2 lados)
+        let placements = calcImpositionLayout(containerW, containerH, pieceW, pieceH, margin, !noMixto);
+        // Tiro/retiro: forzar par (quitar ultima pieza si impar)
+        if (noMixto && placements.length % 2 !== 0) {
+            placements = placements.slice(0, placements.length - 1);
+        }
 
         // Draw pieces
         const colorsNormal = ['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa'];
