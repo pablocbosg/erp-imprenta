@@ -3168,9 +3168,9 @@
         // ===============================
         // TABLA DE ITEMS con bordes
         // ===============================
-        const colW = [22, 18, 0, 22, 25, 25]; // Codigo | Cant | Desc | P.Unit | Descuento | Total
+        const colW = [22, 18, 0, 22, 25, 25, 24]; // Codigo | Cant | Desc | P.Unit | Descuento | Total | Ref
         colW[2] = pw - colW.reduce((a, b) => a + b, 0);
-        const headers = ['Codigo', 'Cantidad', 'Descripcion', 'Precio\nUnitario', 'Descuento', 'Total'];
+        const headers = ['Codigo', 'Cantidad', 'Descripcion', 'Precio\nUnitario', 'Descuento', 'Total', 'Ref.'];
         const thH = 10;
 
         // Header con fondo
@@ -3200,33 +3200,31 @@
             const it = items[i];
             const imp = (it.cantidad || 0) * (it.precio_unitario || 0);
             const hasImg = it.imagen_url && it.imagen_url.length > 5;
-            const imgH = hasImg ? 22 : 0;
-            // Calcular altura de fila basada en descripcion + imagen
-            const descLines = doc.splitTextToSize(it.descripcion || '', colW[2] - (hasImg ? 26 : 4));
+            const descLines = doc.splitTextToSize(it.descripcion || '', colW[2] - 4);
             const textH = descLines.length * 4 + 4;
-            const rH = Math.max(8, hasImg ? Math.max(textH, imgH + 4) : textH);
+            const rH = Math.max(hasImg ? 24 : 8, textH);
 
             if (y + rH > H - 40) { doc.addPage(); y = M; }
 
             const vals = [
                 it.codigo || '',
                 String(it.cantidad || 0),
-                '', // descripcion + imagen se manejan aparte
+                '', // descripcion se maneja aparte
                 (it.precio_unitario || 0).toFixed(3),
                 '$0.00',
-                '$' + imp.toFixed(2)
+                '$' + imp.toFixed(2),
+                '' // imagen se maneja aparte
             ];
 
             cx = M;
             vals.forEach((v, j) => {
                 cell(cx, y, colW[j], rH);
                 if (j === 2) {
-                    // Imagen de referencia a la izquierda de la descripcion
+                    doc.text(descLines, cx + 2, y + 4);
+                } else if (j === 6) {
+                    // Columna de imagen de referencia
                     if (hasImg) {
-                        try { doc.addImage(it.imagen_url, 'JPEG', cx + 2, y + 1.5, 20, 20); } catch(e) {}
-                        doc.text(descLines, cx + 24, y + 4);
-                    } else {
-                        doc.text(descLines, cx + 2, y + 4);
+                        try { doc.addImage(it.imagen_url, 'JPEG', cx + 2, y + 1.5, 20, rH - 3); } catch(e) {}
                     }
                 } else {
                     const tx = j >= 3 ? cx + colW[j] - 3 : cx + 3;
@@ -3389,8 +3387,8 @@
         doc.text(fecha, M + 34, y + 5.5); doc.text(cEmail, M + halfW + 20, y + 5.5);
         y += rowH + 6;
 
-        const colW = [22, 18, 0, 22, 25, 25]; colW[2] = pw - colW.reduce((a, b) => a + b, 0);
-        const headers = ['Codigo', 'Cantidad', 'Descripcion', 'Precio\nUnitario', 'Descuento', 'Total'];
+        const colW = [22, 18, 0, 22, 25, 25, 24]; colW[2] = pw - colW.reduce((a, b) => a + b, 0);
+        const headers = ['Codigo', 'Cantidad', 'Descripcion', 'Precio\nUnitario', 'Descuento', 'Total', 'Ref.'];
         let cx = M;
         headers.forEach((h, i) => {
             cell(cx, y, colW[i], 10, { fill: cHeaderBg });
@@ -3406,19 +3404,16 @@
             const it = items[ii];
             const imp = (it.cantidad||0)*(it.precio_unitario||0);
             const hasImg = it.imagen_url && it.imagen_url.length > 5;
-            const imgH = hasImg ? 22 : 0;
-            const dL = doc.splitTextToSize(it.descripcion||'', colW[2]-(hasImg?26:4));
+            const dL = doc.splitTextToSize(it.descripcion||'', colW[2]-4);
             const textH = dL.length*4+4;
-            const rH = Math.max(8, hasImg ? Math.max(textH, imgH+4) : textH);
+            const rH = Math.max(hasImg ? 24 : 8, textH);
             if (y+rH > H-40) { doc.addPage(); y = M; }
-            const vals = [it.codigo||'', String(it.cantidad||0), '', (it.precio_unitario||0).toFixed(3), '$0.00', '$'+imp.toFixed(2)];
+            const vals = [it.codigo||'', String(it.cantidad||0), '', (it.precio_unitario||0).toFixed(3), '$0.00', '$'+imp.toFixed(2), ''];
             cx = M;
             vals.forEach((v, j) => {
                 cell(cx, y, colW[j], rH);
-                if (j===2) {
-                    if (hasImg) { try { doc.addImage(it.imagen_url, 'JPEG', cx+2, y+1.5, 20, 20); } catch(e) {} doc.text(dL, cx+24, y+4); }
-                    else { doc.text(dL, cx+2, y+4); }
-                }
+                if (j===2) { doc.text(dL, cx+2, y+4); }
+                else if (j===6) { if (hasImg) { try { doc.addImage(it.imagen_url, 'JPEG', cx+2, y+1.5, 20, rH-3); } catch(e) {} } }
                 else { const tx = j>=3 ? cx+colW[j]-3 : cx+3; const ao = j>=3?{align:'right'}:{};
                     if(j===5) doc.setFont('helvetica','bold'); doc.text(v, tx, y+rH/2+1.5, ao); if(j===5) doc.setFont('helvetica','normal'); }
                 cx += colW[j];
