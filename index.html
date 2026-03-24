@@ -1925,12 +1925,15 @@
             const ptToCm = 0.03528;
             let pathsCm = allPathLengths.map(p => p * ptToCm);
 
-            // Filter: separate cutting paths from guide marks
-            // Guide marks / crop marks are typically small (<3cm)
-            // Cutting paths are the actual die shapes (>3cm)
+            // Filter paths:
+            // - Guide marks / crop marks: small (<3cm) -> ignore
+            // - Page border / frame: perimeter close to page perimeter -> ignore
+            // - Cutting paths: the actual die shapes
             const minCuttingLength = 3; // cm threshold
-            const cuttingPaths = pathsCm.filter(p => p >= minCuttingLength);
+            const pagePerimeter = 2 * (pageWcm + pageHcm);
+            const cuttingPaths = pathsCm.filter(p => p >= minCuttingLength && p < pagePerimeter * 0.9);
             const guidePaths = pathsCm.filter(p => p < minCuttingLength && p > 0.1);
+            const framePaths = pathsCm.filter(p => p >= pagePerimeter * 0.9);
 
             const totalCuttingCm = cuttingPaths.reduce((a, b) => a + b, 0);
             const totalCuttingRounded = Math.round(totalCuttingCm * 10) / 10;
@@ -1943,9 +1946,10 @@
             resultDiv.style.background = '#ecfdf5';
             resultDiv.style.borderColor = '#a7f3d0';
             resultDiv.innerHTML = '<strong>✅ ' + file.name + '</strong> (' + pageWcm.toFixed(1) + ' x ' + pageHcm.toFixed(1) + ' cm)<br>'
-                + cuttingPaths.length + ' formas de corte detectadas | '
-                + guidePaths.length + ' guias ignoradas<br>'
-                + '<strong>Total cuchilla: ' + totalCuttingRounded + ' cm lineales</strong>';
+                + cuttingPaths.length + ' formas de corte detectadas'
+                + (guidePaths.length > 0 ? ' | ' + guidePaths.length + ' guias ignoradas' : '')
+                + (framePaths.length > 0 ? ' | ' + framePaths.length + ' marco ignorado' : '')
+                + '<br><strong>Total cuchilla: ' + totalCuttingRounded + ' cm lineales</strong>';
 
             cotCalc();
         } catch (err) {
