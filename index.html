@@ -2125,7 +2125,6 @@
         if (hojaUtilW > 0 && hojaUtilH > 0 && piezaW > 0 && piezaH > 0) {
             if (lados === 2 && placasTR === 'misma') {
                 // Tiro y retiro en MISMO juego de placas
-                // Calcular ambos volteos y elegir el que maximice piezas
                 const n = calcLayout(hojaUtilW, hojaUtilH, piezaW, piezaH, 0, 0);
                 const r = calcLayout(hojaUtilW, hojaUtilH, piezaH, piezaW, 0, 0);
 
@@ -2143,30 +2142,37 @@
                 const vBestR = r.cols * vRRows;
                 const vMax = Math.max(vBestN, vBestR);
 
-                // Auto-seleccionar el mejor, salvo override manual del usuario
-                const autoVolteo = hMax >= vMax ? 'horizontal' : 'vertical';
-                // Solo cambiar si el usuario no ha hecho override manual
-                if (!window._volteoManual) {
-                    document.getElementById('cotVolteo').value = autoVolteo;
-                    document.getElementById('volteoWarn').style.display = autoVolteo === 'vertical' ? 'block' : 'none';
-                }
-                const volteoActual = document.getElementById('cotVolteo').value;
-
-                if (volteoActual === 'horizontal') {
-                    if (hBestN >= hBestR && hNCols > 0) {
-                        piezasPorHoja = hBestN;
-                        tiroRetiroInfo = `${hNCols} col (${hNCols/2} tiro + ${hNCols/2} retiro) x ${n.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
-                    } else if (hRCols > 0) {
-                        piezasPorHoja = hBestR;
-                        tiroRetiroInfo = `${hRCols} col (${hRCols/2} tiro + ${hRCols/2} retiro) x ${r.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
-                    }
+                // Si ninguno cabe con misma placa, auto-cambiar a placas diferentes
+                if (hMax === 0 && vMax === 0) {
+                    document.getElementById('cotPlacasTR').value = 'diferentes';
+                    document.getElementById('volteoOpts').style.display = 'none';
+                    piezasPorHoja = bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
+                    tiroRetiroInfo = `${piezasPorHoja} pzas por hoja | Placas separadas (tamano no permite misma placa)`;
                 } else {
-                    if (vBestN >= vBestR && vNRows > 0) {
-                        piezasPorHoja = vBestN;
-                        tiroRetiroInfo = `${n.cols} col x ${vNRows} filas (${vNRows/2} tiro + ${vNRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
-                    } else if (vRRows > 0) {
-                        piezasPorHoja = vBestR;
-                        tiroRetiroInfo = `${r.cols} col x ${vRRows} filas (${vRRows/2} tiro + ${vRRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
+                    // Auto-seleccionar el mejor volteo
+                    const autoVolteo = hMax >= vMax ? 'horizontal' : 'vertical';
+                    if (!window._volteoManual) {
+                        document.getElementById('cotVolteo').value = autoVolteo;
+                        document.getElementById('volteoWarn').style.display = autoVolteo === 'vertical' ? 'block' : 'none';
+                    }
+                    const volteoActual = document.getElementById('cotVolteo').value;
+
+                    if (volteoActual === 'horizontal') {
+                        if (hBestN >= hBestR && hNCols > 0) {
+                            piezasPorHoja = hBestN;
+                            tiroRetiroInfo = `${hNCols} col (${hNCols/2} tiro + ${hNCols/2} retiro) x ${n.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
+                        } else if (hRCols > 0) {
+                            piezasPorHoja = hBestR;
+                            tiroRetiroInfo = `${hRCols} col (${hRCols/2} tiro + ${hRCols/2} retiro) x ${r.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
+                        }
+                    } else {
+                        if (vBestN >= vBestR && vNRows > 0) {
+                            piezasPorHoja = vBestN;
+                            tiroRetiroInfo = `${n.cols} col x ${vNRows} filas (${vNRows/2} tiro + ${vNRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
+                        } else if (vRRows > 0) {
+                            piezasPorHoja = vBestR;
+                            tiroRetiroInfo = `${r.cols} col x ${vRRows} filas (${vRRows/2} tiro + ${vRRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
+                        }
                     }
                 }
             } else if (lados === 2 && placasTR === 'diferentes') {
