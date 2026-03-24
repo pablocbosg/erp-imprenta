@@ -1520,8 +1520,9 @@
     // CLIENTS: New client modal
     // =====================================================
     function openNewClientModal() {
-        const prefill = document.getElementById('cotCliente').value.trim();
-        document.getElementById('clientDropdown').classList.remove('open');
+        const prefill = '';
+        const dd = document.getElementById('clientDropdown');
+        if (dd) dd.classList.remove('open');
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.id = 'newClientModal';
@@ -1588,8 +1589,9 @@
 
         clientsCache = []; // Reset cache
         document.getElementById('newClientModal').remove();
-        const detail = [data.empresa, data.rfc, data.telefono].filter(Boolean).join(' | ');
-        selectClient(data.id, data.nombre, detail);
+        alert('Cliente "' + data.nombre + '" guardado exitosamente');
+        // Refrescar tabla de clientes si estamos en esa tab
+        if (typeof buscarClientesTab === 'function') buscarClientesTab();
     }
 
     // =====================================================
