@@ -1996,14 +1996,26 @@
             if (lados === 2) {
                 // Tiro y retiro en mismo juego de placas:
                 // NO usar imposicion mixta (al voltear no cuadra)
-                // Solo orientacion simple, la que de mas piezas, y forzar par
+                // Las COLUMNAS deben ser pares: mitad izq = tiro, mitad der = retiro
                 const n = calcLayout(hojaUtilW, hojaUtilH, piezaW, piezaH, 0, 0);
                 const r = calcLayout(hojaUtilW, hojaUtilH, piezaH, piezaW, 0, 0);
-                piezasPorHoja = Math.max(n.total, r.total);
-                // Forzar par para dividir mitad tiro / mitad retiro
-                if (piezasPorHoja % 2 !== 0) piezasPorHoja = piezasPorHoja - 1;
-                const porLado = piezasPorHoja / 2;
-                tiroRetiroInfo = `${porLado} tiros + ${porLado} retiros = ${piezasPorHoja} piezas por hoja`;
+
+                // Forzar columnas pares en cada orientacion
+                const nCols = n.cols % 2 !== 0 ? n.cols - 1 : n.cols;
+                const rCols = r.cols % 2 !== 0 ? r.cols - 1 : r.cols;
+                const nTotal = nCols * n.rows;
+                const rTotal = rCols * r.rows;
+
+                // Elegir la orientacion que de mas piezas con columnas pares
+                if (nTotal >= rTotal && nCols > 0) {
+                    piezasPorHoja = nTotal;
+                    const porLado = (nCols / 2) * n.rows;
+                    tiroRetiroInfo = `${nCols} columnas (${nCols/2} tiro + ${nCols/2} retiro) x ${n.rows} filas = ${piezasPorHoja} piezas`;
+                } else if (rCols > 0) {
+                    piezasPorHoja = rTotal;
+                    const porLado = (rCols / 2) * r.rows;
+                    tiroRetiroInfo = `${rCols} columnas (${rCols/2} tiro + ${rCols/2} retiro) x ${r.rows} filas = ${piezasPorHoja} piezas`;
+                }
             } else {
                 // Solo tiro: usar bestCuts con imposicion mixta
                 piezasPorHoja = bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
@@ -2152,8 +2164,20 @@
         document.getElementById('cotPrecioUnitBig').textContent = precioUnit.toFixed(4);
 
         // Draw previews (hoja uses area util, pliego uses full sheet)
-        // Cuando es 2 lados (tiro/retiro), no usar imposicion mixta
-        cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, lados === 2);
+        // Cuando es 2 lados (tiro/retiro), no usar imposicion mixta y usar la orientacion correcta
+        if (lados === 2 && piezaW > 0 && piezaH > 0) {
+            // Determinar cual orientacion se eligio (la que da mas con columnas pares)
+            const nL = calcLayout(hojaUtilW, hojaUtilH, piezaW, piezaH, 0, 0);
+            const rL = calcLayout(hojaUtilW, hojaUtilH, piezaH, piezaW, 0, 0);
+            const nC = nL.cols % 2 !== 0 ? nL.cols - 1 : nL.cols;
+            const rC = rL.cols % 2 !== 0 ? rL.cols - 1 : rL.cols;
+            const usarRotada = (rC * rL.rows) > (nC * nL.rows);
+            const drawPW = usarRotada ? piezaH : piezaW;
+            const drawPH = usarRotada ? piezaW : piezaH;
+            cotDrawPreview('cotPreviewHoja', hojaW, hojaH, drawPW, drawPH, margenMaq, true);
+        } else {
+            cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, false);
+        }
         cotDrawPreview('cotPreviewPliego', pliegoW, pliegoH, hojaW, hojaH, 0, false);
     }
 
@@ -2208,11 +2232,33 @@
         const usableW = containerW - 2 * margin;
         const usableH = containerH - 2 * margin;
 
-        // Use calcImpositionLayout: sin mixto cuando es tiro/retiro (2 lados)
-        let placements = calcImpositionLayout(containerW, containerH, pieceW, pieceH, margin, !noMixto);
-        // Tiro/retiro: forzar par (quitar ultima pieza si impar)
-        if (noMixto && placements.length % 2 !== 0) {
-            placements = placements.slice(0, placements.length - 1);
+        // Tiro/retiro: generar placements manualmente con columnas pares, sin mixto
+        let placements;
+        if (noMixto) {
+            placements = [];
+            const uW = containerW - 2 * margin;
+            const uH = containerH - 2 * margin;
+            // Probar ambas orientaciones y elegir la de mas piezas con columnas pares
+            const nL = calcLayout(uW, uH, pieceW, pieceH, 0, 0);
+            const rL = calcLayout(uW, uH, pieceH, pieceW, 0, 0);
+            const nC = nL.cols % 2 !== 0 ? nL.cols - 1 : nL.cols;
+            const rC = rL.cols % 2 !== 0 ? rL.cols - 1 : rL.cols;
+            const usarRot = (rC * rL.rows) > (nC * nL.rows);
+            const pw = usarRot ? pieceH : pieceW;
+            const ph = usarRot ? pieceW : pieceH;
+            const cols = usarRot ? rC : nC;
+            const rows = usarRot ? rL.rows : nL.rows;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    placements.push({
+                        x: margin + c * pw,
+                        y: margin + r * ph,
+                        w: pw, h: ph, rotated: false
+                    });
+                }
+            }
+        } else {
+            placements = calcImpositionLayout(containerW, containerH, pieceW, pieceH, margin, true);
         }
 
         // Draw pieces
