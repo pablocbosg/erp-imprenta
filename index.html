@@ -3200,9 +3200,14 @@
         msg += `📄 *Descarga tu proforma aqui:*\n${pdfUrl}\n\n`;
         msg += `Quedamos atentos a tus comentarios.`;
 
-        const phone = proformaActiva.cliente_telefono ? proformaActiva.cliente_telefono.replace(/\D/g, '') : '';
+        let phone = proformaActiva.cliente_telefono ? proformaActiva.cliente_telefono.replace(/\D/g, '') : '';
+        // Formatear numero Ecuador: quitar 0 inicial y agregar 593
+        if (phone && !phone.startsWith('593')) {
+            phone = phone.startsWith('0') ? phone.substring(1) : phone;
+            phone = '593' + phone;
+        }
         const url = phone
-            ? `https://wa.me/${phone.startsWith('593') ? phone : '593' + phone}?text=${encodeURIComponent(msg)}`
+            ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
             : `https://wa.me/?text=${encodeURIComponent(msg)}`;
         window.open(url, '_blank');
     }
