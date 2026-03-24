@@ -312,6 +312,7 @@
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('cotizador')">Cotizador</button>
             <button class="tab-btn" onclick="switchTab('proformas')">Proformas</button>
+            <button class="tab-btn" onclick="switchTab('productos')">Productos</button>
             <button class="tab-btn" onclick="switchTab('clientes')">Clientes</button>
             <button class="tab-btn" onclick="switchTab('admin')">Administracion</button>
         </div>
@@ -930,6 +931,28 @@
     </div>
 
     <!-- ==================== TAB: CLIENTES ==================== -->
+    <!-- ==================== TAB: PRODUCTOS ==================== -->
+    <div id="tab-productos" class="tab-content">
+        <div class="clientes-layout">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <h2 style="font-size:1.15rem;color:var(--gray-800);">Productos</h2>
+                <button class="btn btn-primary" onclick="openNewProductModal()">+ Nuevo Producto</button>
+            </div>
+            <div class="search-bar">
+                <input type="text" id="productosBuscar" placeholder="Buscar por nombre o categoria..." oninput="buscarProductos()">
+            </div>
+            <div class="panel" style="overflow-x:auto;">
+                <table class="clientes-table" style="min-width:800px;">
+                    <thead><tr>
+                        <th>Nombre</th><th>Categoria</th><th>Medidas (cm)</th><th>Sangrado</th><th>Lados</th><th>Material</th><th>Colores</th><th style="width:180px;"></th>
+                    </tr></thead>
+                    <tbody id="productosTabBody"></tbody>
+                </table>
+                <div id="productosEmpty" style="padding:2rem;text-align:center;color:var(--gray-400);font-size:0.9rem;">No se encontraron productos.</div>
+            </div>
+        </div>
+    </div>
+
     <div id="tab-clientes" class="tab-content">
         <div class="clientes-layout">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
@@ -2091,6 +2114,7 @@
         if (tab === 'calculadora') calcCalc();
         if (tab === 'cotizador') { cotCalc(); updateAddToProformaBtn(); }
         if (tab === 'proformas') cargarProformas();
+        if (tab === 'productos') cargarProductos();
         if (tab === 'clientes') cargarClientesTab();
     }
 
@@ -4009,6 +4033,188 @@
 
     // =====================================================
     // CLIENTES TAB MODULE
+    // =====================================================
+    // =====================================================
+    // PRODUCTOS TAB
+    // =====================================================
+    let productosCache = [];
+    let editingProductoId = null;
+
+    async function cargarProductos() {
+        const { data, error } = await db.from('productos').select('*').order('categoria,nombre');
+        if (error) { console.error(error); return; }
+        productosCache = data || [];
+        renderProductos(productosCache);
+    }
+
+    function buscarProductos() {
+        const q = document.getElementById('productosBuscar').value.toLowerCase().trim();
+        if (!q) { renderProductos(productosCache); return; }
+        const filtered = productosCache.filter(p =>
+            (p.nombre || '').toLowerCase().includes(q) ||
+            (p.categoria || '').toLowerCase().includes(q)
+        );
+        renderProductos(filtered);
+    }
+
+    function getMaterialName(materialId) {
+        if (!materialId) return '-';
+        const m = appData.materiales.find(m => m.id === materialId);
+        return m ? m.nombre : '-';
+    }
+
+    function materialOptionsHTML(selectedId) {
+        return '<option value="">-- Sin material --</option>' +
+            appData.materiales.map(m =>
+                '<option value="' + m.id + '"' + (m.id === selectedId ? ' selected' : '') + '>' + m.nombre + '</option>'
+            ).join('');
+    }
+
+    function renderProductos(productos) {
+        const body = document.getElementById('productosTabBody');
+        const empty = document.getElementById('productosEmpty');
+        if (!productos.length) { body.innerHTML = ''; empty.style.display = 'block'; return; }
+        empty.style.display = 'none';
+
+        body.innerHTML = productos.map(p => {
+            if (editingProductoId === p.id) {
+                return '<tr class="editing">'
+                    + '<td><input type="text" id="editProdNombre' + p.id + '" value="' + (p.nombre || '') + '"></td>'
+                    + '<td><input type="text" id="editProdCat' + p.id + '" value="' + (p.categoria || '') + '" placeholder="Ej: Volantes"></td>'
+                    + '<td><div style="display:flex;gap:0.3rem;align-items:center;"><input type="number" id="editProdW' + p.id + '" value="' + (p.ancho || 0) + '" style="width:60px;" step="0.1"> x <input type="number" id="editProdH' + p.id + '" value="' + (p.alto || 0) + '" style="width:60px;" step="0.1"></div></td>'
+                    + '<td><input type="number" id="editProdSang' + p.id + '" value="' + (p.sangrado || 0.3) + '" style="width:55px;" step="0.1"></td>'
+                    + '<td><select id="editProdLados' + p.id + '"><option value="1"' + (p.lados === 1 ? ' selected' : '') + '>1</option><option value="2"' + (p.lados === 2 ? ' selected' : '') + '>2</option></select></td>'
+                    + '<td><select id="editProdMat' + p.id + '" style="font-size:0.78rem;">' + materialOptionsHTML(p.material_id) + '</select></td>'
+                    + '<td><input type="number" id="editProdCol' + p.id + '" value="' + (p.colores || 4) + '" style="width:45px;" min="1" max="6"></td>'
+                    + '<td>'
+                    + '<button class="btn btn-success btn-sm" onclick="guardarProductoEdit(' + p.id + ')">Guardar</button> '
+                    + '<button class="btn btn-sm" style="border:1px solid var(--gray-300);margin-top:0.25rem;" onclick="cancelarProductoEdit()">Cancelar</button>'
+                    + '</td></tr>';
+            }
+            return '<tr>'
+                + '<td><strong>' + (p.nombre || '-') + '</strong></td>'
+                + '<td><span style="background:var(--primary-light);color:var(--primary);padding:0.15rem 0.5rem;border-radius:10px;font-size:0.75rem;font-weight:600;">' + (p.categoria || '-') + '</span></td>'
+                + '<td>' + p.ancho + ' x ' + p.alto + '</td>'
+                + '<td>' + (p.sangrado || 0.3) + '</td>'
+                + '<td>' + (p.lados === 2 ? 'Tiro/Retiro' : 'Solo tiro') + '</td>'
+                + '<td style="font-size:0.8rem;">' + getMaterialName(p.material_id) + '</td>'
+                + '<td>' + (p.colores || 4) + '</td>'
+                + '<td>'
+                + '<button class="btn btn-sm" style="background:var(--success);color:white;" onclick="usarProducto(' + p.id + ')">Usar</button> '
+                + '<button class="btn btn-sm" style="border:1px solid var(--gray-300);" onclick="editarProducto(' + p.id + ')">Editar</button> '
+                + '<button class="btn btn-sm" style="color:var(--danger);border:1px solid var(--danger);" onclick="eliminarProducto(' + p.id + ')">✕</button>'
+                + '</td></tr>';
+        }).join('');
+    }
+
+    function editarProducto(id) {
+        editingProductoId = id;
+        buscarProductos();
+    }
+
+    function cancelarProductoEdit() {
+        editingProductoId = null;
+        buscarProductos();
+    }
+
+    async function guardarProductoEdit(id) {
+        const updates = {
+            nombre: document.getElementById('editProdNombre' + id).value.trim(),
+            categoria: document.getElementById('editProdCat' + id).value.trim() || null,
+            ancho: parseFloat(document.getElementById('editProdW' + id).value) || 0,
+            alto: parseFloat(document.getElementById('editProdH' + id).value) || 0,
+            sangrado: parseFloat(document.getElementById('editProdSang' + id).value) || 0.3,
+            lados: parseInt(document.getElementById('editProdLados' + id).value) || 1,
+            material_id: parseInt(document.getElementById('editProdMat' + id).value) || null,
+            colores: parseInt(document.getElementById('editProdCol' + id).value) || 4
+        };
+        if (!updates.nombre) { alert('El nombre es requerido'); return; }
+        const { error } = await db.from('productos').update(updates).eq('id', id);
+        if (error) { alert('Error: ' + error.message); return; }
+        editingProductoId = null;
+        await cargarProductos();
+    }
+
+    async function eliminarProducto(id) {
+        if (!confirm('¿Eliminar este producto del catalogo?')) return;
+        const { error } = await db.from('productos').delete().eq('id', id);
+        if (error) { alert('Error: ' + error.message); return; }
+        await cargarProductos();
+    }
+
+    function openNewProductModal() {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        overlay.innerHTML = '<div class="modal" style="max-width:500px;">'
+            + '<h3 style="margin-bottom:1rem;">Nuevo Producto</h3>'
+            + '<div style="display:grid;gap:0.6rem;">'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Nombre *</label><input type="text" id="newProdNombre" placeholder="Ej: Volante A5"></div>'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Categoria</label><input type="text" id="newProdCat" placeholder="Ej: Volantes, Tarjetas..."></div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Ancho (cm)</label><input type="number" id="newProdW" value="21" step="0.1"></div>'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Alto (cm)</label><input type="number" id="newProdH" value="29.7" step="0.1"></div>'
+            + '</div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Sangrado</label><input type="number" id="newProdSang" value="0.3" step="0.1"></div>'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Lados</label><select id="newProdLados"><option value="1">1 (tiro)</option><option value="2">2 (tiro/retiro)</option></select></div>'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Colores</label><input type="number" id="newProdCol" value="4" min="1" max="6"></div>'
+            + '</div>'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Material</label><select id="newProdMat">' + materialOptionsHTML(null) + '</select></div>'
+            + '</div>'
+            + '<div style="display:flex;gap:0.5rem;margin-top:1rem;">'
+            + '<button class="btn btn-primary" onclick="saveNewProduct()" style="flex:1;">Guardar</button>'
+            + '<button class="btn" style="border:1px solid var(--gray-300);" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>'
+            + '</div></div>';
+        document.body.appendChild(overlay);
+    }
+
+    async function saveNewProduct() {
+        const nombre = document.getElementById('newProdNombre').value.trim();
+        if (!nombre) { alert('El nombre es requerido'); return; }
+        const producto = {
+            nombre: nombre,
+            categoria: document.getElementById('newProdCat').value.trim() || null,
+            ancho: parseFloat(document.getElementById('newProdW').value) || 0,
+            alto: parseFloat(document.getElementById('newProdH').value) || 0,
+            sangrado: parseFloat(document.getElementById('newProdSang').value) || 0.3,
+            lados: parseInt(document.getElementById('newProdLados').value) || 1,
+            material_id: parseInt(document.getElementById('newProdMat').value) || null,
+            colores: parseInt(document.getElementById('newProdCol').value) || 4
+        };
+        const { error } = await db.from('productos').insert(producto);
+        if (error) { alert('Error: ' + error.message); return; }
+        document.querySelector('.modal-overlay').remove();
+        await cargarProductos();
+    }
+
+    function usarProducto(id) {
+        const p = productosCache.find(prod => prod.id === id);
+        if (!p) return;
+        // Pre-fill cotizador
+        document.getElementById('cotDescripcion').value = p.nombre;
+        document.getElementById('cotProdW').value = p.ancho || 0;
+        document.getElementById('cotProdH').value = p.alto || 0;
+        document.getElementById('cotSangrado').value = p.sangrado || 0.3;
+        document.getElementById('cotLados').value = p.lados || 1;
+        document.getElementById('cotLados').dispatchEvent(new Event('change'));
+        // Colores
+        const coloresSelect = document.getElementById('cotColores');
+        if (coloresSelect) coloresSelect.value = p.colores || 4;
+        // Material
+        if (p.material_id) {
+            const matIdx = appData.materiales.findIndex(m => m.id === p.material_id);
+            if (matIdx >= 0) {
+                document.getElementById('cotMaterial').value = matIdx;
+                cotOnMaterialChange();
+            }
+        }
+        // Switch to cotizador
+        switchTab('cotizador');
+    }
+
+    // =====================================================
+    // CLIENTES TAB
     // =====================================================
     let clientesTabCache = [];
     let editingClienteId = null;
