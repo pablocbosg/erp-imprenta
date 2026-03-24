@@ -348,10 +348,29 @@
                             </div>
                             <div class="form-group">
                                 <label>Lados impresos</label>
-                                <select id="cotLados" onchange="cotCalc()">
+                                <select id="cotLados" onchange="cotToggleTiroRetiro(); cotCalc()">
                                     <option value="1">1 lado (solo tiro)</option>
                                     <option value="2">2 lados (tiro y retiro)</option>
                                 </select>
+                            </div>
+                            <div id="tiroRetiroOpts" style="display:none;">
+                                <div class="form-group">
+                                    <label>Juego de placas</label>
+                                    <select id="cotPlacasTR" onchange="cotCalc()">
+                                        <option value="misma">Misma placa (tiro y retiro juntos)</option>
+                                        <option value="diferentes">Placas diferentes (juego por lado)</option>
+                                    </select>
+                                </div>
+                                <div id="volteoOpts" class="form-group" style="display:none;">
+                                    <label>Volteo del papel</label>
+                                    <select id="cotVolteo" onchange="cotCalc()">
+                                        <option value="horizontal">Horizontal (columnas pares)</option>
+                                        <option value="vertical">Vertical (filas pares - pinza contra pinza)</option>
+                                    </select>
+                                    <div id="volteoWarn" style="display:none;background:#fff3cd;color:#856404;padding:0.5rem 0.75rem;border-radius:6px;font-size:0.78rem;margin-top:0.4rem;border:1px solid #ffc107;">
+                                        ⚠ Pinza contra pinza: el papel debe cortarse con precision exacta para que al voltear coincidan tiro y retiro. Requiere mayor cuidado en el corte.
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1375,21 +1394,32 @@
 
             // Calculate layout
             const lados = +document.getElementById('cotLados').value || 1;
+            const placasTR = document.getElementById('cotPlacasTR').value;
+            const volteo = document.getElementById('cotVolteo').value;
             let placements;
-            if (lados === 2) {
-                // Tiro/retiro: columnas pares, centradas, sin mixto
+            if (lados === 2 && placasTR === 'misma') {
+                // Tiro/retiro misma placa
                 const uW = hojaW - 2 * margenMaq;
                 const uH = hojaH - 2 * margenMaq;
                 const nL = calcLayout(uW, uH, piezaW, piezaH, 0, 0);
                 const rL = calcLayout(uW, uH, piezaH, piezaW, 0, 0);
-                const nC = nL.cols % 2 !== 0 ? nL.cols - 1 : nL.cols;
-                const rC = rL.cols % 2 !== 0 ? rL.cols - 1 : rL.cols;
-                const usarRot = (rC * rL.rows) > (nC * nL.rows);
-                const pw = usarRot ? piezaH : piezaW;
-                const ph = usarRot ? piezaW : piezaH;
-                const cols = usarRot ? rC : nC;
-                const rows = usarRot ? rL.rows : nL.rows;
+
+                let cols, rows, pw, ph, usarRot;
+                if (volteo === 'horizontal') {
+                    const nC = nL.cols % 2 !== 0 ? nL.cols - 1 : nL.cols;
+                    const rC = rL.cols % 2 !== 0 ? rL.cols - 1 : rL.cols;
+                    usarRot = (rC * rL.rows) > (nC * nL.rows);
+                    pw = usarRot ? piezaH : piezaW; ph = usarRot ? piezaW : piezaH;
+                    cols = usarRot ? rC : nC; rows = usarRot ? rL.rows : nL.rows;
+                } else {
+                    const nR = nL.rows % 2 !== 0 ? nL.rows - 1 : nL.rows;
+                    const rR = rL.rows % 2 !== 0 ? rL.rows - 1 : rL.rows;
+                    usarRot = (rL.cols * rR) > (nL.cols * nR);
+                    pw = usarRot ? piezaH : piezaW; ph = usarRot ? piezaW : piezaH;
+                    cols = usarRot ? rL.cols : nL.cols; rows = usarRot ? rR : nR;
+                }
                 const halfCols = cols / 2;
+                const halfRows = rows / 2;
                 const totalPW = cols * pw;
                 const totalPH = rows * ph;
                 const offsetX = margenMaq + (uW - totalPW) / 2;
@@ -1397,10 +1427,11 @@
                 placements = [];
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
+                        const isTiro = volteo === 'horizontal' ? (c < halfCols) : (r < halfRows);
                         placements.push({
                             x: offsetX + c * pw, y: offsetY + r * ph,
                             w: pw, h: ph, rotated: usarRot,
-                            pageIdx: c < halfCols ? 0 : 1  // 0=tiro (izq), 1=retiro (der)
+                            pageIdx: isTiro ? 0 : 1  // 0=tiro, 1=retiro
                         });
                     }
                 }
@@ -1479,18 +1510,7 @@
                 drawImpositionCropMarks(page, placements, sangrado);
             }
 
-            // Draw margin area outline
-            if (margenMaq > 0) {
-                const mPt = margenMaq * CM_TO_PT;
-                page.drawRectangle({
-                    x: mPt, y: mPt,
-                    width: sheetWpt - 2 * mPt,
-                    height: sheetHpt - 2 * mPt,
-                    borderColor: PDFLib.rgb(0.8, 0.8, 0.8),
-                    borderWidth: 0.25,
-                    color: undefined,
-                });
-            }
+            // Margen imprimible: NO dibujar en el PDF para no estorbar con las placas
 
             // Save and download
             const pdfBytes = await outPdf.save();
@@ -2021,6 +2041,33 @@
     // =====================================================
     // COTIZADOR: Main calculation
     // =====================================================
+    function cotToggleTiroRetiro() {
+        const lados = +document.getElementById('cotLados').value;
+        const opts = document.getElementById('tiroRetiroOpts');
+        opts.style.display = lados === 2 ? 'block' : 'none';
+        if (lados === 1) {
+            document.getElementById('cotPlacasTR').value = 'misma';
+        }
+        cotToggleVolteo();
+    }
+
+    function cotToggleVolteo() {
+        const lados = +document.getElementById('cotLados').value;
+        const placas = document.getElementById('cotPlacasTR').value;
+        const volteoDiv = document.getElementById('volteoOpts');
+        // Solo mostrar volteo cuando es misma placa
+        volteoDiv.style.display = (lados === 2 && placas === 'misma') ? 'block' : 'none';
+        // Mostrar/ocultar advertencia pinza contra pinza
+        const volteo = document.getElementById('cotVolteo').value;
+        document.getElementById('volteoWarn').style.display = volteo === 'vertical' ? 'block' : 'none';
+    }
+
+    // Listener para cambio de placas
+    document.getElementById('cotPlacasTR').addEventListener('change', cotToggleVolteo);
+    document.getElementById('cotVolteo').addEventListener('change', function() {
+        document.getElementById('volteoWarn').style.display = this.value === 'vertical' ? 'block' : 'none';
+    });
+
     function cotCalc() {
         const prodW = +document.getElementById('cotProdW').value || 0;
         const prodH = +document.getElementById('cotProdH').value || 0;
@@ -2067,30 +2114,47 @@
         let piezasPorHoja = 0;
         let tiroRetiroInfo = '';
 
+        const placasTR = document.getElementById('cotPlacasTR').value;
+        const volteo = document.getElementById('cotVolteo').value;
+
         if (hojaUtilW > 0 && hojaUtilH > 0 && piezaW > 0 && piezaH > 0) {
-            if (lados === 2) {
-                // Tiro y retiro en mismo juego de placas:
+            if (lados === 2 && placasTR === 'misma') {
+                // Tiro y retiro en MISMO juego de placas
                 // NO usar imposicion mixta (al voltear no cuadra)
-                // Las COLUMNAS deben ser pares: mitad izq = tiro, mitad der = retiro
                 const n = calcLayout(hojaUtilW, hojaUtilH, piezaW, piezaH, 0, 0);
                 const r = calcLayout(hojaUtilW, hojaUtilH, piezaH, piezaW, 0, 0);
 
-                // Forzar columnas pares en cada orientacion
-                const nCols = n.cols % 2 !== 0 ? n.cols - 1 : n.cols;
-                const rCols = r.cols % 2 !== 0 ? r.cols - 1 : r.cols;
-                const nTotal = nCols * n.rows;
-                const rTotal = rCols * r.rows;
-
-                // Elegir la orientacion que de mas piezas con columnas pares
-                if (nTotal >= rTotal && nCols > 0) {
-                    piezasPorHoja = nTotal;
-                    const porLado = (nCols / 2) * n.rows;
-                    tiroRetiroInfo = `${nCols} columnas (${nCols/2} tiro + ${nCols/2} retiro) x ${n.rows} filas = ${piezasPorHoja} piezas`;
-                } else if (rCols > 0) {
-                    piezasPorHoja = rTotal;
-                    const porLado = (rCols / 2) * r.rows;
-                    tiroRetiroInfo = `${rCols} columnas (${rCols/2} tiro + ${rCols/2} retiro) x ${r.rows} filas = ${piezasPorHoja} piezas`;
+                if (volteo === 'horizontal') {
+                    // Columnas pares: mitad izq = tiro, mitad der = retiro
+                    const nCols = n.cols % 2 !== 0 ? n.cols - 1 : n.cols;
+                    const rCols = r.cols % 2 !== 0 ? r.cols - 1 : r.cols;
+                    const nTotal = nCols * n.rows;
+                    const rTotal = rCols * r.rows;
+                    if (nTotal >= rTotal && nCols > 0) {
+                        piezasPorHoja = nTotal;
+                        tiroRetiroInfo = `${nCols} col (${nCols/2} tiro + ${nCols/2} retiro) x ${n.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
+                    } else if (rCols > 0) {
+                        piezasPorHoja = rTotal;
+                        tiroRetiroInfo = `${rCols} col (${rCols/2} tiro + ${rCols/2} retiro) x ${r.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
+                    }
+                } else {
+                    // Filas pares: mitad arriba = tiro, mitad abajo = retiro (pinza contra pinza)
+                    const nRows = n.rows % 2 !== 0 ? n.rows - 1 : n.rows;
+                    const rRows = r.rows % 2 !== 0 ? r.rows - 1 : r.rows;
+                    const nTotal = n.cols * nRows;
+                    const rTotal = r.cols * rRows;
+                    if (nTotal >= rTotal && nRows > 0) {
+                        piezasPorHoja = nTotal;
+                        tiroRetiroInfo = `${n.cols} col x ${nRows} filas (${nRows/2} tiro + ${nRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
+                    } else if (rRows > 0) {
+                        piezasPorHoja = rTotal;
+                        tiroRetiroInfo = `${r.cols} col x ${rRows} filas (${rRows/2} tiro + ${rRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
+                    }
                 }
+            } else if (lados === 2 && placasTR === 'diferentes') {
+                // Placas diferentes: cada lado tiene su propio juego, se arma como 1 lado
+                piezasPorHoja = bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
+                tiroRetiroInfo = `${piezasPorHoja} piezas por hoja | Placas separadas tiro y retiro`;
             } else {
                 // Solo tiro: usar bestCuts con imposicion mixta
                 piezasPorHoja = bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
@@ -2238,25 +2302,18 @@
         document.getElementById('cotPrecioFinalBig').textContent = precioFinal.toFixed(2);
         document.getElementById('cotPrecioUnitBig').textContent = precioUnit.toFixed(4);
 
-        // Draw previews (hoja uses area util, pliego uses full sheet)
-        // Cuando es 2 lados (tiro/retiro), no usar imposicion mixta y usar la orientacion correcta
-        if (lados === 2 && piezaW > 0 && piezaH > 0) {
-            // Determinar cual orientacion se eligio (la que da mas con columnas pares)
-            const nL = calcLayout(hojaUtilW, hojaUtilH, piezaW, piezaH, 0, 0);
-            const rL = calcLayout(hojaUtilW, hojaUtilH, piezaH, piezaW, 0, 0);
-            const nC = nL.cols % 2 !== 0 ? nL.cols - 1 : nL.cols;
-            const rC = rL.cols % 2 !== 0 ? rL.cols - 1 : rL.cols;
-            const usarRotada = (rC * rL.rows) > (nC * nL.rows);
-            const drawPW = usarRotada ? piezaH : piezaW;
-            const drawPH = usarRotada ? piezaW : piezaH;
-            cotDrawPreview('cotPreviewHoja', hojaW, hojaH, drawPW, drawPH, margenMaq, true);
+        // Draw previews
+        const esMismaPlaca = lados === 2 && placasTR === 'misma';
+        if (esMismaPlaca && piezaW > 0 && piezaH > 0) {
+            cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, 'tiroretiro');
         } else {
             cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, false);
         }
         cotDrawPreview('cotPreviewPliego', pliegoW, pliegoH, hojaW, hojaH, 0, false);
     }
 
-    function cotDrawPreview(canvasId, containerW, containerH, pieceW, pieceH, margin, noMixto) {
+    function cotDrawPreview(canvasId, containerW, containerH, pieceW, pieceH, margin, trMode) {
+        // trMode: false = normal, 'tiroretiro' = misma placa
         margin = margin || 0;
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
@@ -2307,33 +2364,51 @@
         const usableW = containerW - 2 * margin;
         const usableH = containerH - 2 * margin;
 
-        // Tiro/retiro: generar placements manualmente con columnas pares, sin mixto
+        // Generar placements
         let placements;
-        if (noMixto) {
+        if (trMode === 'tiroretiro') {
             placements = [];
             const uW = containerW - 2 * margin;
             const uH = containerH - 2 * margin;
-            // Probar ambas orientaciones y elegir la de mas piezas con columnas pares
+            const volteo = document.getElementById('cotVolteo')?.value || 'horizontal';
             const nL = calcLayout(uW, uH, pieceW, pieceH, 0, 0);
             const rL = calcLayout(uW, uH, pieceH, pieceW, 0, 0);
-            const nC = nL.cols % 2 !== 0 ? nL.cols - 1 : nL.cols;
-            const rC = rL.cols % 2 !== 0 ? rL.cols - 1 : rL.cols;
-            const usarRot = (rC * rL.rows) > (nC * nL.rows);
-            const pw = usarRot ? pieceH : pieceW;
-            const ph = usarRot ? pieceW : pieceH;
-            const cols = usarRot ? rC : nC;
-            const rows = usarRot ? rL.rows : nL.rows;
+
+            let cols, rows, pw, ph;
+            if (volteo === 'horizontal') {
+                // Columnas pares
+                const nC = nL.cols % 2 !== 0 ? nL.cols - 1 : nL.cols;
+                const rC = rL.cols % 2 !== 0 ? rL.cols - 1 : rL.cols;
+                const usarRot = (rC * rL.rows) > (nC * nL.rows);
+                pw = usarRot ? pieceH : pieceW;
+                ph = usarRot ? pieceW : pieceH;
+                cols = usarRot ? rC : nC;
+                rows = usarRot ? rL.rows : nL.rows;
+            } else {
+                // Filas pares (pinza contra pinza)
+                const nR = nL.rows % 2 !== 0 ? nL.rows - 1 : nL.rows;
+                const rR = rL.rows % 2 !== 0 ? rL.rows - 1 : rL.rows;
+                const usarRot = (rL.cols * rR) > (nL.cols * nR);
+                pw = usarRot ? pieceH : pieceW;
+                ph = usarRot ? pieceW : pieceH;
+                cols = usarRot ? rL.cols : nL.cols;
+                rows = usarRot ? rR : nR;
+            }
             // Centrar las piezas en el area util
             const totalPW = cols * pw;
             const totalPH = rows * ph;
             const offsetX = margin + (uW - totalPW) / 2;
             const offsetY = margin + (uH - totalPH) / 2;
+            const halfCols = cols / 2;
+            const halfRows = rows / 2;
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
+                    const isTiro = volteo === 'horizontal' ? (c < halfCols) : (r < halfRows);
                     placements.push({
                         x: offsetX + c * pw,
                         y: offsetY + r * ph,
-                        w: pw, h: ph, rotated: false
+                        w: pw, h: ph, rotated: false,
+                        tiro: isTiro
                     });
                 }
             }
@@ -2360,15 +2435,25 @@
         // Draw pieces
         const colorsNormal = ['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa'];
         const colorsRotated = ['#8b5cf6', '#7c3aed', '#6d28d9', '#a78bfa'];
+        const colorsTiro = ['#2563eb', '#1d4ed8'];
+        const colorsRetiro = ['#f59e0b', '#d97706'];
         placements.forEach((p, i) => {
             const px = ox + (p.x * scale);
             const py = oy + (p.y * scale);
             const pw = p.w * scale;
             const ph = p.h * scale;
-            const clrs = p.rotated ? colorsRotated : colorsNormal;
+            let clrs, strokeClr;
+            if (p.tiro !== undefined) {
+                // Tiro/retiro mode: azul para tiro, naranja para retiro
+                clrs = p.tiro ? colorsTiro : colorsRetiro;
+                strokeClr = p.tiro ? '#1e3a8a' : '#92400e';
+            } else {
+                clrs = p.rotated ? colorsRotated : colorsNormal;
+                strokeClr = p.rotated ? '#4c1d95' : '#1e3a8a';
+            }
             ctx.fillStyle = clrs[i % clrs.length];
             ctx.fillRect(px, py, pw, ph);
-            ctx.strokeStyle = p.rotated ? '#4c1d95' : '#1e3a8a';
+            ctx.strokeStyle = strokeClr;
             ctx.lineWidth = 0.5;
             ctx.strokeRect(px, py, pw, ph);
         });
