@@ -828,10 +828,6 @@
                             <span>Subtotal IVA 15%</span>
                             <strong>$<span id="profSubtotal15">0.00</span></strong>
                         </div>
-                        <div class="proforma-totals-row" id="profDescuentoRow" style="display:none;color:#dc2626;">
-                            <span>Descuento</span>
-                            <strong>-$<span id="profDescuentoMonto">0.00</span></strong>
-                        </div>
                         <div class="proforma-totals-row">
                             <span>Subtotal</span>
                             <strong>$<span id="profSubtotal">0.00</span></strong>
@@ -2889,32 +2885,25 @@
 
     function recalcTotalesProforma() {
         const items = proformaActiva?.items || [];
-        let subtotal0 = 0, subtotal15 = 0, totalDescuento = 0;
+        let subtotal0 = 0, subtotal15 = 0;
 
         items.forEach(it => {
-            const bruto = (it.cantidad || 0) * (it.precio_unitario || 0);
-            const descPct = it.descuento_pct || 0;
-            const desc = bruto * descPct / 100;
-            const neto = bruto - desc;
+            const importe = (it.cantidad || 0) * (it.precio_unitario || 0);
             const itemIva = it.iva_pct !== undefined ? it.iva_pct : 15;
-            totalDescuento += desc;
-            if (itemIva === 0) subtotal0 += neto;
-            else subtotal15 += neto;
+            if (itemIva === 0) subtotal0 += importe;
+            else subtotal15 += importe;
         });
 
-        const subtotalBruto = subtotal0 + subtotal15;
+        const subtotal = subtotal0 + subtotal15;
         const ivaMonto = subtotal15 * 0.15;
-        const total = subtotalBruto + ivaMonto;
+        const total = subtotal + ivaMonto;
 
-        // Mostrar/ocultar filas segun haya items de cada tipo
         document.getElementById('profSubtotal0Row').style.display = subtotal0 > 0 ? 'flex' : 'none';
         document.getElementById('profSubtotal15Row').style.display = subtotal15 > 0 ? 'flex' : 'none';
-        document.getElementById('profDescuentoRow').style.display = totalDescuento > 0 ? 'flex' : 'none';
 
         document.getElementById('profSubtotal0').textContent = subtotal0.toFixed(2);
         document.getElementById('profSubtotal15').textContent = subtotal15.toFixed(2);
-        document.getElementById('profDescuentoMonto').textContent = totalDescuento.toFixed(2);
-        document.getElementById('profSubtotal').textContent = subtotalBruto.toFixed(2);
+        document.getElementById('profSubtotal').textContent = subtotal.toFixed(2);
         document.getElementById('profIVALabel').textContent = '15';
         document.getElementById('profIVAMonto').textContent = ivaMonto.toFixed(2);
         document.getElementById('profTotal').textContent = total.toFixed(2);
@@ -3012,7 +3001,6 @@
             precioFinal: document.getElementById('cotPrecioFinal')?.textContent,
         };
 
-        const descPct = parseFloat(document.getElementById('cotDescuento').value) || 0;
         const itemIvaPct = parseFloat(document.getElementById('cotIVA').value) || 0;
 
         proformaActiva.items.push({
@@ -3020,7 +3008,6 @@
             descripcion: descripcion,
             cantidad: cantidad,
             precio_unitario: precioUnit,
-            descuento_pct: descPct,
             iva_pct: itemIvaPct,
             imagen_url: null,
             datos_cotizacion: snapshot
@@ -3107,11 +3094,8 @@
         const items = proformaActiva.items || [];
         let _sub0 = 0, _sub15 = 0, _totalDesc = 0;
         items.forEach(it => {
-            const bruto = (it.cantidad || 0) * (it.precio_unitario || 0);
-            const desc = bruto * (it.descuento_pct || 0) / 100;
-            const neto = bruto - desc;
-            _totalDesc += desc;
-            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _sub0 += neto; else _sub15 += neto;
+            const importe = (it.cantidad || 0) * (it.precio_unitario || 0);
+            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _sub0 += importe; else _sub15 += importe;
         });
         const subtotal = _sub0 + _sub15;
         const iva = _sub15 * 0.15;
@@ -3336,15 +3320,6 @@
             doc.text('$' + _sub15.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
             y += 8;
         }
-        // Descuento (solo si hay)
-        if (_totalDesc > 0) {
-            cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
-            doc.setTextColor(220, 38, 38);
-            doc.text('Descuento', totX + 3, y + 5.5);
-            doc.text('-$' + _totalDesc.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
-            doc.setTextColor(...cDark);
-            y += 8;
-        }
         // Subtotal
         cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
         doc.text('Subtotal', totX + 3, y + 5.5);
@@ -3415,11 +3390,8 @@
         const items = proformaActiva.items || [];
         let _sub0 = 0, _sub15 = 0, _totalDesc = 0;
         items.forEach(it => {
-            const bruto = (it.cantidad || 0) * (it.precio_unitario || 0);
-            const desc = bruto * (it.descuento_pct || 0) / 100;
-            const neto = bruto - desc;
-            _totalDesc += desc;
-            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _sub0 += neto; else _sub15 += neto;
+            const importe = (it.cantidad || 0) * (it.precio_unitario || 0);
+            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _sub0 += importe; else _sub15 += importe;
         });
         const subtotal = _sub0 + _sub15;
         const iva = _sub15 * 0.15;
@@ -3522,7 +3494,6 @@
         doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...cDark);
         if (_sub0 > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.text('Subtotal IVA 0%',totX+3,y+5.5); doc.text('$'+_sub0.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8; }
         if (_sub15 > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.text('Subtotal IVA 15%',totX+3,y+5.5); doc.text('$'+_sub15.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8; }
-        if (_totalDesc > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.setTextColor(220,38,38); doc.text('Descuento',totX+3,y+5.5); doc.text('-$'+_totalDesc.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); doc.setTextColor(...cDark); y+=8; }
         cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8);
         doc.text('Subtotal',totX+3,y+5.5); doc.text('$'+subtotal.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8;
         cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8);
@@ -3608,8 +3579,8 @@
 
         const items = proformaActiva.items || [];
         let _s0 = 0, _s15 = 0;
-        items.forEach(it => { const b = (it.cantidad||0)*(it.precio_unitario||0); const n = b - b*(it.descuento_pct||0)/100;
-            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _s0 += n; else _s15 += n; });
+        items.forEach(it => { const imp = (it.cantidad||0)*(it.precio_unitario||0);
+            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _s0 += imp; else _s15 += imp; });
         const total = _s0 + _s15 + _s15 * 0.15;
 
         let msg = `*PROFORMA #${proformaActiva.numero}*\n`;
@@ -3641,8 +3612,8 @@
 
         const items = proformaActiva.items || [];
         let _s0 = 0, _s15 = 0;
-        items.forEach(it => { const b = (it.cantidad||0)*(it.precio_unitario||0); const n = b - b*(it.descuento_pct||0)/100;
-            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _s0 += n; else _s15 += n; });
+        items.forEach(it => { const imp = (it.cantidad||0)*(it.precio_unitario||0);
+            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _s0 += imp; else _s15 += imp; });
         const total = _s0 + _s15 + _s15 * 0.15;
 
         const subject = `Proforma #${proformaActiva.numero} - INGENIA`;
