@@ -1989,8 +1989,19 @@
             ? bestCuts(pliegoW, pliegoH, hojaW, hojaH) : 0;
 
         // 2. Piezas por hoja maquina (usando area util y pieza con sangrado)
-        const piezasPorHoja = (hojaUtilW > 0 && hojaUtilH > 0 && piezaW > 0 && piezaH > 0)
+        let piezasPorHoja = (hojaUtilW > 0 && hojaUtilH > 0 && piezaW > 0 && piezaH > 0)
             ? bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH) : 0;
+
+        // Tiro y retiro en mismo juego de placas:
+        // Las piezas se dividen mitad tiro / mitad retiro, debe ser par
+        let tiroRetiroInfo = '';
+        if (lados === 2 && piezasPorHoja > 0) {
+            if (piezasPorHoja % 2 !== 0) {
+                piezasPorHoja = piezasPorHoja - 1; // Forzar par (quitar 1)
+            }
+            const porLado = piezasPorHoja / 2;
+            tiroRetiroInfo = `${porLado} tiros + ${porLado} retiros = ${piezasPorHoja} piezas por hoja`;
+        }
 
         // 3. Hojas netas
         const hojasNetas = piezasPorHoja > 0 ? Math.ceil(cantidad / piezasPorHoja) : 0;
@@ -2014,14 +2025,19 @@
 
         // Info badges
         const infoEl = document.getElementById('cotFormatosInfo');
-        infoEl.innerHTML = `<span class="info-badge blue">${fmtPorPliego} formatos por pliego</span> <span class="info-badge green">${piezasPorHoja} piezas por hoja</span>`;
+        let badges = `<span class="info-badge blue">${fmtPorPliego} formatos por pliego</span> <span class="info-badge green">${piezasPorHoja} piezas por hoja</span>`;
+        if (tiroRetiroInfo) {
+            badges += `<br><span class="info-badge" style="background:#fef3c7;color:#92400e;margin-top:4px;">${tiroRetiroInfo} (mismo juego de placas)</span>`;
+        }
+        infoEl.innerHTML = badges;
 
         // 7. Costs
         const costoMaterial = pliegosNec * precioPliego;
+        // Placas: cuando es tiro/retiro (2 lados), ambos lados van en el mismo juego
+        // Solo se cobra 1 juego de placas, no 2
         const totalPlacas = colores * juegosPlacas;
         const costoPlacasTotal = totalPlacas * costoPlaca;
-        // Impresion: se cobra por millar redondeado (1-1000=1, 1001-2000=2, etc.)
-        // Se usa hojas NETAS (sin merma), tiro y retiro se suman
+        // Impresion: cada hoja pasa N veces (1 si solo tiro, 2 si tiro+retiro)
         const pasadasImpresion = hojasNetas * lados;
         const millaresImpresion = Math.ceil(pasadasImpresion / 1000);
         const costoImpresion = millaresImpresion * costoMillarColor * colores;
