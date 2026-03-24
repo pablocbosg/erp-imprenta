@@ -314,7 +314,7 @@
     <header>
         <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
-                <h1>Cotizador Offset - SM52</h1>
+                <h1>Cotizador Offset - <span id="headerMaquina">SM52</span></h1>
                 <p>Calcula costos, cortes y genera proformas</p>
             </div>
             <button onclick="doLogout()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;">Cerrar Sesion</button>
@@ -422,8 +422,15 @@
 
                 <!-- Formato de maquina -->
                 <div class="panel">
-                    <div class="panel-header">Formato de Maquina (SM52)</div>
+                    <div class="panel-header">Formato de Maquina (<span id="panelMaquinaNombre">SM52</span>)</div>
                     <div class="panel-body">
+                        <div class="form-group">
+                            <label>Maquina</label>
+                            <select id="cotMaquina" onchange="cambiarMaquina()" style="font-weight:600;">
+                                <option value="SM52">SM52 (max 50x35) — Placa $4 / Millar $4</option>
+                                <option value="PM72">PM72 (max 72x52) — Placa $5 / Millar $10</option>
+                            </select>
+                        </div>
                         <div class="form-group">
                             <label>Formato frecuente</label>
                             <select id="cotFormato" onchange="cotOnFormatoChange()">
@@ -2289,15 +2296,59 @@
     // =====================================================
     // COTIZADOR: Formato de maquina
     // =====================================================
-    const machineFormats = {
-        '50x35': { w: 50, h: 35 },
-        '48.2x33': { w: 48.2, h: 33 },
-        '45x32.5': { w: 45, h: 32.5 },
-        '33x23': { w: 33, h: 23 },
-        '32.5x22.5': { w: 32.5, h: 22.5 },
-        '22.5x32.5': { w: 22.5, h: 32.5 },
-        '14x20': { w: 14, h: 20 },
+    const maquinasConfig = {
+        'SM52': {
+            nombre: 'SM52',
+            formatos: {
+                '50x35': {w:50,h:35}, '48.2x33': {w:48.2,h:33}, '45x32.5': {w:45,h:32.5},
+                '33x23': {w:33,h:23}, '32.5x22.5': {w:32.5,h:22.5}, '22.5x32.5': {w:22.5,h:32.5},
+                '14x20': {w:14,h:20}
+            },
+            costoPlaca: 4, costoMillar: 4
+        },
+        'PM72': {
+            nombre: 'PM72',
+            formatos: {
+                '72x52': {w:72,h:52}, '70x50': {w:70,h:50}, '65x47': {w:65,h:47},
+                '52x36': {w:52,h:36}, '50x35': {w:50,h:35}, '36x26': {w:36,h:26}
+            },
+            costoPlaca: 5, costoMillar: 10
+        }
     };
+    let machineFormats = { ...maquinasConfig['SM52'].formatos };
+
+    function cambiarMaquina() {
+        const sel = document.getElementById('cotMaquina').value;
+        const maq = maquinasConfig[sel];
+        if (!maq) return;
+        // Update headers
+        document.getElementById('headerMaquina').textContent = maq.nombre;
+        document.getElementById('panelMaquinaNombre').textContent = maq.nombre;
+        // Update machineFormats
+        machineFormats = { ...maq.formatos };
+        // Repopulate formato dropdown
+        const formatoSel = document.getElementById('cotFormato');
+        formatoSel.innerHTML = '';
+        for (const [key, val] of Object.entries(maq.formatos)) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = val.w + ' x ' + val.h + ' cm';
+            formatoSel.appendChild(opt);
+        }
+        const customOpt = document.createElement('option');
+        customOpt.value = '';
+        customOpt.textContent = 'Personalizado';
+        formatoSel.appendChild(customOpt);
+        // Set first format as default
+        const firstKey = Object.keys(maq.formatos)[0];
+        formatoSel.value = firstKey;
+        document.getElementById('cotHojaW').value = maq.formatos[firstKey].w;
+        document.getElementById('cotHojaH').value = maq.formatos[firstKey].h;
+        // Update costs
+        document.getElementById('cotCostoPlaca').value = maq.costoPlaca;
+        document.getElementById('cotCostoMillar').value = maq.costoMillar;
+        cotCalc();
+    }
 
     function cotOnFormatoChange() {
         const sel = document.getElementById('cotFormato').value;
