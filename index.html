@@ -3236,9 +3236,9 @@
         // ===============================
         // TABLA DE ITEMS con bordes
         // ===============================
-        const colW = [22, 18, 0, 22, 25, 25, 24]; // Codigo | Cant | Desc | P.Unit | Descuento | Total | Ref
+        const colW = [22, 18, 0, 22, 25, 24]; // Codigo | Cant | Desc | P.Unit | Total | Ref
         colW[2] = pw - colW.reduce((a, b) => a + b, 0);
-        const headers = ['Codigo', 'Cantidad', 'Descripcion', 'Precio\nUnitario', 'Descuento', 'Total', 'Ref.'];
+        const headers = ['Codigo', 'Cantidad', 'Descripcion', 'Precio\nUnitario', 'Total', 'Ref.'];
         const thH = 10;
 
         // Header con fondo
@@ -3279,7 +3279,6 @@
                 String(it.cantidad || 0),
                 '', // descripcion se maneja aparte
                 (it.precio_unitario || 0).toFixed(3),
-                '$0.00',
                 '$' + imp.toFixed(2),
                 '' // imagen se maneja aparte
             ];
@@ -3289,7 +3288,7 @@
                 cell(cx, y, colW[j], rH);
                 if (j === 2) {
                     doc.text(descLines, cx + 2, y + 4);
-                } else if (j === 6) {
+                } else if (j === 5) {
                     // Columna de imagen de referencia
                     if (hasImg) {
                         try { doc.addImage(it.imagen_url, 'JPEG', cx + 2, y + 1.5, 20, rH - 3); } catch(e) {}
@@ -3297,9 +3296,9 @@
                 } else {
                     const tx = j >= 3 ? cx + colW[j] - 3 : cx + 3;
                     const alignOpt = j >= 3 ? { align: 'right' } : {};
-                    if (j === 5) doc.setFont('helvetica', 'bold');
+                    if (j === 4) doc.setFont('helvetica', 'bold');
                     doc.text(v, tx, y + rH / 2 + 1.5, alignOpt);
-                    if (j === 5) doc.setFont('helvetica', 'normal');
+                    if (j === 4) doc.setFont('helvetica', 'normal');
                 }
                 cx += colW[j];
             });
@@ -3505,14 +3504,14 @@
             const textH = dL.length*4+4;
             const rH = Math.max(hasImg ? 24 : 8, textH);
             if (y+rH > H-40) { doc.addPage(); y = M; }
-            const vals = [it.codigo||'', String(it.cantidad||0), '', (it.precio_unitario||0).toFixed(3), '$0.00', '$'+imp.toFixed(2), ''];
+            const vals = [it.codigo||'', String(it.cantidad||0), '', (it.precio_unitario||0).toFixed(3), '$'+imp.toFixed(2), ''];
             cx = M;
             vals.forEach((v, j) => {
                 cell(cx, y, colW[j], rH);
                 if (j===2) { doc.text(dL, cx+2, y+4); }
-                else if (j===6) { if (hasImg) { try { doc.addImage(it.imagen_url, 'JPEG', cx+2, y+1.5, 20, rH-3); } catch(e) {} } }
+                else if (j===5) { if (hasImg) { try { doc.addImage(it.imagen_url, 'JPEG', cx+2, y+1.5, 20, rH-3); } catch(e) {} } }
                 else { const tx = j>=3 ? cx+colW[j]-3 : cx+3; const ao = j>=3?{align:'right'}:{};
-                    if(j===5) doc.setFont('helvetica','bold'); doc.text(v, tx, y+rH/2+1.5, ao); if(j===5) doc.setFont('helvetica','normal'); }
+                    if(j===4) doc.setFont('helvetica','bold'); doc.text(v, tx, y+rH/2+1.5, ao); if(j===4) doc.setFont('helvetica','normal'); }
                 cx += colW[j];
             });
             y += rH;
