@@ -3196,18 +3196,22 @@
         doc.setFontSize(8.5);
         doc.setTextColor(...cDark);
 
-        items.forEach((it, i) => {
+        for (let i = 0; i < items.length; i++) {
+            const it = items[i];
             const imp = (it.cantidad || 0) * (it.precio_unitario || 0);
-            // Calcular altura de fila basada en descripcion
-            const descLines = doc.splitTextToSize(it.descripcion || '', colW[2] - 4);
-            const rH = Math.max(8, descLines.length * 4 + 4);
+            const hasImg = it.imagen_url && it.imagen_url.length > 5;
+            const imgH = hasImg ? 22 : 0;
+            // Calcular altura de fila basada en descripcion + imagen
+            const descLines = doc.splitTextToSize(it.descripcion || '', colW[2] - (hasImg ? 26 : 4));
+            const textH = descLines.length * 4 + 4;
+            const rH = Math.max(8, hasImg ? Math.max(textH, imgH + 4) : textH);
 
             if (y + rH > H - 40) { doc.addPage(); y = M; }
 
             const vals = [
                 it.codigo || '',
                 String(it.cantidad || 0),
-                '', // descripcion se maneja aparte
+                '', // descripcion + imagen se manejan aparte
                 (it.precio_unitario || 0).toFixed(3),
                 '$0.00',
                 '$' + imp.toFixed(2)
@@ -3217,9 +3221,14 @@
             vals.forEach((v, j) => {
                 cell(cx, y, colW[j], rH);
                 if (j === 2) {
-                    doc.text(descLines, cx + 2, y + 4);
+                    // Imagen de referencia a la izquierda de la descripcion
+                    if (hasImg) {
+                        try { doc.addImage(it.imagen_url, 'JPEG', cx + 2, y + 1.5, 20, 20); } catch(e) {}
+                        doc.text(descLines, cx + 24, y + 4);
+                    } else {
+                        doc.text(descLines, cx + 2, y + 4);
+                    }
                 } else {
-                    const align = (j >= 3) ? 'right' : (j <= 1 ? 'left' : 'left');
                     const tx = j >= 3 ? cx + colW[j] - 3 : cx + 3;
                     const alignOpt = j >= 3 ? { align: 'right' } : {};
                     if (j === 5) doc.setFont('helvetica', 'bold');
@@ -3230,7 +3239,7 @@
             });
 
             y += rH;
-        });
+        }
 
         y += 8;
 
@@ -3393,22 +3402,29 @@
         });
         y += 10;
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...cDark);
-        items.forEach((it) => {
+        for (let ii = 0; ii < items.length; ii++) {
+            const it = items[ii];
             const imp = (it.cantidad||0)*(it.precio_unitario||0);
-            const dL = doc.splitTextToSize(it.descripcion||'', colW[2]-4);
-            const rH = Math.max(8, dL.length*4+4);
+            const hasImg = it.imagen_url && it.imagen_url.length > 5;
+            const imgH = hasImg ? 22 : 0;
+            const dL = doc.splitTextToSize(it.descripcion||'', colW[2]-(hasImg?26:4));
+            const textH = dL.length*4+4;
+            const rH = Math.max(8, hasImg ? Math.max(textH, imgH+4) : textH);
             if (y+rH > H-40) { doc.addPage(); y = M; }
             const vals = [it.codigo||'', String(it.cantidad||0), '', (it.precio_unitario||0).toFixed(3), '$0.00', '$'+imp.toFixed(2)];
             cx = M;
             vals.forEach((v, j) => {
                 cell(cx, y, colW[j], rH);
-                if (j===2) { doc.text(dL, cx+2, y+4); }
+                if (j===2) {
+                    if (hasImg) { try { doc.addImage(it.imagen_url, 'JPEG', cx+2, y+1.5, 20, 20); } catch(e) {} doc.text(dL, cx+24, y+4); }
+                    else { doc.text(dL, cx+2, y+4); }
+                }
                 else { const tx = j>=3 ? cx+colW[j]-3 : cx+3; const ao = j>=3?{align:'right'}:{};
                     if(j===5) doc.setFont('helvetica','bold'); doc.text(v, tx, y+rH/2+1.5, ao); if(j===5) doc.setFont('helvetica','normal'); }
                 cx += colW[j];
             });
             y += rH;
-        });
+        }
         y += 8;
         if (y > H-55) { doc.addPage(); y = M; }
         const totX = M+pw*0.55, totW2 = pw*0.45, totLW = totW2*0.55, totVW = totW2*0.45;
