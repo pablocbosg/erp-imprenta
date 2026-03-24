@@ -511,6 +511,10 @@
                                 </select>
                             </label>
                             <div id="cotUVSelectivoInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="cotGuillotina" onchange="cotCalc()" checked> Corte guillotina
+                            </label>
+                            <div id="cotGuillotinaInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
                         </div>
                         <div class="form-group">
                             <label>Otros terminados ($)</label>
@@ -649,6 +653,10 @@
                         <div class="cost-row" id="cotCostUVSelRow" style="display:none;">
                             <span class="cost-label">UV Selectivo <span id="cotCostUVSelLabel"></span></span>
                             <span class="cost-value">$<span id="cotCostUVSel">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="cotCostGuilloRow" style="display:none;">
+                            <span class="cost-label">Guillotina <span id="cotCostGuilloLabel"></span></span>
+                            <span class="cost-value">$<span id="cotCostGuillo">0.00</span></span>
                         </div>
                         <div class="cost-row">
                             <span class="cost-label">Otros terminados</span>
@@ -1789,6 +1797,46 @@
         return best;
     }
 
+    // Calcula bajadas de guillotina para el mejor layout
+    function calcGuillotineCuts(sheetW, sheetH, pieceW, pieceH) {
+        const n = calcLayout(sheetW, sheetH, pieceW, pieceH, 0, 0);
+        const r = calcLayout(sheetW, sheetH, pieceH, pieceW, 0, 0);
+        const m1 = calcMixedLayout(sheetW, sheetH, pieceW, pieceH, 0, 0);
+        const m2 = calcMixedLayout(sheetW, sheetH, pieceH, pieceW, 0, 0);
+
+        let bestTotal = 0;
+        let bestCuts = 0;
+
+        // Layout normal
+        if (n.total > bestTotal) {
+            bestTotal = n.total;
+            bestCuts = 4 + (n.cols - 1) + (n.rows - 1); // 4 filos + internos
+        }
+        // Layout rotado
+        if (r.total > bestTotal) {
+            bestTotal = r.total;
+            bestCuts = 4 + (r.cols - 1) + (r.rows - 1);
+        }
+        // Layouts mixtos: 4 filos + 1 corte separador de zonas + internos de cada zona
+        if (m1 && m1.total > bestTotal) {
+            bestTotal = m1.total;
+            let cuts = 4 + 1; // 4 filos + 1 separador entre zonas
+            for (const z of m1.zones) {
+                cuts += (z.cols - 1) + (z.rows - 1);
+            }
+            bestCuts = cuts;
+        }
+        if (m2 && m2.total > bestTotal) {
+            bestTotal = m2.total;
+            let cuts = 4 + 1;
+            for (const z of m2.zones) {
+                cuts += (z.cols - 1) + (z.rows - 1);
+            }
+            bestCuts = cuts;
+        }
+        return { total: bestTotal, cortes: bestCuts };
+    }
+
     // =====================================================
     // DATA: Supabase connection
     // =====================================================
@@ -2297,7 +2345,59 @@
             uvSelInfo.style.display = 'none';
         }
 
-        const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo;
+        // Corte guillotina
+        let costoGuillotina = 0;
+        const guillotinaChecked = document.getElementById('cotGuillotina').checked;
+        const guilloInfo = document.getElementById('cotGuillotinaInfo');
+        if (guillotinaChecked && piezasPorHoja > 1 && hojasTotales > 0) {
+            // Calcular cortes por hoja segun layout
+            let cortesPorHoja = 0;
+            if (lados === 2 && document.getElementById('cotPlacasTR').value === 'misma') {
+                // Tiro/retiro misma placa: usar el layout que ya se calculo arriba
+                const volteoActual = document.getElementById('cotVolteo').value;
+                const nL = calcLayout(hojaUtilW, hojaUtilH, piezaW, piezaH, 0, 0);
+                const rL = calcLayout(hojaUtilW, hojaUtilH, piezaH, piezaW, 0, 0);
+                if (volteoActual === 'horizontal') {
+                    const hNC = nL.cols % 2 !== 0 ? nL.cols - 1 : nL.cols;
+                    const hRC = rL.cols % 2 !== 0 ? rL.cols - 1 : rL.cols;
+                    if (hNC * nL.rows >= hRC * rL.rows && hNC > 0) {
+                        cortesPorHoja = 4 + (hNC - 1) + (nL.rows - 1);
+                    } else if (hRC > 0) {
+                        cortesPorHoja = 4 + (hRC - 1) + (rL.rows - 1);
+                    }
+                } else {
+                    const vNR = nL.rows % 2 !== 0 ? nL.rows - 1 : nL.rows;
+                    const vRR = rL.rows % 2 !== 0 ? rL.rows - 1 : rL.rows;
+                    if (nL.cols * vNR >= rL.cols * vRR && vNR > 0) {
+                        cortesPorHoja = 4 + (nL.cols - 1) + (vNR - 1);
+                    } else if (vRR > 0) {
+                        cortesPorHoja = 4 + (rL.cols - 1) + (vRR - 1);
+                    }
+                }
+            } else {
+                // Caso general: usar calcGuillotineCuts
+                const guilloLayout = calcGuillotineCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
+                cortesPorHoja = guilloLayout.cortes;
+            }
+
+            // Gramaje del material para capacidad de apilamiento
+            const matIdx = document.getElementById('cotMaterial').value;
+            const gramaje = matIdx !== '' ? (appData.materiales[+matIdx]?.gramaje || 0) : 0;
+            const capacidadPila = gramaje > 150 ? 300 : 1000;
+            const pasadasPorCorte = Math.max(1, Math.ceil(hojasTotales / capacidadPila));
+            const totalBajadas = cortesPorHoja * pasadasPorCorte;
+
+            const costoFijoGuillo = 2;
+            const costoPorBajada = 0.25;
+            costoGuillotina = costoFijoGuillo + totalBajadas * costoPorBajada;
+
+            guilloInfo.textContent = cortesPorHoja + ' cortes/hoja x ' + pasadasPorCorte + ' pasada' + (pasadasPorCorte > 1 ? 's' : '') + ' (' + (gramaje > 150 ? '300' : '1000') + ' hojas/pila, ' + gramaje + 'g) = ' + totalBajadas + ' bajadas x $' + costoPorBajada.toFixed(2) + ' + $' + costoFijoGuillo.toFixed(2) + ' setup = $' + costoGuillotina.toFixed(2);
+            guilloInfo.style.display = 'block';
+        } else {
+            guilloInfo.style.display = 'none';
+        }
+
+        const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina;
 
         const subtotalCosto = costoMaterial + costoPlacasTotal + costoImpresion + costoTerminados;
         const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
@@ -2337,6 +2437,11 @@
         if (costoUVSelectivo > 0) {
             const lUV = +document.getElementById('cotUVSelectivoCaras').value;
             document.getElementById('cotCostUVSelLabel').textContent = '(' + lUV + ' lado' + (lUV > 1 ? 's' : '') + ')';
+        }
+        document.getElementById('cotCostGuillo').textContent = costoGuillotina.toFixed(2);
+        document.getElementById('cotCostGuilloRow').style.display = costoGuillotina > 0 ? 'flex' : 'none';
+        if (costoGuillotina > 0) {
+            document.getElementById('cotCostGuilloLabel').textContent = '(' + (guilloInfo.textContent.match(/\d+ cortes/)?.[0] || '') + ')';
         }
         document.getElementById('cotCostTerm').textContent = terminados.toFixed(2);
         document.getElementById('cotSubtotalCosto').textContent = subtotalCosto.toFixed(2);
