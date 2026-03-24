@@ -515,6 +515,28 @@
                                 <input type="checkbox" id="cotGuillotina" onchange="cotCalc()" checked> Corte guillotina
                             </label>
                             <div id="cotGuillotinaInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="cotTroquelado" onchange="cotCalc()"> Troquelado
+                                <select id="cotTroquelMaquina" onchange="cotCalc()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="manual">Manual 70x50 ($12/millar)</option>
+                                    <option value="auto">Automatica 50x35 ($6/millar)</option>
+                                </select>
+                            </label>
+                            <div id="cotTroqueladoInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <div id="cotTroquelSection" style="display:none;margin-top:0.4rem;padding:0.5rem;background:var(--gray-50);border-radius:6px;border:1px solid var(--gray-200);">
+                                <label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.3rem;display:block;">Troquel (cuchilla)</label>
+                                <div style="display:flex;gap:0.5rem;align-items:center;">
+                                    <div style="flex:1;">
+                                        <label style="font-size:0.72rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray-500);">CM lineales cuchilla</label>
+                                        <input type="number" id="cotTroquelCuchilla" step="0.1" min="0" value="0" oninput="cotCalc()" style="font-size:0.85rem;padding:0.3rem 0.5rem;">
+                                    </div>
+                                    <div style="flex:1;">
+                                        <label style="font-size:0.72rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray-500);">CM lineales grafa</label>
+                                        <input type="number" id="cotTroquelGrafa" step="0.1" min="0" value="0" oninput="cotCalc()" style="font-size:0.85rem;padding:0.3rem 0.5rem;">
+                                    </div>
+                                </div>
+                                <div id="cotTroquelInfo" style="font-size:0.75rem;color:var(--gray-500);margin-top:0.3rem;"></div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Otros terminados ($)</label>
@@ -657,6 +679,14 @@
                         <div class="cost-row" id="cotCostGuilloRow" style="display:none;">
                             <span class="cost-label">Guillotina <span id="cotCostGuilloLabel"></span></span>
                             <span class="cost-value">$<span id="cotCostGuillo">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="cotCostTroquelServRow" style="display:none;">
+                            <span class="cost-label">Troquelado <span id="cotCostTroquelServLabel"></span></span>
+                            <span class="cost-value">$<span id="cotCostTroquelServ">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="cotCostTroquelRow" style="display:none;">
+                            <span class="cost-label">Troquel <span id="cotCostTroquelLabel"></span></span>
+                            <span class="cost-value">$<span id="cotCostTroquel">0.00</span></span>
                         </div>
                         <div class="cost-row">
                             <span class="cost-label">Otros terminados</span>
@@ -2397,7 +2427,46 @@
             guilloInfo.style.display = 'none';
         }
 
-        const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina;
+        // Troquelado
+        let costoTroquelServicio = 0;
+        let costoTroquel = 0;
+        const troquelChecked = document.getElementById('cotTroquelado').checked;
+        const troquelSection = document.getElementById('cotTroquelSection');
+        const troqueladoInfo = document.getElementById('cotTroqueladoInfo');
+        const troquelInfo = document.getElementById('cotTroquelInfo');
+        if (troquelChecked) {
+            troquelSection.style.display = 'block';
+            if (hojasTotales > 0) {
+                // Costo del servicio de troquelado (similar a impresion offset, por millar)
+                const maquinaTroquel = document.getElementById('cotTroquelMaquina').value;
+                const costoPorMillarTroquel = maquinaTroquel === 'auto' ? 6 : 12;
+                // Total de papel con mermas menos 40 que se danan en impresion
+                const totalParaTroquel = Math.max(0, hojasTotales - 40);
+                const millaresTroquel = Math.max(1, Math.ceil(totalParaTroquel / 1000));
+                costoTroquelServicio = millaresTroquel * costoPorMillarTroquel;
+                troqueladoInfo.textContent = (maquinaTroquel === 'auto' ? 'Automatica' : 'Manual') + ' | ' + totalParaTroquel + ' hojas (' + hojasTotales + ' - 40 merma imp.) = ' + millaresTroquel + ' millar' + (millaresTroquel > 1 ? 'es' : '') + ' x $' + costoPorMillarTroquel + ' = $' + costoTroquelServicio.toFixed(2);
+                troqueladoInfo.style.display = 'block';
+            } else {
+                troqueladoInfo.style.display = 'none';
+            }
+            // Costo del troquel (cuchilla + grafa por cm lineal)
+            const cmCuchilla = parseFloat(document.getElementById('cotTroquelCuchilla').value) || 0;
+            const cmGrafa = parseFloat(document.getElementById('cotTroquelGrafa').value) || 0;
+            const totalCmLineales = cmCuchilla + cmGrafa;
+            const costoPorCm = 0.10;
+            const minimoTroquel = 12;
+            if (totalCmLineales > 0) {
+                costoTroquel = Math.max(minimoTroquel, totalCmLineales * costoPorCm);
+                troquelInfo.textContent = (cmCuchilla > 0 ? cmCuchilla + ' cm cuchilla' : '') + (cmCuchilla > 0 && cmGrafa > 0 ? ' + ' : '') + (cmGrafa > 0 ? cmGrafa + ' cm grafa' : '') + ' = ' + totalCmLineales + ' cm x $' + costoPorCm.toFixed(2) + ' = $' + (totalCmLineales * costoPorCm).toFixed(2) + (totalCmLineales * costoPorCm < minimoTroquel ? ' (minimo $' + minimoTroquel + ')' : '');
+            } else {
+                troquelInfo.textContent = 'Ingresa cm lineales de cuchilla y/o grafa ($' + costoPorCm.toFixed(2) + '/cm, minimo $' + minimoTroquel + ')';
+            }
+        } else {
+            troquelSection.style.display = 'none';
+            troqueladoInfo.style.display = 'none';
+        }
+
+        const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina + costoTroquelServicio + costoTroquel;
 
         const subtotalCosto = costoMaterial + costoPlacasTotal + costoImpresion + costoTerminados;
         const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
@@ -2442,6 +2511,19 @@
         document.getElementById('cotCostGuilloRow').style.display = costoGuillotina > 0 ? 'flex' : 'none';
         if (costoGuillotina > 0) {
             document.getElementById('cotCostGuilloLabel').textContent = '(' + (guilloInfo.textContent.match(/\d+ cortes/)?.[0] || '') + ')';
+        }
+        document.getElementById('cotCostTroquelServ').textContent = costoTroquelServicio.toFixed(2);
+        document.getElementById('cotCostTroquelServRow').style.display = costoTroquelServicio > 0 ? 'flex' : 'none';
+        if (costoTroquelServicio > 0) {
+            const maqTr = document.getElementById('cotTroquelMaquina').value;
+            document.getElementById('cotCostTroquelServLabel').textContent = '(' + (maqTr === 'auto' ? 'automatica' : 'manual') + ')';
+        }
+        document.getElementById('cotCostTroquel').textContent = costoTroquel.toFixed(2);
+        document.getElementById('cotCostTroquelRow').style.display = costoTroquel > 0 ? 'flex' : 'none';
+        if (costoTroquel > 0) {
+            const cmC = parseFloat(document.getElementById('cotTroquelCuchilla').value) || 0;
+            const cmG = parseFloat(document.getElementById('cotTroquelGrafa').value) || 0;
+            document.getElementById('cotCostTroquelLabel').textContent = '(' + (cmC + cmG) + ' cm lineales)';
         }
         document.getElementById('cotCostTerm').textContent = terminados.toFixed(2);
         document.getElementById('cotSubtotalCosto').textContent = subtotalCosto.toFixed(2);
