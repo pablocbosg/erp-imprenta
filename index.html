@@ -1362,7 +1362,48 @@
             const piezaH = prodH + 2 * sangrado;
 
             // Calculate layout
-            const placements = calcImpositionLayout(hojaW, hojaH, piezaW, piezaH, margenMaq, useMixed);
+            const lados = +document.getElementById('cotLados').value || 1;
+            let placements;
+            if (lados === 2) {
+                // Tiro/retiro: columnas pares, centradas, sin mixto
+                const uW = hojaW - 2 * margenMaq;
+                const uH = hojaH - 2 * margenMaq;
+                const nL = calcLayout(uW, uH, piezaW, piezaH, 0, 0);
+                const rL = calcLayout(uW, uH, piezaH, piezaW, 0, 0);
+                const nC = nL.cols % 2 !== 0 ? nL.cols - 1 : nL.cols;
+                const rC = rL.cols % 2 !== 0 ? rL.cols - 1 : rL.cols;
+                const usarRot = (rC * rL.rows) > (nC * nL.rows);
+                const pw = usarRot ? piezaH : piezaW;
+                const ph = usarRot ? piezaW : piezaH;
+                const cols = usarRot ? rC : nC;
+                const rows = usarRot ? rL.rows : nL.rows;
+                const totalPW = cols * pw;
+                const totalPH = rows * ph;
+                const offsetX = margenMaq + (uW - totalPW) / 2;
+                const offsetY = margenMaq + (uH - totalPH) / 2;
+                placements = [];
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        placements.push({ x: offsetX + c * pw, y: offsetY + r * ph, w: pw, h: ph, rotated: usarRot });
+                    }
+                }
+            } else {
+                // 1 lado: usar layout con imposicion mixta, centrado
+                const tmpP = calcImpositionLayout(hojaW, hojaH, piezaW, piezaH, margenMaq, useMixed);
+                if (tmpP.length > 0) {
+                    const minX = Math.min(...tmpP.map(p => p.x));
+                    const maxX = Math.max(...tmpP.map(p => p.x + p.w));
+                    const minY = Math.min(...tmpP.map(p => p.y));
+                    const maxY = Math.max(...tmpP.map(p => p.y + p.h));
+                    const uW = hojaW - 2 * margenMaq;
+                    const uH = hojaH - 2 * margenMaq;
+                    const shiftX = margenMaq + (uW - (maxX - minX)) / 2 - minX;
+                    const shiftY = margenMaq + (uH - (maxY - minY)) / 2 - minY;
+                    placements = tmpP.map(p => ({ ...p, x: p.x + shiftX, y: p.y + shiftY }));
+                } else {
+                    placements = tmpP;
+                }
+            }
             if (placements.length === 0) { alert('No caben piezas en la hoja'); return; }
 
             // Create output PDF
@@ -2248,17 +2289,38 @@
             const ph = usarRot ? pieceW : pieceH;
             const cols = usarRot ? rC : nC;
             const rows = usarRot ? rL.rows : nL.rows;
+            // Centrar las piezas en el area util
+            const totalPW = cols * pw;
+            const totalPH = rows * ph;
+            const offsetX = margin + (uW - totalPW) / 2;
+            const offsetY = margin + (uH - totalPH) / 2;
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     placements.push({
-                        x: margin + c * pw,
-                        y: margin + r * ph,
+                        x: offsetX + c * pw,
+                        y: offsetY + r * ph,
                         w: pw, h: ph, rotated: false
                     });
                 }
             }
         } else {
-            placements = calcImpositionLayout(containerW, containerH, pieceW, pieceH, margin, true);
+            // 1 lado: tambien centrar las piezas
+            const tmpPlacements = calcImpositionLayout(containerW, containerH, pieceW, pieceH, margin, true);
+            if (tmpPlacements.length > 0) {
+                const minX = Math.min(...tmpPlacements.map(p => p.x));
+                const maxX = Math.max(...tmpPlacements.map(p => p.x + p.w));
+                const minY = Math.min(...tmpPlacements.map(p => p.y));
+                const maxY = Math.max(...tmpPlacements.map(p => p.y + p.h));
+                const blockW = maxX - minX;
+                const blockH = maxY - minY;
+                const uW = containerW - 2 * margin;
+                const uH = containerH - 2 * margin;
+                const shiftX = margin + (uW - blockW) / 2 - minX;
+                const shiftY = margin + (uH - blockH) / 2 - minY;
+                placements = tmpPlacements.map(p => ({ ...p, x: p.x + shiftX, y: p.y + shiftY }));
+            } else {
+                placements = tmpPlacements;
+            }
         }
 
         // Draw pieces
