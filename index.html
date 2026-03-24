@@ -2326,8 +2326,9 @@
         document.getElementById('cotPrecioFinalBig').textContent = precioFinal.toFixed(2);
         document.getElementById('cotPrecioUnitBig').textContent = precioUnit.toFixed(4);
 
-        // Draw previews
-        const esMismaPlaca = lados === 2 && placasTR === 'misma';
+        // Draw previews (releer placasTR porque pudo cambiar automaticamente)
+        const placasTRActual = document.getElementById('cotPlacasTR').value;
+        const esMismaPlaca = lados === 2 && placasTRActual === 'misma';
         if (esMismaPlaca && piezaW > 0 && piezaH > 0) {
             cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, 'tiroretiro');
         } else {
