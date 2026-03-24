@@ -2048,6 +2048,7 @@
         if (lados === 1) {
             document.getElementById('cotPlacasTR').value = 'misma';
         }
+        window._volteoManual = false; // Reset auto-seleccion
         cotToggleVolteo();
     }
 
@@ -2063,8 +2064,12 @@
     }
 
     // Listener para cambio de placas
-    document.getElementById('cotPlacasTR').addEventListener('change', cotToggleVolteo);
+    document.getElementById('cotPlacasTR').addEventListener('change', function() {
+        window._volteoManual = false; // Reset auto-seleccion
+        cotToggleVolteo();
+    });
     document.getElementById('cotVolteo').addEventListener('change', function() {
+        window._volteoManual = true; // Usuario eligio manualmente
         document.getElementById('volteoWarn').style.display = this.value === 'vertical' ? 'block' : 'none';
     });
 
@@ -2120,35 +2125,48 @@
         if (hojaUtilW > 0 && hojaUtilH > 0 && piezaW > 0 && piezaH > 0) {
             if (lados === 2 && placasTR === 'misma') {
                 // Tiro y retiro en MISMO juego de placas
-                // NO usar imposicion mixta (al voltear no cuadra)
+                // Calcular ambos volteos y elegir el que maximice piezas
                 const n = calcLayout(hojaUtilW, hojaUtilH, piezaW, piezaH, 0, 0);
                 const r = calcLayout(hojaUtilW, hojaUtilH, piezaH, piezaW, 0, 0);
 
-                if (volteo === 'horizontal') {
-                    // Columnas pares: mitad izq = tiro, mitad der = retiro
-                    const nCols = n.cols % 2 !== 0 ? n.cols - 1 : n.cols;
-                    const rCols = r.cols % 2 !== 0 ? r.cols - 1 : r.cols;
-                    const nTotal = nCols * n.rows;
-                    const rTotal = rCols * r.rows;
-                    if (nTotal >= rTotal && nCols > 0) {
-                        piezasPorHoja = nTotal;
-                        tiroRetiroInfo = `${nCols} col (${nCols/2} tiro + ${nCols/2} retiro) x ${n.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
-                    } else if (rCols > 0) {
-                        piezasPorHoja = rTotal;
-                        tiroRetiroInfo = `${rCols} col (${rCols/2} tiro + ${rCols/2} retiro) x ${r.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
+                // Horizontal: columnas pares
+                const hNCols = n.cols % 2 !== 0 ? n.cols - 1 : n.cols;
+                const hRCols = r.cols % 2 !== 0 ? r.cols - 1 : r.cols;
+                const hBestN = hNCols * n.rows;
+                const hBestR = hRCols * r.rows;
+                const hMax = Math.max(hBestN, hBestR);
+
+                // Vertical: filas pares (pinza contra pinza)
+                const vNRows = n.rows % 2 !== 0 ? n.rows - 1 : n.rows;
+                const vRRows = r.rows % 2 !== 0 ? r.rows - 1 : r.rows;
+                const vBestN = n.cols * vNRows;
+                const vBestR = r.cols * vRRows;
+                const vMax = Math.max(vBestN, vBestR);
+
+                // Auto-seleccionar el mejor, salvo override manual del usuario
+                const autoVolteo = hMax >= vMax ? 'horizontal' : 'vertical';
+                // Solo cambiar si el usuario no ha hecho override manual
+                if (!window._volteoManual) {
+                    document.getElementById('cotVolteo').value = autoVolteo;
+                    document.getElementById('volteoWarn').style.display = autoVolteo === 'vertical' ? 'block' : 'none';
+                }
+                const volteoActual = document.getElementById('cotVolteo').value;
+
+                if (volteoActual === 'horizontal') {
+                    if (hBestN >= hBestR && hNCols > 0) {
+                        piezasPorHoja = hBestN;
+                        tiroRetiroInfo = `${hNCols} col (${hNCols/2} tiro + ${hNCols/2} retiro) x ${n.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
+                    } else if (hRCols > 0) {
+                        piezasPorHoja = hBestR;
+                        tiroRetiroInfo = `${hRCols} col (${hRCols/2} tiro + ${hRCols/2} retiro) x ${r.rows} filas = ${piezasPorHoja} pzas | Volteo horizontal`;
                     }
                 } else {
-                    // Filas pares: mitad arriba = tiro, mitad abajo = retiro (pinza contra pinza)
-                    const nRows = n.rows % 2 !== 0 ? n.rows - 1 : n.rows;
-                    const rRows = r.rows % 2 !== 0 ? r.rows - 1 : r.rows;
-                    const nTotal = n.cols * nRows;
-                    const rTotal = r.cols * rRows;
-                    if (nTotal >= rTotal && nRows > 0) {
-                        piezasPorHoja = nTotal;
-                        tiroRetiroInfo = `${n.cols} col x ${nRows} filas (${nRows/2} tiro + ${nRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
-                    } else if (rRows > 0) {
-                        piezasPorHoja = rTotal;
-                        tiroRetiroInfo = `${r.cols} col x ${rRows} filas (${rRows/2} tiro + ${rRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
+                    if (vBestN >= vBestR && vNRows > 0) {
+                        piezasPorHoja = vBestN;
+                        tiroRetiroInfo = `${n.cols} col x ${vNRows} filas (${vNRows/2} tiro + ${vNRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
+                    } else if (vRRows > 0) {
+                        piezasPorHoja = vBestR;
+                        tiroRetiroInfo = `${r.cols} col x ${vRRows} filas (${vRRows/2} tiro + ${vRRows/2} retiro) = ${piezasPorHoja} pzas | Pinza contra pinza`;
                     }
                 }
             } else if (lados === 2 && placasTR === 'diferentes') {
