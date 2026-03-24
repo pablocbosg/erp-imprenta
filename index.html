@@ -518,6 +518,10 @@
                             </label>
                             <div id="cotGuillotinaInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
                             <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="cotEnsanduchado" onchange="cotCalc()"> Ensanduchado (doble cartulina)
+                            </label>
+                            <div id="cotEnsanduchadoInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
                                 <input type="checkbox" id="cotTroquelado" onchange="cotCalc()"> Troquelado
                                 <select id="cotTroquelMaquina" onchange="cotCalc()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
                                     <option value="manual">Manual 70x50 ($12/millar)</option>
@@ -695,6 +699,18 @@
                         <div class="cost-row" id="cotCostTroquelRow" style="display:none;">
                             <span class="cost-label">Troquel <span id="cotCostTroquelLabel"></span></span>
                             <span class="cost-value">$<span id="cotCostTroquel">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="cotCostEnsandMatRow" style="display:none;">
+                            <span class="cost-label">Ensanduchado - material extra <span id="cotCostEnsandMatLabel"></span></span>
+                            <span class="cost-value">$<span id="cotCostEnsandMat">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="cotCostEnsandPegRow" style="display:none;">
+                            <span class="cost-label">Ensanduchado - pegado <span id="cotCostEnsandPegLabel"></span></span>
+                            <span class="cost-value">$<span id="cotCostEnsandPeg">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="cotCostEnsandImpRow" style="display:none;">
+                            <span class="cost-label">Ensanduchado - placas + impresion extra <span id="cotCostEnsandImpLabel"></span></span>
+                            <span class="cost-value">$<span id="cotCostEnsandImp">0.00</span></span>
                         </div>
                         <div class="cost-row">
                             <span class="cost-label">Otros terminados</span>
@@ -2598,9 +2614,37 @@
             troqueladoInfo.style.display = 'none';
         }
 
-        const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina + costoTroquelServicio + costoTroquel;
+        // Ensanduchado (doble cartulina pegada)
+        let costoEnsandMaterial = 0;
+        let costoEnsandPegado = 0;
+        let costoEnsandImpresion = 0;
+        const ensandChecked = document.getElementById('cotEnsanduchado').checked;
+        const ensandInfo = document.getElementById('cotEnsanduchadoInfo');
+        if (ensandChecked && hojasTotales > 0) {
+            // Material extra: se duplica el papel (agregar el mismo costo de material otra vez)
+            costoEnsandMaterial = costoMaterial;
+            // Pegado: $0.10 por hoja, minimo $10
+            const costoPegadoPorHoja = 0.10;
+            const minimoEnsand = 10;
+            costoEnsandPegado = Math.max(minimoEnsand, hojasTotales * costoPegadoPorHoja);
+            // Si es tiro y retiro: agregar juego extra de placas + millar de impresion
+            if (lados === 2) {
+                const placasExtra = colores * costoPlaca;
+                const impresionExtra = millaresImpresion * costoMillarColor * colores;
+                costoEnsandImpresion = placasExtra + impresionExtra;
+                ensandInfo.innerHTML = 'Material x2: +$' + costoEnsandMaterial.toFixed(2) + ' | Pegado: ' + hojasTotales + ' hojas x $' + costoPegadoPorHoja.toFixed(2) + ' = $' + costoEnsandPegado.toFixed(2)
+                    + '<br>Tiro/retiro: +' + colores + ' placas ($' + placasExtra.toFixed(2) + ') + impresion ($' + impresionExtra.toFixed(2) + ') = +$' + costoEnsandImpresion.toFixed(2);
+            } else {
+                ensandInfo.textContent = 'Material x2: +$' + costoEnsandMaterial.toFixed(2) + ' | Pegado: ' + hojasTotales + ' hojas x $' + costoPegadoPorHoja.toFixed(2) + ' = $' + costoEnsandPegado.toFixed(2);
+            }
+            ensandInfo.style.display = 'block';
+        } else {
+            ensandInfo.style.display = 'none';
+        }
 
-        const subtotalCosto = costoMaterial + costoPlacasTotal + costoImpresion + costoTerminados;
+        const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina + costoTroquelServicio + costoTroquel + costoEnsandPegado;
+
+        const subtotalCosto = costoMaterial + costoPlacasTotal + costoImpresion + costoTerminados + costoEnsandMaterial + costoEnsandImpresion;
         const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
         const descuentoPct = +document.getElementById('cotDescuento').value || 0;
         const descuentoMonto = precioSinIVA * (descuentoPct / 100);
@@ -2656,6 +2700,22 @@
             const cmC = parseFloat(document.getElementById('cotTroquelCuchilla').value) || 0;
             const cmG = parseFloat(document.getElementById('cotTroquelGrafa').value) || 0;
             document.getElementById('cotCostTroquelLabel').textContent = '(' + (cmC + cmG) + ' cm lineales)';
+        }
+        // Ensanduchado display
+        document.getElementById('cotCostEnsandMat').textContent = costoEnsandMaterial.toFixed(2);
+        document.getElementById('cotCostEnsandMatRow').style.display = costoEnsandMaterial > 0 ? 'flex' : 'none';
+        if (costoEnsandMaterial > 0) {
+            document.getElementById('cotCostEnsandMatLabel').textContent = '(' + pliegosNec + ' pliegos x $' + precioPliego.toFixed(2) + ')';
+        }
+        document.getElementById('cotCostEnsandPeg').textContent = costoEnsandPegado.toFixed(2);
+        document.getElementById('cotCostEnsandPegRow').style.display = costoEnsandPegado > 0 ? 'flex' : 'none';
+        if (costoEnsandPegado > 0) {
+            document.getElementById('cotCostEnsandPegLabel').textContent = '(' + hojasTotales + ' hojas)';
+        }
+        document.getElementById('cotCostEnsandImp').textContent = costoEnsandImpresion.toFixed(2);
+        document.getElementById('cotCostEnsandImpRow').style.display = costoEnsandImpresion > 0 ? 'flex' : 'none';
+        if (costoEnsandImpresion > 0) {
+            document.getElementById('cotCostEnsandImpLabel').textContent = '(tiro/retiro)';
         }
         document.getElementById('cotCostTerm').textContent = terminados.toFixed(2);
         document.getElementById('cotSubtotalCosto').textContent = subtotalCosto.toFixed(2);
