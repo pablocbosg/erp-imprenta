@@ -1857,79 +1857,65 @@
             const pageHcm = viewport.height * 0.03528;
 
             const ops = await page.getOperatorList();
-            // PDF operator codes from pdf.js
             const OPS = pdfjsLib.OPS;
 
-            // Track paths by parsing operator list
-            let paths = [];
-            let currentPath = [];
-            let currentX = 0, currentY = 0;
-            let pathStartX = 0, pathStartY = 0;
+            function bezLen(p0x,p0y,p1x,p1y,p2x,p2y,p3x,p3y){let l=0,px=p0x,py=p0y;for(let t=1;t<=20;t++){const u=t/20,c=1-u;const x=c*c*c*p0x+3*c*c*u*p1x+3*c*u*u*p2x+u*u*u*p3x;const y=c*c*c*p0y+3*c*c*u*p1y+3*c*u*u*p2y+u*u*u*p3y;l+=Math.sqrt((x-px)*(x-px)+(y-py)*(y-py));px=x;py=y;}return l;}
+            function linLen(x1,y1,x2,y2){return Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));}
 
-            function bezierLength(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y) {
-                let len = 0;
-                let px = p0x, py = p0y;
-                for (let t = 1; t <= 20; t++) {
-                    const u = t / 20;
-                    const cu = 1 - u;
-                    const x = cu*cu*cu*p0x + 3*cu*cu*u*p1x + 3*cu*u*u*p2x + u*u*u*p3x;
-                    const y = cu*cu*cu*p0y + 3*cu*cu*u*p1y + 3*cu*u*u*p2y + u*u*u*p3y;
-                    len += Math.sqrt((x-px)*(x-px) + (y-py)*(y-py));
-                    px = x; py = y;
-                }
-                return len;
-            }
-
-            function lineLength(x1, y1, x2, y2) {
-                return Math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
-            }
-
-            let pathLength = 0;
+            // pdf.js 3.x uses constructPath (op 91) which bundles path ops
+            // Sub-ops inside constructPath: 13=moveTo, 14=lineTo, 15=curveTo, 16=curveTo2, 17=curveTo3, 19=closePath, 20=rect
             let allPathLengths = [];
+            let pathLength = 0;
+            let cx = 0, cy = 0, sx = 0, sy = 0;
+
+            function processPathOps(subOps, coords) {
+                let ci = 0; // coordinate index
+                for (let j = 0; j < subOps.length; j++) {
+                    const op = subOps[j];
+                    if (op === OPS.moveTo) {
+                        if (pathLength > 0) allPathLengths.push(pathLength);
+                        pathLength = 0;
+                        cx = coords[ci++]; cy = coords[ci++];
+                        sx = cx; sy = cy;
+                    } else if (op === OPS.lineTo) {
+                        const nx = coords[ci++], ny = coords[ci++];
+                        pathLength += linLen(cx, cy, nx, ny);
+                        cx = nx; cy = ny;
+                    } else if (op === OPS.curveTo) {
+                        const c1x=coords[ci++],c1y=coords[ci++],c2x=coords[ci++],c2y=coords[ci++],ex=coords[ci++],ey=coords[ci++];
+                        pathLength += bezLen(cx,cy,c1x,c1y,c2x,c2y,ex,ey);
+                        cx = ex; cy = ey;
+                    } else if (op === OPS.curveTo2) {
+                        const c2x=coords[ci++],c2y=coords[ci++],ex=coords[ci++],ey=coords[ci++];
+                        pathLength += bezLen(cx,cy,cx,cy,c2x,c2y,ex,ey);
+                        cx = ex; cy = ey;
+                    } else if (op === OPS.curveTo3) {
+                        const c1x=coords[ci++],c1y=coords[ci++],ex=coords[ci++],ey=coords[ci++];
+                        pathLength += bezLen(cx,cy,c1x,c1y,ex,ey,ex,ey);
+                        cx = ex; cy = ey;
+                    } else if (op === OPS.closePath) {
+                        pathLength += linLen(cx, cy, sx, sy);
+                        cx = sx; cy = sy;
+                    } else if (op === OPS.rectangle) {
+                        if (pathLength > 0) allPathLengths.push(pathLength);
+                        pathLength = 2 * (Math.abs(coords[ci+2]) + Math.abs(coords[ci+3]));
+                        ci += 4;
+                    }
+                }
+            }
 
             for (let i = 0; i < ops.fnArray.length; i++) {
                 const fn = ops.fnArray[i];
                 const args = ops.argsArray[i];
-
-                if (fn === OPS.moveTo) {
-                    // If there was a previous sub-path, save it
-                    if (pathLength > 0) {
-                        allPathLengths.push(pathLength);
-                    }
-                    pathLength = 0;
-                    currentX = args[0]; currentY = args[1];
-                    pathStartX = currentX; pathStartY = currentY;
-                }
-                else if (fn === OPS.lineTo) {
-                    pathLength += lineLength(currentX, currentY, args[0], args[1]);
-                    currentX = args[0]; currentY = args[1];
-                }
-                else if (fn === OPS.curveTo) {
-                    pathLength += bezierLength(currentX, currentY, args[0], args[1], args[2], args[3], args[4], args[5]);
-                    currentX = args[4]; currentY = args[5];
-                }
-                else if (fn === OPS.curveTo2) {
-                    pathLength += bezierLength(currentX, currentY, currentX, currentY, args[0], args[1], args[2], args[3]);
-                    currentX = args[2]; currentY = args[3];
-                }
-                else if (fn === OPS.curveTo3) {
-                    pathLength += bezierLength(currentX, currentY, args[0], args[1], args[2], args[3], args[2], args[3]);
-                    currentX = args[2]; currentY = args[3];
-                }
-                else if (fn === OPS.closePath) {
-                    pathLength += lineLength(currentX, currentY, pathStartX, pathStartY);
-                    currentX = pathStartX; currentY = pathStartY;
-                }
-                else if (fn === OPS.rectangle) {
-                    // Rectangle: x, y, w, h
-                    pathLength += 2 * (Math.abs(args[2]) + Math.abs(args[3]));
-                }
-                else if (fn === OPS.endPath || fn === OPS.stroke || fn === OPS.fill ||
-                         fn === OPS.fillStroke || fn === OPS.eoFill || fn === OPS.eoFillStroke ||
-                         fn === OPS.strokeAndClip || fn === OPS.closeStroke || fn === OPS.closeFillStroke) {
-                    if (pathLength > 0) {
-                        allPathLengths.push(pathLength);
-                    }
+                if (fn === OPS.constructPath) {
+                    processPathOps(args[0], args[1]);
+                } else if (fn === OPS.rectangle) {
+                    if (pathLength > 0) allPathLengths.push(pathLength);
+                    pathLength = 2 * (Math.abs(args[2]) + Math.abs(args[3]));
+                } else if (fn === OPS.endPath || fn === OPS.stroke || fn === OPS.fill ||
+                           fn === OPS.fillStroke || fn === OPS.eoFill || fn === OPS.eoFillStroke ||
+                           fn === OPS.closeStroke || fn === OPS.closeFillStroke) {
+                    if (pathLength > 0) allPathLengths.push(pathLength);
                     pathLength = 0;
                 }
             }
