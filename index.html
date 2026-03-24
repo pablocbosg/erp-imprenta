@@ -3174,6 +3174,33 @@
         return urlData.publicUrl;
     }
 
+    // Extraer numero celular valido para WhatsApp
+    function formatearTelefonoWA(tel) {
+        if (!tel) return '';
+        // Si hay varios numeros separados por / o - o , tomar el celular (empieza con 09)
+        const parts = tel.split(/[\/,;]+/).map(p => p.trim());
+        let celular = '';
+        for (const p of parts) {
+            const digits = p.replace(/\D/g, '');
+            // Celular Ecuador: empieza con 09 y tiene 10 digitos
+            if (digits.match(/^09\d{8}$/)) { celular = digits; break; }
+            // Ya con codigo pais
+            if (digits.match(/^5939\d{8}$/)) { celular = digits; break; }
+        }
+        // Si no encontro celular, intentar con el primer numero que parezca valido
+        if (!celular) {
+            const digits = parts[0]?.replace(/\D/g, '') || '';
+            if (digits.length >= 9) celular = digits;
+        }
+        if (!celular) return '';
+        // Quitar 0 inicial y agregar 593
+        if (!celular.startsWith('593')) {
+            celular = celular.startsWith('0') ? celular.substring(1) : celular;
+            celular = '593' + celular;
+        }
+        return celular;
+    }
+
     async function enviarProformaWhatsApp() {
         if (!proformaActiva) return;
 
@@ -3200,14 +3227,9 @@
         msg += `📄 *Descarga tu proforma aqui:*\n${pdfUrl}\n\n`;
         msg += `Quedamos atentos a tus comentarios.`;
 
-        let phone = proformaActiva.cliente_telefono ? proformaActiva.cliente_telefono.replace(/\D/g, '') : '';
-        // Formatear numero Ecuador: quitar 0 inicial y agregar 593
-        if (phone && !phone.startsWith('593')) {
-            phone = phone.startsWith('0') ? phone.substring(1) : phone;
-            phone = '593' + phone;
-        }
-        const url = phone
-            ? `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`
+        const waPhone = formatearTelefonoWA(proformaActiva.cliente_telefono);
+        const url = waPhone
+            ? `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`
             : `https://wa.me/?text=${encodeURIComponent(msg)}`;
         window.open(url, '_blank');
     }
