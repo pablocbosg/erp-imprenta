@@ -6,7 +6,7 @@
     <title>Cotizador Offset - Imprenta</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -2752,130 +2752,216 @@
 
     function descargarProformaPDF() {
         if (!proformaActiva) return;
+
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF) { alert('Error: libreria jsPDF no cargada'); return; }
+
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const W = 210, H = 297, M = 15; // A4 dims + margin
+        const pw = W - 2 * M; // printable width
+        let y = M;
+
         const items = proformaActiva.items || [];
         const subtotal = items.reduce((s, it) => s + (it.cantidad || 0) * (it.precio_unitario || 0), 0);
         const ivaPct = parseFloat(document.getElementById('profIVA')?.value) || 15;
         const iva = subtotal * ivaPct / 100;
         const total = subtotal + iva;
-        const fecha = document.getElementById('printProformaFecha')?.textContent || new Date().toLocaleDateString('es-EC');
+        const fecha = new Date().toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' });
         const tiempoEntrega = document.getElementById('profTiempoEntrega')?.value || '';
         const formaPago = document.getElementById('profFormaPago')?.value || '';
-
         const cNombre = document.getElementById('profClienteNombre')?.textContent || '-';
         const cEmpresa = document.getElementById('profClienteEmpresa')?.textContent || '-';
         const cRUC = document.getElementById('profClienteRUC')?.textContent || '-';
         const cEmail = document.getElementById('profClienteEmail')?.textContent || '-';
         const cTelefono = document.getElementById('profClienteTelefono')?.textContent || '-';
         const cDireccion = document.getElementById('profClienteDireccion')?.textContent || '-';
-        const logoSrc = document.getElementById('printLogo')?.src || '';
 
-        let itemsRows = '';
+        // === LOGO ===
+        try {
+            const logoImg = document.getElementById('printLogo');
+            if (logoImg && logoImg.src) {
+                doc.addImage(logoImg.src, 'PNG', M, y, 50, 18);
+            }
+        } catch(e) { console.warn('Logo no pudo cargarse', e); }
+
+        // === PROFORMA # y fecha ===
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(37, 99, 235);
+        doc.text(`PROFORMA #${proformaActiva.numero}`, W - M, y + 6, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(fecha, W - M, y + 12, { align: 'right' });
+        y += 22;
+
+        // Linea separadora azul
+        doc.setDrawColor(37, 99, 235);
+        doc.setLineWidth(0.8);
+        doc.line(M, y, W - M, y);
+        y += 8;
+
+        // === CLIENTE ===
+        doc.setFillColor(248, 249, 250);
+        doc.setDrawColor(222, 226, 230);
+        doc.roundedRect(M, y, pw, 32, 2, 2, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(33, 37, 41);
+        doc.text(cNombre, M + 5, y + 7);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(136);
+
+        const col1 = M + 5, col2 = M + 65, col3 = M + 120;
+        const r1 = y + 14, r2 = y + 23;
+
+        doc.text('EMPRESA', col1, r1);
+        doc.text('RUC/CI', col2, r1);
+        doc.text('EMAIL', col3, r1);
+        doc.text('TELEFONO', col1, r2);
+        doc.text('DIRECCION', col2, r2);
+
+        doc.setFontSize(9);
+        doc.setTextColor(33);
+        doc.text(cEmpresa, col1, r1 + 4);
+        doc.text(cRUC, col2, r1 + 4);
+        doc.text(cEmail, col3, r1 + 4);
+        doc.text(cTelefono, col1, r2 + 4);
+        doc.text(cDireccion, col2, r2 + 4);
+
+        y += 38;
+
+        // === TABLA DE ITEMS ===
+        const colWidths = [10, 22, 0, 18, 25, 25]; // # | Cod | Desc | Cant | P.Unit | Importe
+        colWidths[2] = pw - colWidths.reduce((a, b) => a + b, 0); // Desc gets remaining
+
+        // Header
+        doc.setFillColor(241, 245, 249);
+        doc.rect(M, y, pw, 8, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(85);
+
+        const headers = ['#', 'CODIGO', 'DESCRIPCION', 'CANT.', 'P. UNIT.', 'IMPORTE'];
+        let cx = M;
+        headers.forEach((h, i) => {
+            const align = (i >= 3) ? 'right' : 'left';
+            const tx = align === 'right' ? cx + colWidths[i] - 2 : cx + 2;
+            doc.text(h, tx, y + 5.5, { align });
+            cx += colWidths[i];
+        });
+
+        doc.setDrawColor(209, 213, 219);
+        doc.setLineWidth(0.4);
+        doc.line(M, y + 8, W - M, y + 8);
+        y += 10;
+
+        // Rows
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(33);
+
         items.forEach((it, i) => {
+            if (y > H - 50) { doc.addPage(); y = M; }
+
             const imp = (it.cantidad || 0) * (it.precio_unitario || 0);
-            const imgHtml = it.imagen_url ? `<img src="${it.imagen_url}" style="width:45px;height:45px;object-fit:cover;border-radius:4px;">` : '';
-            itemsRows += `<tr>
-                <td style="padding:7px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:11px;">${i + 1}</td>
-                <td style="padding:7px;border-bottom:1px solid #e5e7eb;font-size:11px;">${it.codigo || ''}</td>
-                <td style="padding:7px;border-bottom:1px solid #e5e7eb;font-size:11px;">${it.descripcion || ''}</td>
-                <td style="padding:7px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:11px;">${it.cantidad || 0}</td>
-                <td style="padding:7px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:11px;">$${(it.precio_unitario || 0).toFixed(2)}</td>
-                <td style="padding:7px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;font-size:11px;">$${imp.toFixed(2)}</td>
-                <td style="padding:7px;border-bottom:1px solid #e5e7eb;text-align:center;">${imgHtml}</td>
-            </tr>`;
+            cx = M;
+            const vals = [
+                String(i + 1),
+                it.codigo || '',
+                it.descripcion || '',
+                String(it.cantidad || 0),
+                '$' + (it.precio_unitario || 0).toFixed(2),
+                '$' + imp.toFixed(2)
+            ];
+
+            vals.forEach((v, j) => {
+                const align = (j >= 3) ? 'right' : 'left';
+                const tx = align === 'right' ? cx + colWidths[j] - 2 : cx + 2;
+                if (j === 2) {
+                    // Descripcion: wrap text
+                    const lines = doc.splitTextToSize(v, colWidths[j] - 4);
+                    doc.text(lines, tx, y);
+                } else {
+                    if (j === 5) doc.setFont('helvetica', 'bold');
+                    doc.text(v, tx, y, { align });
+                    if (j === 5) doc.setFont('helvetica', 'normal');
+                }
+                cx += colWidths[j];
+            });
+
+            // Linea separadora
+            doc.setDrawColor(229, 231, 235);
+            doc.setLineWidth(0.2);
+            doc.line(M, y + 3, W - M, y + 3);
+            y += 8;
         });
 
-        // Usar TABLAS en vez de flexbox - html2canvas las renderiza correctamente
-        const pdfHTML = `
-        <div style="width:700px;font-family:Arial,Helvetica,sans-serif;color:#333;padding:15px;box-sizing:border-box;">
-            <!-- HEADER con tabla -->
-            <table style="width:100%;border-collapse:collapse;border-bottom:3px solid #2563eb;padding-bottom:10px;margin-bottom:15px;">
-                <tr>
-                    <td style="vertical-align:middle;padding-bottom:12px;"><img src="${logoSrc}" style="height:60px;"></td>
-                    <td style="vertical-align:middle;text-align:right;padding-bottom:12px;">
-                        <div style="font-size:20px;font-weight:700;color:#2563eb;">PROFORMA #${proformaActiva.numero}</div>
-                        <div style="font-size:12px;color:#666;margin-top:3px;">${fecha}</div>
-                    </td>
-                </tr>
-            </table>
+        y += 5;
 
-            <!-- CLIENTE con tabla -->
-            <table style="width:100%;border-collapse:collapse;background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;margin-bottom:18px;">
-                <tr><td colspan="3" style="padding:10px 12px 5px;font-weight:700;font-size:14px;">${cNombre}</td></tr>
-                <tr>
-                    <td style="padding:4px 12px;font-size:11px;width:33%;"><span style="color:#888;text-transform:uppercase;font-size:9px;display:block;">Empresa</span>${cEmpresa}</td>
-                    <td style="padding:4px 12px;font-size:11px;width:33%;"><span style="color:#888;text-transform:uppercase;font-size:9px;display:block;">RUC/CI</span>${cRUC}</td>
-                    <td style="padding:4px 12px;font-size:11px;width:33%;"><span style="color:#888;text-transform:uppercase;font-size:9px;display:block;">Email</span>${cEmail}</td>
-                </tr>
-                <tr>
-                    <td style="padding:4px 12px 10px;font-size:11px;"><span style="color:#888;text-transform:uppercase;font-size:9px;display:block;">Teléfono</span>${cTelefono}</td>
-                    <td colspan="2" style="padding:4px 12px 10px;font-size:11px;"><span style="color:#888;text-transform:uppercase;font-size:9px;display:block;">Dirección</span>${cDireccion}</td>
-                </tr>
-            </table>
+        // === TOTALES ===
+        if (y > H - 60) { doc.addPage(); y = M; }
 
-            <!-- ITEMS -->
-            <table style="width:100%;border-collapse:collapse;margin-bottom:15px;">
-                <thead>
-                    <tr style="background:#f1f5f9;">
-                        <th style="padding:7px;text-align:center;font-size:9px;text-transform:uppercase;color:#555;border-bottom:2px solid #d1d5db;width:30px;">#</th>
-                        <th style="padding:7px;text-align:left;font-size:9px;text-transform:uppercase;color:#555;border-bottom:2px solid #d1d5db;width:70px;">Código</th>
-                        <th style="padding:7px;text-align:left;font-size:9px;text-transform:uppercase;color:#555;border-bottom:2px solid #d1d5db;">Descripción</th>
-                        <th style="padding:7px;text-align:center;font-size:9px;text-transform:uppercase;color:#555;border-bottom:2px solid #d1d5db;width:55px;">Cant.</th>
-                        <th style="padding:7px;text-align:right;font-size:9px;text-transform:uppercase;color:#555;border-bottom:2px solid #d1d5db;width:75px;">P. Unit.</th>
-                        <th style="padding:7px;text-align:right;font-size:9px;text-transform:uppercase;color:#555;border-bottom:2px solid #d1d5db;width:80px;">Importe</th>
-                        <th style="padding:7px;text-align:center;font-size:9px;text-transform:uppercase;color:#555;border-bottom:2px solid #d1d5db;width:55px;">Ref.</th>
-                    </tr>
-                </thead>
-                <tbody>${itemsRows}</tbody>
-            </table>
+        const totX = M + pw * 0.55;
+        const totW = pw * 0.45;
 
-            <!-- TOTALES con tabla alineada a la derecha -->
-            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-                <tr>
-                    <td style="width:60%;"></td>
-                    <td style="width:40%;">
-                        <table style="width:100%;border-collapse:collapse;">
-                            <tr><td style="padding:5px 8px;font-size:12px;border-bottom:1px solid #eee;">Subtotal</td><td style="padding:5px 8px;font-size:12px;text-align:right;font-weight:600;border-bottom:1px solid #eee;">$${subtotal.toFixed(2)}</td></tr>
-                            <tr><td style="padding:5px 8px;font-size:12px;border-bottom:1px solid #eee;">IVA ${ivaPct}%</td><td style="padding:5px 8px;font-size:12px;text-align:right;border-bottom:1px solid #eee;">$${iva.toFixed(2)}</td></tr>
-                            <tr><td style="padding:7px 8px;font-size:15px;font-weight:700;color:#2563eb;border-top:2px solid #2563eb;">TOTAL</td><td style="padding:7px 8px;font-size:15px;font-weight:700;text-align:right;color:#16a34a;border-top:2px solid #2563eb;">$${total.toFixed(2)}</td></tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(33);
+        doc.text('Subtotal', totX, y);
+        doc.text('$' + subtotal.toFixed(2), W - M, y, { align: 'right' });
 
-            <!-- CONDICIONES con tabla -->
-            <table style="width:100%;border-collapse:collapse;border-top:1px solid #dee2e6;padding-top:10px;">
-                <tr>
-                    <td style="padding:12px 0 0;font-size:11px;width:50%;vertical-align:top;">
-                        <span style="font-weight:700;text-transform:uppercase;color:#555;font-size:9px;display:block;margin-bottom:3px;">Tiempo de Entrega</span>
-                        ${tiempoEntrega}
-                    </td>
-                    <td style="padding:12px 0 0;font-size:11px;width:50%;vertical-align:top;">
-                        <span style="font-weight:700;text-transform:uppercase;color:#555;font-size:9px;display:block;margin-bottom:3px;">Forma de Pago</span>
-                        ${formaPago}
-                    </td>
-                </tr>
-            </table>
-        </div>`;
+        doc.setDrawColor(238);
+        doc.line(totX, y + 2, W - M, y + 2);
+        y += 7;
 
-        const container = document.createElement('div');
-        container.style.position = 'fixed';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        container.style.background = 'white';
-        container.innerHTML = pdfHTML;
-        document.body.appendChild(container);
+        doc.text('IVA ' + ivaPct + '%', totX, y);
+        doc.text('$' + iva.toFixed(2), W - M, y, { align: 'right' });
+        doc.line(totX, y + 2, W - M, y + 2);
+        y += 7;
 
-        const opt = {
-            margin: [8, 8, 8, 8],
-            filename: `Proforma_${proformaActiva.numero}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, width: 700, windowWidth: 700 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
+        doc.setDrawColor(37, 99, 235);
+        doc.setLineWidth(0.6);
+        doc.line(totX, y - 2, W - M, y - 2);
 
-        html2pdf().set(opt).from(container).save().then(() => {
-            document.body.removeChild(container);
-        });
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(37, 99, 235);
+        doc.text('TOTAL', totX, y + 4);
+        doc.setTextColor(22, 163, 74);
+        doc.text('$' + total.toFixed(2), W - M, y + 4, { align: 'right' });
+
+        y += 15;
+
+        // === CONDICIONES ===
+        if (y > H - 30) { doc.addPage(); y = M; }
+
+        doc.setDrawColor(222, 226, 230);
+        doc.setLineWidth(0.3);
+        doc.line(M, y, W - M, y);
+        y += 6;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(85);
+        doc.text('TIEMPO DE ENTREGA', M, y);
+        doc.text('FORMA DE PAGO', M + pw / 2, y);
+
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(33);
+
+        const teLines = doc.splitTextToSize(tiempoEntrega, pw / 2 - 5);
+        doc.text(teLines, M, y);
+        const fpLines = doc.splitTextToSize(formaPago, pw / 2 - 5);
+        doc.text(fpLines, M + pw / 2, y);
+
+        // === GUARDAR ===
+        doc.save(`Proforma_${proformaActiva.numero}.pdf`);
     }
 
     function enviarProformaWhatsApp() {
