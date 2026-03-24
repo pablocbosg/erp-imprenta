@@ -530,6 +530,10 @@
                                 <input type="number" id="cotMargen" step="1" min="0" max="99" value="35" oninput="cotCalc()">
                             </div>
                             <div class="form-group">
+                                <label>Descuento %</label>
+                                <input type="number" id="cotDescuento" step="1" min="0" max="99" value="0" oninput="cotCalc()">
+                            </div>
+                            <div class="form-group">
                                 <label>IVA %</label>
                                 <select id="cotIVA" onchange="cotCalc()">
                                     <option value="15" selected>15% (normal)</option>
@@ -662,6 +666,14 @@
                         <div class="cost-row subtotal">
                             <span class="cost-label">Subtotal sin IVA</span>
                             <span class="cost-value">$<span id="cotSubtotalSinIVA">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="cotDescuentoRow" style="display:none;color:#dc2626;">
+                            <span class="cost-label">Descuento <span id="cotDescuentoPct">0</span>%</span>
+                            <span class="cost-value">-$<span id="cotDescuentoMonto">0.00</span></span>
+                        </div>
+                        <div class="cost-row subtotal" id="cotSubtotalConDescRow" style="display:none;">
+                            <span class="cost-label">Subtotal con descuento</span>
+                            <span class="cost-value">$<span id="cotSubtotalConDesc">0.00</span></span>
                         </div>
                         <div class="cost-row">
                             <span class="cost-label">Precio unitario (sin IVA)</span>
@@ -808,14 +820,27 @@
                 <!-- Totales -->
                 <div class="proforma-totals">
                     <div class="proforma-totals-box">
+                        <div class="proforma-totals-row" id="profSubtotal0Row" style="display:none;">
+                            <span>Subtotal IVA 0%</span>
+                            <strong>$<span id="profSubtotal0">0.00</span></strong>
+                        </div>
+                        <div class="proforma-totals-row" id="profSubtotal15Row" style="display:none;">
+                            <span>Subtotal IVA 15%</span>
+                            <strong>$<span id="profSubtotal15">0.00</span></strong>
+                        </div>
+                        <div class="proforma-totals-row" id="profDescuentoRow" style="display:none;color:#dc2626;">
+                            <span>Descuento</span>
+                            <strong>-$<span id="profDescuentoMonto">0.00</span></strong>
+                        </div>
                         <div class="proforma-totals-row">
                             <span>Subtotal</span>
                             <strong>$<span id="profSubtotal">0.00</span></strong>
                         </div>
                         <div class="proforma-totals-row">
-                            <span>IVA <input type="number" id="profIVA" value="15" min="0" max="100" step="1" style="width:50px;padding:0.2rem 0.4rem;font-size:0.85rem;border:1px solid var(--gray-300);border-radius:4px;text-align:center;" oninput="recalcTotalesProforma()">%</span>
+                            <span>IVA <span id="profIVALabel">15</span>%</span>
                             <strong>$<span id="profIVAMonto">0.00</span></strong>
                         </div>
+                        <input type="hidden" id="profIVA" value="15">
                         <div class="proforma-totals-row total">
                             <span>TOTAL</span>
                             <span>$<span id="profTotal">0.00</span></span>
@@ -2280,9 +2305,12 @@
 
         const subtotalCosto = costoMaterial + costoPlacasTotal + costoImpresion + costoTerminados;
         const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
-        const montoIVA = precioSinIVA * (ivaPct / 100);
-        const precioFinal = precioSinIVA + montoIVA;
-        const precioUnit = cantidad > 0 ? precioSinIVA / cantidad : 0;
+        const descuentoPct = +document.getElementById('cotDescuento').value || 0;
+        const descuentoMonto = precioSinIVA * (descuentoPct / 100);
+        const precioConDesc = precioSinIVA - descuentoMonto;
+        const montoIVA = precioConDesc * (ivaPct / 100);
+        const precioFinal = precioConDesc + montoIVA;
+        const precioUnit = cantidad > 0 ? precioConDesc / cantidad : 0;
 
         // Update cost breakdown
         document.getElementById('cotCostMatQty').textContent = pliegosNec;
@@ -2319,6 +2347,12 @@
         document.getElementById('cotMargenPct').textContent = margenPct;
         document.getElementById('cotUtilidadNeta').textContent = (precioSinIVA - subtotalCosto).toFixed(2);
         document.getElementById('cotSubtotalSinIVA').textContent = precioSinIVA.toFixed(2);
+        // Descuento
+        document.getElementById('cotDescuentoPct').textContent = descuentoPct;
+        document.getElementById('cotDescuentoMonto').textContent = descuentoMonto.toFixed(2);
+        document.getElementById('cotDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
+        document.getElementById('cotSubtotalConDesc').textContent = precioConDesc.toFixed(2);
+        document.getElementById('cotSubtotalConDescRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
         document.getElementById('cotPrecioUnit').textContent = precioUnit.toFixed(4);
         document.getElementById('cotIVAPct').textContent = ivaPct;
         document.getElementById('cotMontoIVA').textContent = montoIVA.toFixed(2);
@@ -2855,11 +2889,33 @@
 
     function recalcTotalesProforma() {
         const items = proformaActiva?.items || [];
-        const subtotal = items.reduce((s, i) => s + (i.cantidad || 0) * (i.precio_unitario || 0), 0);
-        const ivaPct = parseFloat(document.getElementById('profIVA').value) || 0;
-        const ivaMonto = subtotal * ivaPct / 100;
-        const total = subtotal + ivaMonto;
-        document.getElementById('profSubtotal').textContent = subtotal.toFixed(2);
+        let subtotal0 = 0, subtotal15 = 0, totalDescuento = 0;
+
+        items.forEach(it => {
+            const bruto = (it.cantidad || 0) * (it.precio_unitario || 0);
+            const descPct = it.descuento_pct || 0;
+            const desc = bruto * descPct / 100;
+            const neto = bruto - desc;
+            const itemIva = it.iva_pct !== undefined ? it.iva_pct : 15;
+            totalDescuento += desc;
+            if (itemIva === 0) subtotal0 += neto;
+            else subtotal15 += neto;
+        });
+
+        const subtotalBruto = subtotal0 + subtotal15;
+        const ivaMonto = subtotal15 * 0.15;
+        const total = subtotalBruto + ivaMonto;
+
+        // Mostrar/ocultar filas segun haya items de cada tipo
+        document.getElementById('profSubtotal0Row').style.display = subtotal0 > 0 ? 'flex' : 'none';
+        document.getElementById('profSubtotal15Row').style.display = subtotal15 > 0 ? 'flex' : 'none';
+        document.getElementById('profDescuentoRow').style.display = totalDescuento > 0 ? 'flex' : 'none';
+
+        document.getElementById('profSubtotal0').textContent = subtotal0.toFixed(2);
+        document.getElementById('profSubtotal15').textContent = subtotal15.toFixed(2);
+        document.getElementById('profDescuentoMonto').textContent = totalDescuento.toFixed(2);
+        document.getElementById('profSubtotal').textContent = subtotalBruto.toFixed(2);
+        document.getElementById('profIVALabel').textContent = '15';
         document.getElementById('profIVAMonto').textContent = ivaMonto.toFixed(2);
         document.getElementById('profTotal').textContent = total.toFixed(2);
     }
@@ -2956,11 +3012,16 @@
             precioFinal: document.getElementById('cotPrecioFinal')?.textContent,
         };
 
+        const descPct = parseFloat(document.getElementById('cotDescuento').value) || 0;
+        const itemIvaPct = parseFloat(document.getElementById('cotIVA').value) || 0;
+
         proformaActiva.items.push({
             orden: proformaActiva.items.length + 1,
             descripcion: descripcion,
             cantidad: cantidad,
             precio_unitario: precioUnit,
+            descuento_pct: descPct,
+            iva_pct: itemIvaPct,
             imagen_url: null,
             datos_cotizacion: snapshot
         });
@@ -3044,9 +3105,16 @@
         let y = M;
 
         const items = proformaActiva.items || [];
-        const subtotal = items.reduce((s, it) => s + (it.cantidad || 0) * (it.precio_unitario || 0), 0);
-        const ivaPct = parseFloat(document.getElementById('profIVA')?.value) || 15;
-        const iva = subtotal * ivaPct / 100;
+        let _sub0 = 0, _sub15 = 0, _totalDesc = 0;
+        items.forEach(it => {
+            const bruto = (it.cantidad || 0) * (it.precio_unitario || 0);
+            const desc = bruto * (it.descuento_pct || 0) / 100;
+            const neto = bruto - desc;
+            _totalDesc += desc;
+            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _sub0 += neto; else _sub15 += neto;
+        });
+        const subtotal = _sub0 + _sub15;
+        const iva = _sub15 * 0.15;
         const total = subtotal + iva;
         const fecha = new Date().toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const tiempoEntrega = document.getElementById('profTiempoEntrega')?.value || '';
@@ -3251,20 +3319,42 @@
         const totLabelW = totW2 * 0.55;
         const totValW = totW2 * 0.45;
 
-        // Subtotal
-        cell(totX, y, totLabelW, 8);
-        cell(totX + totLabelW, y, totValW, 8);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
         doc.setTextColor(...cDark);
+
+        // Subtotal IVA 0% (solo si hay)
+        if (_sub0 > 0) {
+            cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
+            doc.text('Subtotal IVA 0%', totX + 3, y + 5.5);
+            doc.text('$' + _sub0.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
+            y += 8;
+        }
+        // Subtotal IVA 15% (solo si hay)
+        if (_sub15 > 0) {
+            cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
+            doc.text('Subtotal IVA 15%', totX + 3, y + 5.5);
+            doc.text('$' + _sub15.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
+            y += 8;
+        }
+        // Descuento (solo si hay)
+        if (_totalDesc > 0) {
+            cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
+            doc.setTextColor(220, 38, 38);
+            doc.text('Descuento', totX + 3, y + 5.5);
+            doc.text('-$' + _totalDesc.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
+            doc.setTextColor(...cDark);
+            y += 8;
+        }
+        // Subtotal
+        cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
         doc.text('Subtotal', totX + 3, y + 5.5);
         doc.text('$' + subtotal.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
         y += 8;
 
-        // IVA
-        cell(totX, y, totLabelW, 8);
-        cell(totX + totLabelW, y, totValW, 8);
-        doc.text('IVA ' + ivaPct + '%', totX + 3, y + 5.5);
+        // IVA 15%
+        cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
+        doc.text('IVA 15%', totX + 3, y + 5.5);
         doc.text('$' + iva.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
         y += 8;
 
@@ -3324,9 +3414,16 @@
         let y = M;
 
         const items = proformaActiva.items || [];
-        const subtotal = items.reduce((s, it) => s + (it.cantidad || 0) * (it.precio_unitario || 0), 0);
-        const ivaPct = parseFloat(document.getElementById('profIVA')?.value) || 15;
-        const iva = subtotal * ivaPct / 100;
+        let _sub0 = 0, _sub15 = 0, _totalDesc = 0;
+        items.forEach(it => {
+            const bruto = (it.cantidad || 0) * (it.precio_unitario || 0);
+            const desc = bruto * (it.descuento_pct || 0) / 100;
+            const neto = bruto - desc;
+            _totalDesc += desc;
+            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _sub0 += neto; else _sub15 += neto;
+        });
+        const subtotal = _sub0 + _sub15;
+        const iva = _sub15 * 0.15;
         const total = subtotal + iva;
         const fecha = new Date().toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const tiempoEntrega = document.getElementById('profTiempoEntrega')?.value || '';
@@ -3423,11 +3520,14 @@
         y += 8;
         if (y > H-55) { doc.addPage(); y = M; }
         const totX = M+pw*0.55, totW2 = pw*0.45, totLW = totW2*0.55, totVW = totW2*0.45;
-        cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8);
         doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...cDark);
-        doc.text('Subtotal', totX+3, y+5.5); doc.text('$'+subtotal.toFixed(2), totX+totW2-3, y+5.5, {align:'right'}); y+=8;
+        if (_sub0 > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.text('Subtotal IVA 0%',totX+3,y+5.5); doc.text('$'+_sub0.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8; }
+        if (_sub15 > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.text('Subtotal IVA 15%',totX+3,y+5.5); doc.text('$'+_sub15.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8; }
+        if (_totalDesc > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.setTextColor(220,38,38); doc.text('Descuento',totX+3,y+5.5); doc.text('-$'+_totalDesc.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); doc.setTextColor(...cDark); y+=8; }
         cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8);
-        doc.text('IVA '+ivaPct+'%', totX+3, y+5.5); doc.text('$'+iva.toFixed(2), totX+totW2-3, y+5.5, {align:'right'}); y+=8;
+        doc.text('Subtotal',totX+3,y+5.5); doc.text('$'+subtotal.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8;
+        cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8);
+        doc.text('IVA 15%',totX+3,y+5.5); doc.text('$'+iva.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8;
         cell(totX,y,totLW,10,{fill:cHeaderBg}); cell(totX+totLW,y,totVW,10,{fill:cHeaderBg});
         doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...cPrimary);
         doc.text('TOTAL', totX+3, y+7); doc.setTextColor(22,163,74);
@@ -3508,9 +3608,10 @@
         if (!pdfUrl) return;
 
         const items = proformaActiva.items || [];
-        const subtotal = items.reduce((s, it) => s + (it.cantidad || 0) * (it.precio_unitario || 0), 0);
-        const ivaPct = parseFloat(document.getElementById('profIVA').value) || 15;
-        const total = subtotal + subtotal * ivaPct / 100;
+        let _s0 = 0, _s15 = 0;
+        items.forEach(it => { const b = (it.cantidad||0)*(it.precio_unitario||0); const n = b - b*(it.descuento_pct||0)/100;
+            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _s0 += n; else _s15 += n; });
+        const total = _s0 + _s15 + _s15 * 0.15;
 
         let msg = `*PROFORMA #${proformaActiva.numero}*\n`;
         msg += `INGENIA - Experiencia Creativa\n\n`;
@@ -3540,9 +3641,10 @@
         if (!pdfUrl) return;
 
         const items = proformaActiva.items || [];
-        const subtotal = items.reduce((s, it) => s + (it.cantidad || 0) * (it.precio_unitario || 0), 0);
-        const ivaPct = parseFloat(document.getElementById('profIVA').value) || 15;
-        const total = subtotal + subtotal * ivaPct / 100;
+        let _s0 = 0, _s15 = 0;
+        items.forEach(it => { const b = (it.cantidad||0)*(it.precio_unitario||0); const n = b - b*(it.descuento_pct||0)/100;
+            if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _s0 += n; else _s15 += n; });
+        const total = _s0 + _s15 + _s15 * 0.15;
 
         const subject = `Proforma #${proformaActiva.numero} - INGENIA`;
         let body = `Estimado/a ${proformaActiva.cliente_nombre || 'cliente'},\n\n`;
