@@ -2757,8 +2757,8 @@
         if (!jsPDF) { alert('Error: libreria jsPDF no cargada'); return; }
 
         const doc = new jsPDF('p', 'mm', 'a4');
-        const W = 210, H = 297, M = 15; // A4 dims + margin
-        const pw = W - 2 * M; // printable width
+        const W = 210, H = 297, M = 15;
+        const pw = W - 2 * M;
         let y = M;
 
         const items = proformaActiva.items || [];
@@ -2766,7 +2766,7 @@
         const ivaPct = parseFloat(document.getElementById('profIVA')?.value) || 15;
         const iva = subtotal * ivaPct / 100;
         const total = subtotal + iva;
-        const fecha = new Date().toLocaleDateString('es-EC', { day: '2-digit', month: 'long', year: 'numeric' });
+        const fecha = new Date().toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const tiempoEntrega = document.getElementById('profTiempoEntrega')?.value || '';
         const formaPago = document.getElementById('profFormaPago')?.value || '';
         const cNombre = document.getElementById('profClienteNombre')?.textContent || '-';
@@ -2776,189 +2776,247 @@
         const cTelefono = document.getElementById('profClienteTelefono')?.textContent || '-';
         const cDireccion = document.getElementById('profClienteDireccion')?.textContent || '-';
 
-        // === LOGO ===
+        // Colores
+        const cPrimary = [0, 119, 139]; // teal similar a factura
+        const cGray = [100, 100, 100];
+        const cDark = [33, 33, 33];
+        const cBorder = [200, 200, 200];
+        const cHeaderBg = [230, 245, 248];
+
+        // Helper: dibujar celda con borde
+        function cell(x, yy, w, h, opts) {
+            doc.setDrawColor(...cBorder);
+            doc.setLineWidth(0.3);
+            if (opts?.fill) { doc.setFillColor(...opts.fill); doc.rect(x, yy, w, h, 'FD'); }
+            else { doc.rect(x, yy, w, h); }
+        }
+
+        // ===============================
+        // HEADER: Logo izq + Proforma der
+        // ===============================
         try {
             const logoImg = document.getElementById('printLogo');
-            if (logoImg && logoImg.src) {
-                doc.addImage(logoImg.src, 'PNG', M, y, 50, 18);
-            }
-        } catch(e) { console.warn('Logo no pudo cargarse', e); }
+            if (logoImg && logoImg.src) doc.addImage(logoImg.src, 'PNG', M, y, 55, 20);
+        } catch(e) {}
 
-        // === PROFORMA # y fecha ===
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        doc.setTextColor(37, 99, 235);
-        doc.text(`PROFORMA #${proformaActiva.numero}`, W - M, y + 6, { align: 'right' });
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(fecha, W - M, y + 12, { align: 'right' });
-        y += 22;
-
-        // Linea separadora azul
-        doc.setDrawColor(37, 99, 235);
-        doc.setLineWidth(0.8);
-        doc.line(M, y, W - M, y);
-        y += 8;
-
-        // === CLIENTE ===
-        doc.setFillColor(248, 249, 250);
-        doc.setDrawColor(222, 226, 230);
-        doc.roundedRect(M, y, pw, 32, 2, 2, 'FD');
-
+        // Recuadro derecho con PROFORMA y numero
+        const rX = M + pw * 0.55, rW = pw * 0.45;
+        cell(rX, y, rW, 10);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(12);
-        doc.setTextColor(33, 37, 41);
-        doc.text(cNombre, M + 5, y + 7);
+        doc.setTextColor(...cDark);
+        doc.text('PROFORMA', rX + 5, y + 7);
+        doc.text('No. ' + proformaActiva.numero, rX + rW - 5, y + 7, { align: 'right' });
 
+        cell(rX, y + 10, rW, 8);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(...cGray);
+        doc.text('Fecha de Emision:', rX + 5, y + 15.5);
+        doc.setTextColor(...cDark);
+        doc.text(fecha, rX + rW - 5, y + 15.5, { align: 'right' });
+
+        y += 25;
+
+        // ===============================
+        // EMISOR: datos de Ingenia
+        // ===============================
+        const emisorH = 28;
+        cell(M, y, pw * 0.5, emisorH);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(...cDark);
+        doc.text('Emisor: COBOS GRANDA PABLO ANDRES', M + 3, y + 5);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(136);
+        doc.text('RUC: 1715437990001', M + 3, y + 10);
+        doc.text('Direccion: Montes N29-130 y Andagoya', M + 3, y + 15);
+        doc.text('Correo: contabilidad@ingenia.ec', M + 3, y + 20);
+        doc.text('Telefono: 022902163', M + 3, y + 25);
 
-        const col1 = M + 5, col2 = M + 65, col3 = M + 120;
-        const r1 = y + 14, r2 = y + 23;
+        y += emisorH + 5;
 
-        doc.text('EMPRESA', col1, r1);
-        doc.text('RUC/CI', col2, r1);
-        doc.text('EMAIL', col3, r1);
-        doc.text('TELEFONO', col1, r2);
-        doc.text('DIRECCION', col2, r2);
+        // ===============================
+        // CLIENTE: estilo factura (label: valor)
+        // ===============================
+        const halfW = pw / 2;
+        const rowH = 8;
 
-        doc.setFontSize(9);
-        doc.setTextColor(33);
-        doc.text(cEmpresa, col1, r1 + 4);
-        doc.text(cRUC, col2, r1 + 4);
-        doc.text(cEmail, col3, r1 + 4);
-        doc.text(cTelefono, col1, r2 + 4);
-        doc.text(cDireccion, col2, r2 + 4);
-
-        y += 38;
-
-        // === TABLA DE ITEMS ===
-        const colWidths = [10, 22, 0, 18, 25, 25]; // # | Cod | Desc | Cant | P.Unit | Importe
-        colWidths[2] = pw - colWidths.reduce((a, b) => a + b, 0); // Desc gets remaining
-
-        // Header
-        doc.setFillColor(241, 245, 249);
-        doc.rect(M, y, pw, 8, 'F');
+        // Fila 1: Razon Social | RUC
+        cell(M, y, halfW, rowH);
+        cell(M + halfW, y, halfW, rowH);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
-        doc.setTextColor(85);
+        doc.setFontSize(8.5);
+        doc.setTextColor(...cGray);
+        doc.text('Razon Social:', M + 3, y + 5.5);
+        doc.text('RUC/CI:', M + halfW + 3, y + 5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...cDark);
+        doc.text(cNombre || cEmpresa, M + 32, y + 5.5);
+        doc.text(cRUC, M + halfW + 20, y + 5.5);
+        y += rowH;
 
-        const headers = ['#', 'CODIGO', 'DESCRIPCION', 'CANT.', 'P. UNIT.', 'IMPORTE'];
+        // Fila 2: Direccion | Telefono
+        cell(M, y, halfW, rowH);
+        cell(M + halfW, y, halfW, rowH);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...cGray);
+        doc.text('Direccion:', M + 3, y + 5.5);
+        doc.text('Telefono:', M + halfW + 3, y + 5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...cDark);
+        const dirLines = doc.splitTextToSize(cDireccion, halfW - 30);
+        doc.text(dirLines[0] || '', M + 26, y + 5.5);
+        doc.text(cTelefono, M + halfW + 24, y + 5.5);
+        y += rowH;
+
+        // Fila 3: Fecha Emision | Correo
+        cell(M, y, halfW, rowH);
+        cell(M + halfW, y, halfW, rowH);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...cGray);
+        doc.text('Fecha Emision:', M + 3, y + 5.5);
+        doc.text('Correo:', M + halfW + 3, y + 5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...cDark);
+        doc.text(fecha, M + 34, y + 5.5);
+        doc.text(cEmail, M + halfW + 20, y + 5.5);
+        y += rowH + 6;
+
+        // ===============================
+        // TABLA DE ITEMS con bordes
+        // ===============================
+        const colW = [22, 18, 0, 22, 25, 25]; // Codigo | Cant | Desc | P.Unit | Descuento | Total
+        colW[2] = pw - colW.reduce((a, b) => a + b, 0);
+        const headers = ['Codigo', 'Cantidad', 'Descripcion', 'Precio\nUnitario', 'Descuento', 'Total'];
+        const thH = 10;
+
+        // Header con fondo
         let cx = M;
         headers.forEach((h, i) => {
-            const align = (i >= 3) ? 'right' : 'left';
-            const tx = align === 'right' ? cx + colWidths[i] - 2 : cx + 2;
-            doc.text(h, tx, y + 5.5, { align });
-            cx += colWidths[i];
+            cell(cx, y, colW[i], thH, { fill: cHeaderBg });
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...cDark);
+            const lines = h.split('\n');
+            if (lines.length > 1) {
+                doc.text(lines[0], cx + colW[i] / 2, y + 4, { align: 'center' });
+                doc.text(lines[1], cx + colW[i] / 2, y + 8, { align: 'center' });
+            } else {
+                doc.text(h, cx + colW[i] / 2, y + 6.5, { align: 'center' });
+            }
+            cx += colW[i];
         });
-
-        doc.setDrawColor(209, 213, 219);
-        doc.setLineWidth(0.4);
-        doc.line(M, y + 8, W - M, y + 8);
-        y += 10;
+        y += thH;
 
         // Rows
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(33);
+        doc.setFontSize(8.5);
+        doc.setTextColor(...cDark);
 
         items.forEach((it, i) => {
-            if (y > H - 50) { doc.addPage(); y = M; }
-
             const imp = (it.cantidad || 0) * (it.precio_unitario || 0);
-            cx = M;
+            // Calcular altura de fila basada en descripcion
+            const descLines = doc.splitTextToSize(it.descripcion || '', colW[2] - 4);
+            const rH = Math.max(8, descLines.length * 4 + 4);
+
+            if (y + rH > H - 40) { doc.addPage(); y = M; }
+
             const vals = [
-                String(i + 1),
                 it.codigo || '',
-                it.descripcion || '',
                 String(it.cantidad || 0),
-                '$' + (it.precio_unitario || 0).toFixed(2),
+                '', // descripcion se maneja aparte
+                (it.precio_unitario || 0).toFixed(3),
+                '$0.00',
                 '$' + imp.toFixed(2)
             ];
 
+            cx = M;
             vals.forEach((v, j) => {
-                const align = (j >= 3) ? 'right' : 'left';
-                const tx = align === 'right' ? cx + colWidths[j] - 2 : cx + 2;
+                cell(cx, y, colW[j], rH);
                 if (j === 2) {
-                    // Descripcion: wrap text
-                    const lines = doc.splitTextToSize(v, colWidths[j] - 4);
-                    doc.text(lines, tx, y);
+                    doc.text(descLines, cx + 2, y + 4);
                 } else {
+                    const align = (j >= 3) ? 'right' : (j <= 1 ? 'left' : 'left');
+                    const tx = j >= 3 ? cx + colW[j] - 3 : cx + 3;
+                    const alignOpt = j >= 3 ? { align: 'right' } : {};
                     if (j === 5) doc.setFont('helvetica', 'bold');
-                    doc.text(v, tx, y, { align });
+                    doc.text(v, tx, y + rH / 2 + 1.5, alignOpt);
                     if (j === 5) doc.setFont('helvetica', 'normal');
                 }
-                cx += colWidths[j];
+                cx += colW[j];
             });
 
-            // Linea separadora
-            doc.setDrawColor(229, 231, 235);
-            doc.setLineWidth(0.2);
-            doc.line(M, y + 3, W - M, y + 3);
-            y += 8;
+            y += rH;
         });
 
-        y += 5;
+        y += 8;
 
-        // === TOTALES ===
-        if (y > H - 60) { doc.addPage(); y = M; }
+        // ===============================
+        // TOTALES
+        // ===============================
+        if (y > H - 55) { doc.addPage(); y = M; }
 
         const totX = M + pw * 0.55;
-        const totW = pw * 0.45;
+        const totW2 = pw * 0.45;
+        const totLabelW = totW2 * 0.55;
+        const totValW = totW2 * 0.45;
 
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(33);
-        doc.text('Subtotal', totX, y);
-        doc.text('$' + subtotal.toFixed(2), W - M, y, { align: 'right' });
-
-        doc.setDrawColor(238);
-        doc.line(totX, y + 2, W - M, y + 2);
-        y += 7;
-
-        doc.text('IVA ' + ivaPct + '%', totX, y);
-        doc.text('$' + iva.toFixed(2), W - M, y, { align: 'right' });
-        doc.line(totX, y + 2, W - M, y + 2);
-        y += 7;
-
-        doc.setDrawColor(37, 99, 235);
-        doc.setLineWidth(0.6);
-        doc.line(totX, y - 2, W - M, y - 2);
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(13);
-        doc.setTextColor(37, 99, 235);
-        doc.text('TOTAL', totX, y + 4);
-        doc.setTextColor(22, 163, 74);
-        doc.text('$' + total.toFixed(2), W - M, y + 4, { align: 'right' });
-
-        y += 15;
-
-        // === CONDICIONES ===
-        if (y > H - 30) { doc.addPage(); y = M; }
-
-        doc.setDrawColor(222, 226, 230);
-        doc.setLineWidth(0.3);
-        doc.line(M, y, W - M, y);
-        y += 6;
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
-        doc.setTextColor(85);
-        doc.text('TIEMPO DE ENTREGA', M, y);
-        doc.text('FORMA DE PAGO', M + pw / 2, y);
-
-        y += 5;
+        // Subtotal
+        cell(totX, y, totLabelW, 8);
+        cell(totX + totLabelW, y, totValW, 8);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-        doc.setTextColor(33);
+        doc.setTextColor(...cDark);
+        doc.text('Subtotal', totX + 3, y + 5.5);
+        doc.text('$' + subtotal.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
+        y += 8;
 
-        const teLines = doc.splitTextToSize(tiempoEntrega, pw / 2 - 5);
-        doc.text(teLines, M, y);
-        const fpLines = doc.splitTextToSize(formaPago, pw / 2 - 5);
-        doc.text(fpLines, M + pw / 2, y);
+        // IVA
+        cell(totX, y, totLabelW, 8);
+        cell(totX + totLabelW, y, totValW, 8);
+        doc.text('IVA ' + ivaPct + '%', totX + 3, y + 5.5);
+        doc.text('$' + iva.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
+        y += 8;
+
+        // TOTAL
+        cell(totX, y, totLabelW, 10, { fill: cHeaderBg });
+        cell(totX + totLabelW, y, totValW, 10, { fill: cHeaderBg });
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...cPrimary);
+        doc.text('TOTAL', totX + 3, y + 7);
+        doc.setTextColor(22, 163, 74);
+        doc.text('$' + total.toFixed(2), totX + totW2 - 3, y + 7, { align: 'right' });
+
+        y += 18;
+
+        // ===============================
+        // CONDICIONES
+        // ===============================
+        if (y > H - 30) { doc.addPage(); y = M; }
+
+        // Tiempo de entrega
+        cell(M, y, halfW, 8);
+        cell(M + halfW, y, halfW, 8);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...cGray);
+        doc.text('Tiempo de Entrega:', M + 3, y + 5.5);
+        doc.text('Forma de Pago:', M + halfW + 3, y + 5.5);
+        y += 8;
+
+        const teLines = doc.splitTextToSize(tiempoEntrega, halfW - 6);
+        const fpLines = doc.splitTextToSize(formaPago, halfW - 6);
+        const condH = Math.max(teLines.length, fpLines.length) * 4 + 4;
+
+        cell(M, y, halfW, condH);
+        cell(M + halfW, y, halfW, condH);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...cDark);
+        doc.text(teLines, M + 3, y + 4);
+        doc.text(fpLines, M + halfW + 3, y + 4);
 
         // === GUARDAR ===
         doc.save(`Proforma_${proformaActiva.numero}.pdf`);
