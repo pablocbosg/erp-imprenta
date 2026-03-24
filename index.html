@@ -185,6 +185,16 @@
         .client-selected .client-remove { cursor: pointer; color: var(--gray-500); font-size: 1.1rem; margin-left: auto; }
         .client-selected .client-remove:hover { color: var(--danger); }
 
+        /* Product autocomplete */
+        .product-search-wrap { position: relative; }
+        .product-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1.5px solid var(--primary); border-top: none; border-radius: 0 0 8px 8px; max-height: 240px; overflow-y: auto; z-index: 100; box-shadow: var(--shadow-lg); display: none; }
+        .product-dropdown.open { display: block; }
+        .product-option { padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.88rem; border-bottom: 1px solid var(--gray-100); display: flex; justify-content: space-between; align-items: center; }
+        .product-option:hover { background: var(--primary-light); }
+        .product-option .prod-name { font-weight: 600; color: var(--gray-800); }
+        .product-option .prod-detail { font-size: 0.73rem; color: var(--gray-500); }
+        .product-option .prod-badge { font-size: 0.68rem; background: var(--primary-light); color: var(--primary); padding: 0.1rem 0.4rem; border-radius: 8px; font-weight: 600; white-space: nowrap; }
+
         /* New client modal */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; }
         .modal { background: white; border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 90%; max-width: 450px; padding: 1.5rem; }
@@ -328,7 +338,10 @@
                     <div class="panel-body">
                         <div class="form-group">
                             <label>Descripcion</label>
-                            <input type="text" id="cotDescripcion" placeholder="Ej: Tarjetas de presentacion" oninput="cotCalc()">
+                            <div class="product-search-wrap">
+                                <input type="text" id="cotDescripcion" placeholder="Ej: Tarjetas de presentacion" autocomplete="off" oninput="searchProductsCot(this.value);cotCalc();" onfocus="searchProductsCot(this.value);" onblur="setTimeout(()=>document.getElementById('productDropdown').classList.remove('open'),200)">
+                                <div id="productDropdown" class="product-dropdown"></div>
+                            </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -4186,6 +4199,74 @@
         if (error) { alert('Error: ' + error.message); return; }
         document.querySelector('.modal-overlay').remove();
         await cargarProductos();
+    }
+
+    function searchProductsCot(query) {
+        const dropdown = document.getElementById('productDropdown');
+        const q = query.trim().toLowerCase();
+        // Ensure products are loaded
+        if (productosCache.length === 0) {
+            db.from('productos').select('*').order('categoria,nombre').then(({ data }) => {
+                productosCache = data || [];
+                renderProductDropdown(q);
+            });
+        } else {
+            renderProductDropdown(q);
+        }
+    }
+
+    function renderProductDropdown(q) {
+        const dropdown = document.getElementById('productDropdown');
+        let matches = productosCache;
+        if (q.length > 0) {
+            matches = productosCache.filter(p =>
+                (p.nombre || '').toLowerCase().includes(q) ||
+                (p.categoria || '').toLowerCase().includes(q)
+            );
+        }
+        if (matches.length === 0 && q.length > 0) {
+            dropdown.innerHTML = '<div class="product-option" style="color:var(--gray-400);font-style:italic;justify-content:center;">Sin coincidencias en el catalogo</div>';
+            dropdown.classList.add('open');
+            return;
+        }
+        if (matches.length === 0) { dropdown.classList.remove('open'); return; }
+        let html = '';
+        matches.forEach(p => {
+            const matName = getMaterialName(p.material_id);
+            const detail = p.ancho + 'x' + p.alto + ' cm | ' + (p.lados === 2 ? 'T/R' : '1 lado') + (matName !== '-' ? ' | ' + matName : '');
+            html += '<div class="product-option" onmousedown="selectProductCot(' + p.id + ')">'
+                + '<div><div class="prod-name">' + p.nombre + '</div><div class="prod-detail">' + detail + '</div></div>'
+                + '<span class="prod-badge">' + (p.categoria || '') + '</span>'
+                + '</div>';
+        });
+        dropdown.innerHTML = html;
+        dropdown.classList.add('open');
+    }
+
+    function selectProductCot(id) {
+        document.getElementById('productDropdown').classList.remove('open');
+        usarProductoInline(id);
+    }
+
+    function usarProductoInline(id) {
+        const p = productosCache.find(prod => prod.id === id);
+        if (!p) return;
+        document.getElementById('cotDescripcion').value = p.nombre;
+        document.getElementById('cotProdW').value = p.ancho || 0;
+        document.getElementById('cotProdH').value = p.alto || 0;
+        document.getElementById('cotSangrado').value = p.sangrado || 0.3;
+        document.getElementById('cotLados').value = p.lados || 1;
+        document.getElementById('cotLados').dispatchEvent(new Event('change'));
+        const coloresSelect = document.getElementById('cotColores');
+        if (coloresSelect) coloresSelect.value = p.colores || 4;
+        if (p.material_id) {
+            const matIdx = appData.materiales.findIndex(m => m.id === p.material_id);
+            if (matIdx >= 0) {
+                document.getElementById('cotMaterial').value = matIdx;
+                cotOnMaterialChange();
+            }
+        }
+        cotCalc();
     }
 
     function usarProducto(id) {
