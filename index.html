@@ -1183,6 +1183,18 @@
                     warnEl.style.display = 'none';
                 }
 
+                // Aviso tiro/retiro con paginas
+                const lados = +document.getElementById('cotLados').value || 1;
+                const pageCount = srcPdf.getPageCount();
+                if (lados === 2 && pageCount < 2) {
+                    warnEl.textContent = (warnEl.style.display === 'block' ? warnEl.textContent + ' | ' : '') +
+                        'Tiro/Retiro: el PDF solo tiene 1 pagina. Se necesitan 2 paginas (pag.1=tiro, pag.2=retiro). Se usara la misma para ambos lados.';
+                    warnEl.style.display = 'block';
+                } else if (lados === 2 && pageCount >= 2) {
+                    const infoExtra = 'Tiro/Retiro: pag.1 = tiro (izquierda), pag.2 = retiro (derecha)';
+                    document.getElementById('pdfFileDims').textContent += ' | ' + infoExtra;
+                }
+
                 document.getElementById('btnGeneratePdf').disabled = false;
                 document.getElementById('pdfDownloadArea').style.display = 'none';
             } catch(err) {
@@ -1377,6 +1389,7 @@
                 const ph = usarRot ? piezaW : piezaH;
                 const cols = usarRot ? rC : nC;
                 const rows = usarRot ? rL.rows : nL.rows;
+                const halfCols = cols / 2;
                 const totalPW = cols * pw;
                 const totalPH = rows * ph;
                 const offsetX = margenMaq + (uW - totalPW) / 2;
@@ -1384,7 +1397,11 @@
                 placements = [];
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
-                        placements.push({ x: offsetX + c * pw, y: offsetY + r * ph, w: pw, h: ph, rotated: usarRot });
+                        placements.push({
+                            x: offsetX + c * pw, y: offsetY + r * ph,
+                            w: pw, h: ph, rotated: usarRot,
+                            pageIdx: c < halfCols ? 0 : 1  // 0=tiro (izq), 1=retiro (der)
+                        });
                     }
                 }
             } else {
@@ -1414,7 +1431,21 @@
 
             // Load and embed source PDF
             const srcPdf = await PDFLib.PDFDocument.load(sourcePdfBytes);
-            const [embeddedPage] = await outPdf.embedPdf(srcPdf, [0]);
+            const srcPageCount = srcPdf.getPageCount();
+
+            // Para tiro/retiro: necesitamos 2 paginas del PDF fuente
+            let embeddedPages;
+            if (lados === 2 && srcPageCount >= 2) {
+                embeddedPages = await outPdf.embedPdf(srcPdf, [0, 1]);
+            } else {
+                const [ep] = await outPdf.embedPdf(srcPdf, [0]);
+                embeddedPages = [ep, ep]; // si solo hay 1 pagina, usar la misma para ambos lados
+            }
+
+            // Avisar si es tiro/retiro y el PDF solo tiene 1 pagina
+            if (lados === 2 && srcPageCount < 2) {
+                console.warn('PDF tiene solo 1 pagina. Para tiro/retiro se necesitan 2 paginas (tiro=pag1, retiro=pag2). Usando la misma pagina para ambos lados.');
+            }
 
             // Place each piece
             for (const p of placements) {
@@ -1424,8 +1455,11 @@
                 const wPt = p.w * CM_TO_PT;
                 const hPt = p.h * CM_TO_PT;
 
+                // Seleccionar pagina: tiro (pageIdx=0) o retiro (pageIdx=1)
+                const embPage = embeddedPages[p.pageIdx || 0];
+
                 if (p.rotated) {
-                    page.drawPage(embeddedPage, {
+                    page.drawPage(embPage, {
                         x: xPt,
                         y: yPt + hPt,
                         width: hPt,
@@ -1433,7 +1467,7 @@
                         rotate: PDFLib.degrees(-90),
                     });
                 } else {
-                    page.drawPage(embeddedPage, {
+                    page.drawPage(embPage, {
                         x: xPt, y: yPt,
                         width: wPt, height: hPt,
                     });
