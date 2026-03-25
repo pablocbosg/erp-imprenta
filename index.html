@@ -4839,6 +4839,34 @@
     function usarProductoInline(id) {
         const p = productosCache.find(prod => prod.id === id);
         if (!p) return;
+
+        if (p.tipo === 'publicacion') {
+            // Switch to publication mode
+            document.getElementById('cotTipoTrabajo').value = 'publicacion';
+            onTipoTrabajoChange();
+            document.getElementById('pubDescripcion').value = p.nombre;
+            document.getElementById('pubProdW').value = p.ancho || 14.8;
+            document.getElementById('pubProdH').value = p.alto || 21;
+            document.getElementById('pubSangrado').value = p.sangrado || 0.3;
+            document.getElementById('pubIntPaginas').value = p.paginas_interiores || 32;
+            if (p.encuadernacion) document.getElementById('pubEncuadernacion').value = p.encuadernacion;
+            // Set portada material (the product's material_id is for portada)
+            if (p.material_id) {
+                const matIdx = appData.materiales.findIndex(m => m.id === p.material_id);
+                if (matIdx >= 0) {
+                    document.getElementById('pubPortMaterial').value = matIdx;
+                    pubOnPortMaterialChange();
+                }
+            }
+            cotCalcPub();
+            return;
+        }
+
+        // Normal product mode
+        document.getElementById('cotTipoTrabajo').value = 'normal';
+        if (document.getElementById('sidebarPublicacion').style.display !== 'none') {
+            onTipoTrabajoChange();
+        }
         document.getElementById('cotDescripcion').value = p.nombre;
         document.getElementById('cotProdW').value = p.ancho || 0;
         document.getElementById('cotProdH').value = p.alto || 0;
