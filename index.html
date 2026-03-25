@@ -1193,6 +1193,22 @@
                         <div id="pub1FormatosInfoMain" class="mt-1"></div>
                     </div>
                 </div>
+                <!-- Vista previa portada -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;">Vista Previa Portada</div>
+                    <div class="panel-body" style="padding:0.75rem;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                            <div>
+                                <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;color:var(--gray-500);margin-bottom:0.4rem;">Piezas en hoja maquina</div>
+                                <canvas id="pub1PreviewHoja" width="300" height="220" style="width:100%;border:1px dashed var(--gray-300);border-radius:6px;"></canvas>
+                            </div>
+                            <div>
+                                <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;color:var(--gray-500);margin-bottom:0.4rem;">Hojas en pliego de material</div>
+                                <canvas id="pub1PreviewPliego" width="300" height="220" style="width:100%;border:1px dashed var(--gray-300);border-radius:6px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <!-- Resumen Interiores -->
                 <div class="panel">
                     <div class="panel-header" style="background:linear-gradient(135deg,#059669,#047857);color:white;">Produccion Interiores</div>
@@ -1206,6 +1222,22 @@
                             <div class="result-card highlight"><div class="value"><span id="pub2ResPliegosNec">0</span></div><div class="label">Pliegos</div></div>
                         </div>
                         <div id="pub2FormatosInfoMain" class="mt-1"></div>
+                    </div>
+                </div>
+                <!-- Vista previa interiores -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#059669,#047857);color:white;">Vista Previa Interiores</div>
+                    <div class="panel-body" style="padding:0.75rem;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                            <div>
+                                <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;color:var(--gray-500);margin-bottom:0.4rem;">Paginas en hoja maquina (tiro)</div>
+                                <canvas id="pub2PreviewHoja" width="300" height="220" style="width:100%;border:1px dashed var(--gray-300);border-radius:6px;"></canvas>
+                            </div>
+                            <div>
+                                <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;color:var(--gray-500);margin-bottom:0.4rem;">Hojas en pliego de material</div>
+                                <canvas id="pub2PreviewPliego" width="300" height="220" style="width:100%;border:1px dashed var(--gray-300);border-radius:6px;"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <!-- Desglose de costos publicacion -->
@@ -3051,16 +3083,16 @@
         else if (pub1Area) pub1Area.textContent = '';
 
         // === INTERIORES ===
-        // Para interiores, la pieza es la pagina ABIERTA (doble ancho)
-        // Primero calculamos piezas abiertas por hoja para saber cuantos juegos de placas necesitamos
+        // Paginas individuales (no piezas abiertas). Tiro y retiro con placas separadas.
         const intProdW = +document.getElementById('pub2ProdW').value || 0;
         const intProdH = +document.getElementById('pub2ProdH').value || 0;
         const intSangrado = +document.getElementById('pub2Sangrado').value || 0;
+        const intCantidad = +document.getElementById('pub2Cantidad').value || 0;
         const totalPaginasInt = +document.getElementById('pub2Paginas').value || 0;
 
-        // Pieza abierta para interiores
-        const piezaAbiertaW = (intProdW * 2) + 2 * intSangrado;
-        const piezaAbiertaH = intProdH + 2 * intSangrado;
+        // Pieza = pagina individual con sangrado
+        const intPiezaW = intProdW + 2 * intSangrado;
+        const intPiezaH = intProdH + 2 * intSangrado;
 
         const intHojaW = +document.getElementById('pub2HojaW').value || 0;
         const intHojaH = +document.getElementById('pub2HojaH').value || 0;
@@ -3068,25 +3100,90 @@
         const intHojaUtilW = intHojaW - 2 * intMargenMaq;
         const intHojaUtilH = intHojaH - 2 * intMargenMaq;
 
-        // Piezas abiertas por hoja de maquina
-        const intPiezasAbiertas = (intHojaUtilW > 0 && intHojaUtilH > 0 && piezaAbiertaW > 0 && piezaAbiertaH > 0)
-            ? bestCuts(intHojaUtilW, intHojaUtilH, piezaAbiertaW, piezaAbiertaH) : 0;
-        // Cada pieza abierta = 4 paginas (2 por lado x 2 lados)
-        const paginasPorHojaMaquina = intPiezasAbiertas * 4;
-        // Pliegos diferentes = juegos de placas necesarios
-        const pliegosDiferentes = paginasPorHojaMaquina > 0 ? Math.ceil(totalPaginasInt / paginasPorHojaMaquina) : 0;
+        const intPliegoW = +document.getElementById('pub2PliegoW').value || 0;
+        const intPliegoH = +document.getElementById('pub2PliegoH').value || 0;
+        const intPrecioPliego = +document.getElementById('pub2PrecioPliego').value || 0;
+        const intColores = +document.getElementById('pub2Colores').value || 4;
+        const intCostoPlaca = +document.getElementById('pub2CostoPlaca').value || 0;
+        const intCostoMillar = +document.getElementById('pub2CostoMillar').value || 0;
+        const intMermaPorJuego = +document.getElementById('pub2Merma').value || 0;
+        const intTerminadosExtra = +document.getElementById('pub2Terminados').value || 0;
 
-        // Setear juegos de placas automaticamente
-        document.getElementById('pub2JuegosPlacas').value = pliegosDiferentes || 1;
+        // Paginas por lado de hoja maquina (paginas individuales en el TIRO)
+        const paginasPorLado = (intHojaUtilW > 0 && intHojaUtilH > 0 && intPiezaW > 0 && intPiezaH > 0)
+            ? bestCuts(intHojaUtilW, intHojaUtilH, intPiezaW, intPiezaH) : 0;
+        // Paginas por hoja completa (tiro + retiro, cada lado tiene paginas diferentes)
+        const paginasPorHoja = paginasPorLado * 2;
+        // Pliegos diferentes = cuantas hojas de maquina distintas necesitamos
+        const pliegosDiferentes = paginasPorHoja > 0 ? Math.ceil(totalPaginasInt / paginasPorHoja) : 0;
 
-        // Ahora calcular interiores con el juego de placas correcto
-        const inte = _pubCalcSeccion('pub2');
+        // Cada pliego diferente: tiro = 1 juego de placas, retiro = otro juego
+        const intJuegosPlacasPorDiseno = 2; // siempre tiro + retiro separados
+        const intTotalJuegosPlacas = pliegosDiferentes * intJuegosPlacasPorDiseno;
+        const intTotalPlacas = intColores * intTotalJuegosPlacas;
+        const intCostoPlacasTotal = intTotalPlacas * intCostoPlaca;
+
+        // Hojas de maquina: cada diseno se imprime `cantidad` veces
+        // (cada hoja impresa va a 1 revista)
+        const intHojasNetas = intCantidad;
+        const intMerma3pct = Math.ceil(intHojasNetas * 0.03);
+        const intMermaReal = Math.max(intMermaPorJuego, intMerma3pct);
+        // Merma por cada juego de placas (cada setup de tiro/retiro desperdicia hojas)
+        const intMermaPorDiseno = intMermaReal * intJuegosPlacasPorDiseno;
+        const intHojasTotalesPorDiseno = intHojasNetas + intMermaPorDiseno;
+        const intTotalHojasMaquina = intHojasTotalesPorDiseno * pliegosDiferentes;
+
+        // Formatos por pliego y pliegos de material necesarios
+        const intFmtPorPliego = (intPliegoW > 0 && intPliegoH > 0 && intHojaW > 0 && intHojaH > 0)
+            ? bestCuts(intPliegoW, intPliegoH, intHojaW, intHojaH) : 0;
+        const intPliegosNec = intFmtPorPliego > 0 ? Math.ceil(intTotalHojasMaquina / intFmtPorPliego) : 0;
+
+        // Costos interiores
+        const intCostoMaterial = intPliegosNec * intPrecioPliego;
+
+        // Impresion: cada juego de placas es una corrida separada con su propio millar
+        const intMillaresPorCorrida = Math.max(1, Math.ceil(intHojasNetas / 1000));
+        const intTotalMillares = intMillaresPorCorrida * intTotalJuegosPlacas;
+        const intCostoImpresion = intTotalMillares * intCostoMillar * intColores;
+
+        // Guillotina interiores
+        let intCostoGuillotina = 0;
+        const intGuilloEl = document.getElementById('pub2Guillotina');
+        if (intGuilloEl && intGuilloEl.checked && paginasPorLado > 1 && intTotalHojasMaquina > 0) {
+            const guilloLayout = calcGuillotineCuts(intHojaUtilW, intHojaUtilH, intPiezaW, intPiezaH);
+            const matIdx = document.getElementById('pub2Material').value;
+            const gramaje = matIdx !== '' ? (appData.materiales[+matIdx]?.gramaje || 0) : 0;
+            const capacidadPila = gramaje > 150 ? 300 : 1000;
+            const pasadasPorCorte = Math.max(1, Math.ceil(intTotalHojasMaquina / capacidadPila));
+            intCostoGuillotina = 2 + guilloLayout.cortes * pasadasPorCorte * 0.25;
+        }
+
+        const intCostoTerminados = intTerminadosExtra + intCostoGuillotina;
+        const intSubtotal = intCostoMaterial + intCostoPlacasTotal + intCostoImpresion + intCostoTerminados;
+
+        // Crear objeto inte para compatibilidad con el DOM update
+        const inte = {
+            fmtPorPliego: intFmtPorPliego, piezasPorHoja: paginasPorLado,
+            hojasNetas: intHojasNetas, mermaTotal: intMermaPorDiseno * pliegosDiferentes,
+            hojasTotales: intTotalHojasMaquina, pliegosNec: intPliegosNec,
+            colores: intColores, costoPlaca: intCostoPlaca, costoMillarColor: intCostoMillar,
+            totalPlacas: intTotalPlacas, costoMaterial: intCostoMaterial,
+            costoPlacasTotal: intCostoPlacasTotal,
+            millaresImpresion: intTotalMillares, costoImpresion: intCostoImpresion,
+            costoPlastificado: 0, costoBarnizUV: 0, costoGuillotina: intCostoGuillotina,
+            terminados: intTerminadosExtra, costoTerminadosTotal: intCostoTerminados,
+            subtotal: intSubtotal, precioPliego: intPrecioPliego,
+            hojaW: intHojaW, hojaH: intHojaH, margenMaq: intMargenMaq,
+            hojaUtilW: intHojaUtilW, hojaUtilH: intHojaUtilH,
+            piezaW: intPiezaW, piezaH: intPiezaH,
+            pliegoW: intPliegoW, pliegoH: intPliegoH
+        };
 
         // Info paginas interiores
         const pagInfo = document.getElementById('pub2PaginasInfo');
-        if (pagInfo && paginasPorHojaMaquina > 0) {
-            const paginasReales = pliegosDiferentes * paginasPorHojaMaquina;
-            let txt = paginasPorHojaMaquina + ' pags/hoja maq. (' + intPiezasAbiertas + ' pzas abiertas x 4) → ' + pliegosDiferentes + ' pliego' + (pliegosDiferentes > 1 ? 's' : '') + ' diferente' + (pliegosDiferentes > 1 ? 's' : '');
+        if (pagInfo && paginasPorHoja > 0 && totalPaginasInt > 0) {
+            const paginasReales = pliegosDiferentes * paginasPorHoja;
+            let txt = paginasPorLado + ' pags/lado x 2 lados = ' + paginasPorHoja + ' pags/hoja → ' + pliegosDiferentes + ' pliego' + (pliegosDiferentes > 1 ? 's' : '') + ' diferente' + (pliegosDiferentes > 1 ? 's' : '') + ' (' + intTotalJuegosPlacas + ' juegos de placas)';
             if (paginasReales > totalPaginasInt) {
                 txt += ' | ' + (paginasReales - totalPaginasInt) + ' pags sobrantes';
             }
@@ -3094,14 +3191,14 @@
         } else if (pagInfo) { pagInfo.textContent = ''; }
 
         // Update interiores production results
-        document.getElementById('pub2ResFmtPliego').textContent = inte.fmtPorPliego;
-        document.getElementById('pub2ResPiezasHoja').textContent = intPiezasAbiertas;
-        document.getElementById('pub2ResPagsHoja').textContent = paginasPorHojaMaquina;
+        document.getElementById('pub2ResFmtPliego').textContent = intFmtPorPliego;
+        document.getElementById('pub2ResPiezasHoja').textContent = paginasPorLado;
+        document.getElementById('pub2ResPagsHoja').textContent = paginasPorHoja;
         document.getElementById('pub2ResPliegosDif').textContent = pliegosDiferentes;
-        document.getElementById('pub2ResHojasTotales').textContent = inte.hojasTotales;
-        document.getElementById('pub2ResPliegosNec').textContent = inte.pliegosNec;
+        document.getElementById('pub2ResHojasTotales').textContent = intTotalHojasMaquina;
+        document.getElementById('pub2ResPliegosNec').textContent = intPliegosNec;
         const pub2Info = document.getElementById('pub2FormatosInfoMain');
-        if (pub2Info) pub2Info.innerHTML = '<span class="info-badge" style="background:#ecfdf5;color:#059669;">' + intPiezasAbiertas + ' pzas abiertas/hoja (' + piezaAbiertaW.toFixed(1) + 'x' + piezaAbiertaH.toFixed(1) + ' cm)</span> <span class="info-badge" style="background:#fef3c7;color:#92400e;">' + pliegosDiferentes + ' juegos de placas</span>';
+        if (pub2Info) pub2Info.innerHTML = '<span class="info-badge" style="background:#ecfdf5;color:#059669;">' + paginasPorLado + ' pags/tiro (' + intPiezaW.toFixed(1) + 'x' + intPiezaH.toFixed(1) + ' cm c/u)</span> <span class="info-badge" style="background:#fef3c7;color:#92400e;">' + pliegosDiferentes + ' pliegos dif. x 2 = ' + intTotalJuegosPlacas + ' juegos placas</span>';
         const pub2Area = document.getElementById('pub2AreaUtil');
         if (pub2Area && intMargenMaq > 0) pub2Area.textContent = 'Area util: ' + intHojaUtilW + ' x ' + intHojaUtilH + ' cm';
         else if (pub2Area) pub2Area.textContent = '';
@@ -3208,6 +3305,18 @@
         document.getElementById('pubPrecioFinal').textContent = precioFinal.toFixed(2);
         document.getElementById('pubPrecioFinalBig').textContent = precioFinal.toFixed(2);
         document.getElementById('pubPrecioUnitBig').textContent = precioUnit.toFixed(4);
+
+        // === VISTAS PREVIAS ===
+        // Portada: pieza en hoja maquina + hojas en pliego
+        if (port.piezaW > 0 && port.piezaH > 0) {
+            cotDrawPreview('pub1PreviewHoja', port.hojaW, port.hojaH, port.piezaW, port.piezaH, port.margenMaq, false);
+            cotDrawPreview('pub1PreviewPliego', port.pliegoW, port.pliegoH, port.hojaW, port.hojaH, 0, false);
+        }
+        // Interiores: paginas individuales en hoja maquina + hojas en pliego
+        if (inte.piezaW > 0 && inte.piezaH > 0) {
+            cotDrawPreview('pub2PreviewHoja', inte.hojaW, inte.hojaH, inte.piezaW, inte.piezaH, inte.margenMaq, false);
+            cotDrawPreview('pub2PreviewPliego', inte.pliegoW, inte.pliegoH, inte.hojaW, inte.hojaH, 0, false);
+        }
     }
 
     function cotOnFormatoChange() {
