@@ -332,6 +332,19 @@
     <div id="tab-cotizador" class="tab-content active">
         <div class="cot-layout">
             <div class="cot-sidebar">
+                <!-- Tipo de trabajo -->
+                <div class="panel" id="panelTipoTrabajo">
+                    <div class="panel-body" style="padding:0.6rem 1rem;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Tipo de trabajo</label>
+                            <select id="cotTipoTrabajo" onchange="onTipoTrabajoChange()" style="font-weight:600;">
+                                <option value="normal">Pieza suelta (volante, tarjeta, etc.)</option>
+                                <option value="publicacion">Publicacion (revista, libro)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div id="sidebarNormal" style="display:contents;">
                 <!-- Datos del trabajo -->
                 <div class="panel">
                     <div class="panel-header">Datos del Trabajo</div>
@@ -602,9 +615,191 @@
                         </div>
                     </div>
                 </div>
+                </div><!-- /sidebarNormal -->
+                <div id="sidebarPublicacion" style="display:none;">
+                <!-- Datos de la publicacion -->
+                <div class="panel">
+                    <div class="panel-header">Datos de la Publicacion</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Descripcion</label>
+                            <input type="text" id="pubDescripcion" placeholder="Ej: Revista corporativa A5" oninput="searchProductsCot(this.value)" onfocus="searchProductsCot(this.value)" onblur="setTimeout(()=>document.getElementById('productDropdown').classList.remove('open'),200)">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho pagina (cm)</label>
+                                <input type="number" id="pubProdW" step="0.1" min="1" value="14.8" oninput="cotCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto pagina (cm)</label>
+                                <input type="number" id="pubProdH" step="0.1" min="1" value="21" oninput="cotCalcPub()">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Cantidad final</label>
+                                <input type="number" id="pubCantidad" step="1" min="1" value="1000" oninput="cotCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Sangrado por lado (cm)</label>
+                                <input type="number" id="pubSangrado" step="0.1" min="0" value="0.3" oninput="cotCalcPub()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Maquina y formato -->
+                <div class="panel">
+                    <div class="panel-header">Maquina y Formato</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Maquina</label>
+                            <select id="pubMaquina" onchange="pubCambiarMaquina()" style="font-weight:600;">
+                                <option value="SM52">SM52 (max 50x35) — Placa $4 / Millar $4</option>
+                                <option value="PM72">PM72 (max 72x52) — Placa $5 / Millar $10</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Formato frecuente</label>
+                            <select id="pubFormato" onchange="pubOnFormatoChange()">
+                                <option value="50x35">50 x 35 cm</option>
+                                <option value="48.2x33">48.2 x 33 cm</option>
+                                <option value="45x32.5" selected>45 x 32.5 cm</option>
+                                <option value="33x23">33 x 23 cm</option>
+                                <option value="">Personalizado</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho hoja (cm)</label>
+                                <input type="number" id="pubHojaW" step="0.1" value="45" oninput="cotCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto hoja (cm)</label>
+                                <input type="number" id="pubHojaH" step="0.1" value="32.5" oninput="cotCalcPub()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Margen de maquina por lado (cm)</label>
+                            <input type="number" id="pubMargenMaq" step="0.1" min="0" value="1" oninput="cotCalcPub()">
+                        </div>
+                    </div>
+                </div>
+                <!-- Portada -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;">Portada</div>
+                    <div class="panel-body">
+                        <div style="font-size:0.75rem;color:var(--gray-500);margin-bottom:0.5rem;">1 hoja tiro/retiro = 4 paginas (tapa, contratapa, retiraciones)</div>
+                        <div class="form-group">
+                            <label>Material portada</label>
+                            <select id="pubPortMaterial" onchange="pubOnPortMaterialChange()"></select>
+                        </div>
+                        <div id="pubPortMaterialInfo" class="text-sm text-muted"></div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Colores</label>
+                                <select id="pubPortColores" onchange="cotCalcPub()">
+                                    <option value="4" selected>4 colores (CMYK)</option>
+                                    <option value="2">2 colores</option>
+                                    <option value="1">1 color</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Terminados portada</label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
+                                <input type="checkbox" id="pubPortPlastificado" onchange="cotCalcPub()"> Plastificado
+                                <select id="pubPortPlastTipo" onchange="cotCalcPub()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="mate">Mate</option>
+                                    <option value="brillante">Brillante</option>
+                                </select>
+                                <select id="pubPortPlastCaras" onchange="cotCalcPub()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="1">1 cara</option>
+                                    <option value="2">2 caras</option>
+                                </select>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="pubPortBarnizUV" onchange="cotCalcPub()"> Barniz UV brillante
+                                <select id="pubPortBarnizCaras" onchange="cotCalcPub()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="1">1 cara</option>
+                                    <option value="2">2 caras</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <!-- Interiores -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#059669,#047857);color:white;">Interiores</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Total paginas interiores</label>
+                                <input type="number" id="pubIntPaginas" step="2" min="2" value="32" oninput="cotCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Colores</label>
+                                <select id="pubIntColores" onchange="cotCalcPub()">
+                                    <option value="4" selected>4 colores (CMYK)</option>
+                                    <option value="2">2 colores</option>
+                                    <option value="1">1 color</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Material interiores</label>
+                            <select id="pubIntMaterial" onchange="pubOnIntMaterialChange()"></select>
+                        </div>
+                        <div id="pubIntMaterialInfo" class="text-sm text-muted"></div>
+                        <div id="pubIntCalcInfo" style="margin-top:0.5rem;padding:0.5rem;background:var(--gray-50);border-radius:6px;font-size:0.78rem;color:var(--gray-600);"></div>
+                    </div>
+                </div>
+                <!-- Encuadernacion -->
+                <div class="panel">
+                    <div class="panel-header">Encuadernacion</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <select id="pubEncuadernacion" onchange="cotCalcPub()">
+                                <option value="grapado">Grapado ($0.10/u, min $10)</option>
+                                <option value="encolado">Encolado / Hot melt ($0.20/u, min $20)</option>
+                            </select>
+                        </div>
+                        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
+                            <input type="checkbox" id="pubIntercalado" onchange="cotCalcPub()" checked> Intercalado / recogida ($3/millar)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
+                            <input type="checkbox" id="pubDoblado" onchange="cotCalcPub()" checked> Doblado ($5/millar)
+                        </label>
+                    </div>
+                </div>
+                <!-- Margen y precio -->
+                <div class="panel">
+                    <div class="panel-header">Margen y Precio</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Margen utilidad %</label>
+                                <input type="number" id="pubMargen" step="1" min="0" max="99" value="35" oninput="cotCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Descuento %</label>
+                                <input type="number" id="pubDescuento" step="1" min="0" max="99" value="0" oninput="cotCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>IVA %</label>
+                                <select id="pubIVA" onchange="cotCalcPub()">
+                                    <option value="15" selected>15% (normal)</option>
+                                    <option value="0">0% (libros / exento)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- /sidebarPublicacion -->
             </div>
 
             <div class="cot-main">
+                <div id="mainNormal" style="display:contents;">
                 <!-- Calculo automatico -->
                 <div class="panel">
                     <div class="panel-header">Calculo de Produccion</div>
@@ -791,6 +986,72 @@
                         <button id="btnAddToProforma" class="btn-add-proforma no-print" onclick="addItemToProforma()">+ Agregar a Proforma #<span id="proformaActivaNum"></span></button>
                     </div>
                 </div>
+                </div><!-- /mainNormal -->
+                <div id="mainPublicacion" style="display:none;">
+                <!-- Calculo portada -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;">Calculo Portada</div>
+                    <div class="panel-body">
+                        <div class="results-grid" style="grid-template-columns:repeat(3,1fr);">
+                            <div class="result-card"><div class="value"><span id="pubPortPiezasHoja">0</span></div><div class="label">Portadas/hoja</div></div>
+                            <div class="result-card"><div class="value"><span id="pubPortHojasTotales">0</span></div><div class="label">Hojas con merma</div></div>
+                            <div class="result-card highlight"><div class="value"><span id="pubPortPliegos">0</span></div><div class="label">Pliegos portada</div></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Calculo interiores -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#059669,#047857);color:white;">Calculo Interiores</div>
+                    <div class="panel-body">
+                        <div class="results-grid" style="grid-template-columns:repeat(2,1fr);">
+                            <div class="result-card"><div class="value"><span id="pubIntPagsPliego">0</span></div><div class="label">Paginas/pliego</div></div>
+                            <div class="result-card"><div class="value"><span id="pubIntPliegosDif">0</span></div><div class="label">Pliegos diferentes</div></div>
+                            <div class="result-card"><div class="value"><span id="pubIntHojasTotales">0</span></div><div class="label">Hojas totales maquina</div></div>
+                            <div class="result-card highlight"><div class="value"><span id="pubIntPliegos">0</span></div><div class="label">Pliegos material</div></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Desglose de costos publicacion -->
+                <div class="panel">
+                    <div class="panel-header">Desglose de Costos</div>
+                    <div class="panel-body">
+                        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--primary);margin-bottom:0.3rem;">Portada</div>
+                        <div class="cost-row"><span class="cost-label">Material portada (<span id="pubCPortMatQty">0</span> pliegos x $<span id="pubCPortMatPx">0</span>)</span><span class="cost-value">$<span id="pubCPortMat">0.00</span></span></div>
+                        <div class="cost-row"><span class="cost-label">Placas portada (<span id="pubCPortPlacasQty">0</span> placas x $<span id="pubCPortPlacasPx">0</span>)</span><span class="cost-value">$<span id="pubCPortPlacas">0.00</span></span></div>
+                        <div class="cost-row"><span class="cost-label">Impresion portada (<span id="pubCPortImpQty">0</span> mill. x <span id="pubCPortImpCol">4</span> col.)</span><span class="cost-value">$<span id="pubCPortImp">0.00</span></span></div>
+                        <div class="cost-row" id="pubCPortTermRow" style="display:none;"><span class="cost-label">Terminados portada <span id="pubCPortTermLabel"></span></span><span class="cost-value">$<span id="pubCPortTerm">0.00</span></span></div>
+                        <div class="separator" style="margin:0.4rem 0;"></div>
+                        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#059669;margin-bottom:0.3rem;">Interiores</div>
+                        <div class="cost-row"><span class="cost-label">Material interiores (<span id="pubCIntMatQty">0</span> pliegos x $<span id="pubCIntMatPx">0</span>)</span><span class="cost-value">$<span id="pubCIntMat">0.00</span></span></div>
+                        <div class="cost-row"><span class="cost-label">Placas interiores (<span id="pubCIntPlacasQty">0</span> placas x $<span id="pubCIntPlacasPx">0</span>)</span><span class="cost-value">$<span id="pubCIntPlacas">0.00</span></span></div>
+                        <div class="cost-row"><span class="cost-label">Impresion interiores (<span id="pubCIntImpQty">0</span> mill. x <span id="pubCIntImpCol">4</span> col.)</span><span class="cost-value">$<span id="pubCIntImp">0.00</span></span></div>
+                        <div class="separator" style="margin:0.4rem 0;"></div>
+                        <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--warning);margin-bottom:0.3rem;">Encuadernacion</div>
+                        <div class="cost-row"><span class="cost-label" id="pubCEncuadLabel">Grapado</span><span class="cost-value">$<span id="pubCEncuad">0.00</span></span></div>
+                        <div class="cost-row" id="pubCIntercRow" style="display:none;"><span class="cost-label">Intercalado/recogida</span><span class="cost-value">$<span id="pubCInterc">0.00</span></span></div>
+                        <div class="cost-row" id="pubCDobladoRow" style="display:none;"><span class="cost-label">Doblado</span><span class="cost-value">$<span id="pubCDoblado">0.00</span></span></div>
+                        <div class="separator"></div>
+                        <div class="cost-row subtotal"><span class="cost-label">Subtotal costo</span><span class="cost-value">$<span id="pubSubtotalCosto">0.00</span></span></div>
+                        <div class="separator"></div>
+                        <div class="cost-row"><span class="cost-label">Utilidad <span id="pubMargenPct">35</span>%</span><span class="cost-value">$<span id="pubUtilidad">0.00</span></span></div>
+                        <div class="cost-row subtotal"><span class="cost-label">Subtotal sin IVA</span><span class="cost-value">$<span id="pubSubtotalSinIVA">0.00</span></span></div>
+                        <div class="cost-row" id="pubDescuentoRow" style="display:none;color:#dc2626;"><span class="cost-label">Descuento <span id="pubDescuentoPct">0</span>%</span><span class="cost-value">-$<span id="pubDescuentoMonto">0.00</span></span></div>
+                        <div class="cost-row"><span class="cost-label">Precio unitario (sin IVA)</span><span class="cost-value">$<span id="pubPrecioUnit">0.00</span></span></div>
+                        <div class="separator"></div>
+                        <div class="cost-row"><span class="cost-label">IVA <span id="pubIVAPct">15</span>%</span><span class="cost-value">$<span id="pubMontoIVA">0.00</span></span></div>
+                        <div class="cost-row total"><span class="cost-label">TOTAL CON IVA</span><span class="cost-value">$<span id="pubPrecioFinal">0.00</span></span></div>
+                    </div>
+                </div>
+                <!-- Precio final grande -->
+                <div class="panel">
+                    <div class="panel-body">
+                        <div class="results-grid" style="grid-template-columns:1fr 1fr;">
+                            <div class="result-card success"><div class="value">$<span id="pubPrecioFinalBig">0.00</span></div><div class="label">Total con IVA</div></div>
+                            <div class="result-card"><div class="value">$<span id="pubPrecioUnitBig">0.00</span></div><div class="label">Unitario sin IVA</div></div>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- /mainPublicacion -->
             </div>
         </div>
     </div>
@@ -2348,6 +2609,282 @@
         document.getElementById('cotCostoPlaca').value = maq.costoPlaca;
         document.getElementById('cotCostoMillar').value = maq.costoMillar;
         cotCalc();
+    }
+
+    // =====================================================
+    // PUBLICACION: Toggle, helpers, and calculation
+    // =====================================================
+    function onTipoTrabajoChange() {
+        const isPub = document.getElementById('cotTipoTrabajo').value === 'publicacion';
+        document.getElementById('sidebarNormal').style.display = isPub ? 'none' : 'contents';
+        document.getElementById('sidebarPublicacion').style.display = isPub ? 'contents' : 'none';
+        document.getElementById('mainNormal').style.display = isPub ? 'none' : 'contents';
+        document.getElementById('mainPublicacion').style.display = isPub ? 'contents' : 'none';
+        if (isPub) {
+            pubPopulateMaterials();
+            cotCalcPub();
+        } else {
+            cotCalc();
+        }
+    }
+
+    function pubPopulateMaterials() {
+        const selPort = document.getElementById('pubPortMaterial');
+        const selInt = document.getElementById('pubIntMaterial');
+        if (selPort.options.length <= 1) {
+            let html = '<option value="">-- Seleccionar material --</option>';
+            appData.materiales.forEach((m, i) => {
+                html += '<option value="' + i + '">' + m.nombre + ' (' + m.gramaje + 'g) - ' + m.ancho + 'x' + m.alto + ' - $' + m.precio + '</option>';
+            });
+            selPort.innerHTML = html;
+            selInt.innerHTML = html;
+        }
+    }
+
+    function pubOnPortMaterialChange() {
+        const idx = document.getElementById('pubPortMaterial').value;
+        const info = document.getElementById('pubPortMaterialInfo');
+        if (idx !== '' && appData.materiales[+idx]) {
+            const m = appData.materiales[+idx];
+            info.textContent = m.nombre.split(' ')[0] + ' - ' + m.gramaje + 'g - ' + m.ancho + 'x' + m.alto + ' cm';
+        } else { info.textContent = ''; }
+        cotCalcPub();
+    }
+
+    function pubOnIntMaterialChange() {
+        const idx = document.getElementById('pubIntMaterial').value;
+        const info = document.getElementById('pubIntMaterialInfo');
+        if (idx !== '' && appData.materiales[+idx]) {
+            const m = appData.materiales[+idx];
+            info.textContent = m.nombre.split(' ')[0] + ' - ' + m.gramaje + 'g - ' + m.ancho + 'x' + m.alto + ' cm';
+        } else { info.textContent = ''; }
+        cotCalcPub();
+    }
+
+    function pubCambiarMaquina() {
+        const sel = document.getElementById('pubMaquina').value;
+        const maq = maquinasConfig[sel];
+        if (!maq) return;
+        const formatoSel = document.getElementById('pubFormato');
+        formatoSel.innerHTML = '';
+        for (const [key, val] of Object.entries(maq.formatos)) {
+            const opt = document.createElement('option');
+            opt.value = key; opt.textContent = val.w + ' x ' + val.h + ' cm';
+            formatoSel.appendChild(opt);
+        }
+        formatoSel.innerHTML += '<option value="">Personalizado</option>';
+        const firstKey = Object.keys(maq.formatos)[0];
+        formatoSel.value = firstKey;
+        document.getElementById('pubHojaW').value = maq.formatos[firstKey].w;
+        document.getElementById('pubHojaH').value = maq.formatos[firstKey].h;
+        cotCalcPub();
+    }
+
+    function pubOnFormatoChange() {
+        const sel = document.getElementById('pubFormato').value;
+        const maq = maquinasConfig[document.getElementById('pubMaquina').value];
+        if (maq && maq.formatos[sel]) {
+            document.getElementById('pubHojaW').value = maq.formatos[sel].w;
+            document.getElementById('pubHojaH').value = maq.formatos[sel].h;
+        }
+        cotCalcPub();
+    }
+
+    function cotCalcPub() {
+        // === SHARED INPUTS ===
+        const prodW = +document.getElementById('pubProdW').value || 0;
+        const prodH = +document.getElementById('pubProdH').value || 0;
+        const sangrado = +document.getElementById('pubSangrado').value || 0;
+        const cantidad = +document.getElementById('pubCantidad').value || 0;
+        const hojaW = +document.getElementById('pubHojaW').value || 0;
+        const hojaH = +document.getElementById('pubHojaH').value || 0;
+        const margenMaq = +document.getElementById('pubMargenMaq').value || 0;
+        const hojaUtilW = hojaW - 2 * margenMaq;
+        const hojaUtilH = hojaH - 2 * margenMaq;
+        const piezaW = prodW + 2 * sangrado;
+        const piezaH = prodH + 2 * sangrado;
+
+        // Machine costs
+        const maqKey = document.getElementById('pubMaquina').value;
+        const maq = maquinasConfig[maqKey] || maquinasConfig['SM52'];
+        const costoPlaca = maq.costoPlaca;
+        const costoMillar = maq.costoMillar;
+        const mermaPorJuego = 100;
+
+        // === PORTADA ===
+        const portMatIdx = document.getElementById('pubPortMaterial').value;
+        const portMat = portMatIdx !== '' ? appData.materiales[+portMatIdx] : null;
+        const portPliegoW = portMat ? portMat.ancho : 70;
+        const portPliegoH = portMat ? portMat.alto : 100;
+        const portPrecioPliego = portMat ? portMat.precio : 0;
+
+        const portPiezasHoja = bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
+        const portHojasNetas = portPiezasHoja > 0 ? Math.ceil(cantidad / portPiezasHoja) : 0;
+        const portMerma = Math.max(mermaPorJuego, Math.ceil(portHojasNetas * 0.03));
+        const portHojasTotales = portHojasNetas + portMerma;
+        const portFmtPliego = bestCuts(portPliegoW, portPliegoH, hojaW, hojaH);
+        const portPliegosNec = portFmtPliego > 0 ? Math.ceil(portHojasTotales / portFmtPliego) : 0;
+
+        const portColores = +document.getElementById('pubPortColores').value || 4;
+        const portCostoMaterial = portPliegosNec * portPrecioPliego;
+        const portTotalPlacas = portColores; // 1 juego
+        const portCostoPlacas = portTotalPlacas * costoPlaca;
+        const portPasadas = portHojasNetas * 2; // tiro y retiro
+        const portMillares = Math.max(1, Math.ceil(portPasadas / 1000));
+        const portCostoImpresion = portMillares * costoMillar * portColores;
+
+        // Terminados portada
+        let portCostoTerminados = 0;
+        let portTermLabel = '';
+        if (document.getElementById('pubPortPlastificado').checked && hojaW > 0 && hojaH > 0) {
+            const caras = +document.getElementById('pubPortPlastCaras').value || 1;
+            const areaCm2 = hojaW * hojaH;
+            const hojasPlast = portHojasNetas + Math.ceil(portMerma / 2);
+            const costoPlast = Math.max(5, areaCm2 * hojasPlast * 0.000035 * caras);
+            portCostoTerminados += costoPlast;
+            portTermLabel += 'Plast. $' + costoPlast.toFixed(2) + ' ';
+        }
+        if (document.getElementById('pubPortBarnizUV').checked && hojaW > 0 && hojaH > 0) {
+            const caras = +document.getElementById('pubPortBarnizCaras').value || 1;
+            const areaCm2 = hojaW * hojaH;
+            const hojasUV = portHojasNetas + Math.ceil(portMerma / 2);
+            const costoUV = Math.max(10, areaCm2 * hojasUV * 0.000009 * caras);
+            portCostoTerminados += costoUV;
+            portTermLabel += 'UV $' + costoUV.toFixed(2);
+        }
+
+        const portSubtotal = portCostoMaterial + portCostoPlacas + portCostoImpresion + portCostoTerminados;
+
+        // === INTERIORES ===
+        const intMatIdx = document.getElementById('pubIntMaterial').value;
+        const intMat = intMatIdx !== '' ? appData.materiales[+intMatIdx] : null;
+        const intPliegoW = intMat ? intMat.ancho : 70;
+        const intPliegoH = intMat ? intMat.alto : 100;
+        const intPrecioPliego = intMat ? intMat.precio : 0;
+
+        const totalPaginasInt = +document.getElementById('pubIntPaginas').value || 0;
+        const intPiezasHoja = bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
+        const paginasPorPliego = intPiezasHoja * 2; // x2 tiro/retiro
+        const pliegosDiferentes = paginasPorPliego > 0 ? Math.ceil(totalPaginasInt / paginasPorPliego) : 0;
+
+        // Cada pliego diferente requiere su propio juego de placas
+        const intHojasNetasPorPliego = intPiezasHoja > 0 ? Math.ceil(cantidad / intPiezasHoja) : 0;
+        const intMermaPorPliego = Math.max(mermaPorJuego, Math.ceil(intHojasNetasPorPliego * 0.03));
+        const intHojasTotalesPorPliego = intHojasNetasPorPliego + intMermaPorPliego;
+        const intTotalHojasMaquina = intHojasTotalesPorPliego * pliegosDiferentes;
+        const intFmtPliego = bestCuts(intPliegoW, intPliegoH, hojaW, hojaH);
+        const intPliegosNec = intFmtPliego > 0 ? Math.ceil(intTotalHojasMaquina / intFmtPliego) : 0;
+
+        const intColores = +document.getElementById('pubIntColores').value || 4;
+        const intCostoMaterial = intPliegosNec * intPrecioPliego;
+        const intTotalPlacas = intColores * pliegosDiferentes;
+        const intCostoPlacas = intTotalPlacas * costoPlaca;
+        const intPasadas = intHojasNetasPorPliego * 2 * pliegosDiferentes;
+        const intMillares = Math.max(1, Math.ceil(intPasadas / 1000));
+        const intCostoImpresion = intMillares * costoMillar * intColores;
+        const intSubtotal = intCostoMaterial + intCostoPlacas + intCostoImpresion;
+
+        // Info interiores
+        const intInfo = document.getElementById('pubIntCalcInfo');
+        if (paginasPorPliego > 0 && totalPaginasInt > 0) {
+            const paginasReales = pliegosDiferentes * paginasPorPliego;
+            let infoText = '<strong>' + paginasPorPliego + ' paginas/pliego</strong> (' + intPiezasHoja + ' por lado x 2 lados)<br>';
+            infoText += pliegosDiferentes + ' pliego' + (pliegosDiferentes > 1 ? 's' : '') + ' diferente' + (pliegosDiferentes > 1 ? 's' : '') + ' → ' + intTotalPlacas + ' placas';
+            if (paginasReales > totalPaginasInt) {
+                infoText += '<br><span style="color:var(--warning);">⚠ Ultimo pliego no completo (' + (paginasReales - totalPaginasInt) + ' pags sobrantes)</span>';
+            }
+            intInfo.innerHTML = infoText;
+        } else {
+            intInfo.textContent = 'Ingresa paginas y formato para calcular';
+        }
+
+        // === ENCUADERNACION ===
+        const tipoEncuad = document.getElementById('pubEncuadernacion').value;
+        let costoEncuad = 0;
+        let encuadLabel = '';
+        if (tipoEncuad === 'grapado') {
+            costoEncuad = Math.max(10, cantidad * 0.10);
+            encuadLabel = 'Grapado (' + cantidad + ' x $0.10)';
+        } else if (tipoEncuad === 'encolado') {
+            costoEncuad = Math.max(20, cantidad * 0.20);
+            encuadLabel = 'Encolado (' + cantidad + ' x $0.20)';
+        }
+        const millaresRevistas = Math.max(1, Math.ceil(cantidad / 1000));
+        let costoIntercalado = 0, costoDoblado = 0;
+        if (document.getElementById('pubIntercalado').checked) {
+            costoIntercalado = millaresRevistas * 3;
+        }
+        if (document.getElementById('pubDoblado').checked) {
+            costoDoblado = millaresRevistas * 5;
+        }
+        const encuadSubtotal = costoEncuad + costoIntercalado + costoDoblado;
+
+        // === TOTALES ===
+        const subtotalCosto = portSubtotal + intSubtotal + encuadSubtotal;
+        const margenPct = +document.getElementById('pubMargen').value || 0;
+        const ivaPct = +document.getElementById('pubIVA').value || 0;
+        const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
+        const descuentoPct = +document.getElementById('pubDescuento').value || 0;
+        const descuentoMonto = precioSinIVA * (descuentoPct / 100);
+        const precioConDesc = precioSinIVA - descuentoMonto;
+        const montoIVA = precioConDesc * (ivaPct / 100);
+        const precioFinal = precioConDesc + montoIVA;
+        const precioUnit = cantidad > 0 ? precioConDesc / cantidad : 0;
+
+        // === UPDATE DOM ===
+        // Portada results
+        document.getElementById('pubPortPiezasHoja').textContent = portPiezasHoja;
+        document.getElementById('pubPortHojasTotales').textContent = portHojasTotales;
+        document.getElementById('pubPortPliegos').textContent = portPliegosNec;
+        // Interiores results
+        document.getElementById('pubIntPagsPliego').textContent = paginasPorPliego;
+        document.getElementById('pubIntPliegosDif').textContent = pliegosDiferentes;
+        document.getElementById('pubIntHojasTotales').textContent = intTotalHojasMaquina;
+        document.getElementById('pubIntPliegos').textContent = intPliegosNec;
+        // Cost breakdown - portada
+        document.getElementById('pubCPortMatQty').textContent = portPliegosNec;
+        document.getElementById('pubCPortMatPx').textContent = portPrecioPliego.toFixed(2);
+        document.getElementById('pubCPortMat').textContent = portCostoMaterial.toFixed(2);
+        document.getElementById('pubCPortPlacasQty').textContent = portTotalPlacas;
+        document.getElementById('pubCPortPlacasPx').textContent = costoPlaca.toFixed(2);
+        document.getElementById('pubCPortPlacas').textContent = portCostoPlacas.toFixed(2);
+        document.getElementById('pubCPortImpQty').textContent = portMillares;
+        document.getElementById('pubCPortImpCol').textContent = portColores;
+        document.getElementById('pubCPortImp').textContent = portCostoImpresion.toFixed(2);
+        document.getElementById('pubCPortTermRow').style.display = portCostoTerminados > 0 ? 'flex' : 'none';
+        document.getElementById('pubCPortTerm').textContent = portCostoTerminados.toFixed(2);
+        document.getElementById('pubCPortTermLabel').textContent = portTermLabel ? '(' + portTermLabel.trim() + ')' : '';
+        // Cost breakdown - interiores
+        document.getElementById('pubCIntMatQty').textContent = intPliegosNec;
+        document.getElementById('pubCIntMatPx').textContent = intPrecioPliego.toFixed(2);
+        document.getElementById('pubCIntMat').textContent = intCostoMaterial.toFixed(2);
+        document.getElementById('pubCIntPlacasQty').textContent = intTotalPlacas;
+        document.getElementById('pubCIntPlacasPx').textContent = costoPlaca.toFixed(2);
+        document.getElementById('pubCIntPlacas').textContent = intCostoPlacas.toFixed(2);
+        document.getElementById('pubCIntImpQty').textContent = intMillares;
+        document.getElementById('pubCIntImpCol').textContent = intColores;
+        document.getElementById('pubCIntImp').textContent = intCostoImpresion.toFixed(2);
+        // Cost breakdown - encuadernacion
+        document.getElementById('pubCEncuadLabel').textContent = encuadLabel;
+        document.getElementById('pubCEncuad').textContent = costoEncuad.toFixed(2);
+        document.getElementById('pubCIntercRow').style.display = costoIntercalado > 0 ? 'flex' : 'none';
+        document.getElementById('pubCInterc').textContent = costoIntercalado.toFixed(2);
+        document.getElementById('pubCDobladoRow').style.display = costoDoblado > 0 ? 'flex' : 'none';
+        document.getElementById('pubCDoblado').textContent = costoDoblado.toFixed(2);
+        // Totals
+        document.getElementById('pubSubtotalCosto').textContent = subtotalCosto.toFixed(2);
+        document.getElementById('pubMargenPct').textContent = margenPct;
+        document.getElementById('pubUtilidad').textContent = (precioSinIVA - subtotalCosto).toFixed(2);
+        document.getElementById('pubSubtotalSinIVA').textContent = precioSinIVA.toFixed(2);
+        document.getElementById('pubDescuentoPct').textContent = descuentoPct;
+        document.getElementById('pubDescuentoMonto').textContent = descuentoMonto.toFixed(2);
+        document.getElementById('pubDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
+        document.getElementById('pubPrecioUnit').textContent = precioUnit.toFixed(4);
+        document.getElementById('pubIVAPct').textContent = ivaPct;
+        document.getElementById('pubMontoIVA').textContent = montoIVA.toFixed(2);
+        document.getElementById('pubPrecioFinal').textContent = precioFinal.toFixed(2);
+        document.getElementById('pubPrecioFinalBig').textContent = precioFinal.toFixed(2);
+        document.getElementById('pubPrecioUnitBig').textContent = precioUnit.toFixed(4);
     }
 
     function cotOnFormatoChange() {
