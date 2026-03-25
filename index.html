@@ -954,10 +954,10 @@
                             </select>
                         </div>
                         <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
-                            <input type="checkbox" id="pubIntercalado" onchange="cotCalcPub()" checked> Intercalado / recogida ($3/millar)
+                            <input type="checkbox" id="pubIntercalado" onchange="cotCalcPub()" checked> Intercalado / recogida ($3/millar de pliegos)
                         </label>
                         <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
-                            <input type="checkbox" id="pubDoblado" onchange="cotCalcPub()" checked> Doblado ($5/millar)
+                            <input type="checkbox" id="pubDoblado" onchange="cotCalcPub()" checked> Doblado en cruz ($5/millar de pliegos)
                         </label>
                     </div>
                 </div>
@@ -1264,8 +1264,8 @@
                         <div class="separator" style="margin:0.4rem 0;"></div>
                         <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#d97706;margin-bottom:0.3rem;">Encuadernacion</div>
                         <div class="cost-row"><span class="cost-label" id="pubCEncuadLabel">Grapado</span><span class="cost-value">$<span id="pubCEncuad">0.00</span></span></div>
-                        <div class="cost-row" id="pubCIntercRow" style="display:none;"><span class="cost-label">Intercalado/recogida</span><span class="cost-value">$<span id="pubCInterc">0.00</span></span></div>
-                        <div class="cost-row" id="pubCDobladoRow" style="display:none;"><span class="cost-label">Doblado</span><span class="cost-value">$<span id="pubCDoblado">0.00</span></span></div>
+                        <div class="cost-row" id="pubCIntercRow" style="display:none;"><span class="cost-label">Intercalado/recogida <span id="pubCIntercLabel"></span></span><span class="cost-value">$<span id="pubCInterc">0.00</span></span></div>
+                        <div class="cost-row" id="pubCDobladoRow" style="display:none;"><span class="cost-label">Doblado en cruz <span id="pubCDobladoLabel"></span></span><span class="cost-value">$<span id="pubCDoblado">0.00</span></span></div>
                         <div class="separator"></div>
                         <div class="cost-row subtotal"><span class="cost-label">Subtotal costo</span><span class="cost-value">$<span id="pubSubtotalCosto">0.00</span></span></div>
                         <div class="separator"></div>
@@ -3215,13 +3215,17 @@
             costoEncuad = Math.max(20, cantidad1 * 0.20);
             encuadLabel = 'Encolado (' + cantidad1 + ' x $0.20)';
         }
-        const millaresRevistas = Math.max(1, Math.ceil(cantidad1 / 1000));
+        // Doblado e intercalado se cobran por millar de PLIEGOS (hojas de maquina)
+        // Cada revista tiene `pliegosDiferentes` hojas interiores que doblar/recoger
+        // Total pliegos = cantidad de revistas × pliegos diferentes por revista
+        const totalPliegosEncuad = cantidad1 * pliegosDiferentes;
+        const millaresPliegosEncuad = Math.max(1, Math.ceil(totalPliegosEncuad / 1000));
         let costoIntercalado = 0, costoDoblado = 0;
         if (document.getElementById('pubIntercalado').checked) {
-            costoIntercalado = millaresRevistas * 3;
+            costoIntercalado = millaresPliegosEncuad * 3;
         }
         if (document.getElementById('pubDoblado').checked) {
-            costoDoblado = millaresRevistas * 5;
+            costoDoblado = millaresPliegosEncuad * 5;
         }
         const encuadSubtotal = costoEncuad + costoIntercalado + costoDoblado;
 
@@ -3288,8 +3292,10 @@
         document.getElementById('pubCEncuad').textContent = costoEncuad.toFixed(2);
         document.getElementById('pubCIntercRow').style.display = costoIntercalado > 0 ? 'flex' : 'none';
         document.getElementById('pubCInterc').textContent = costoIntercalado.toFixed(2);
+        if (costoIntercalado > 0) document.getElementById('pubCIntercLabel').textContent = '(' + millaresPliegosEncuad + ' mill. x $3)';
         document.getElementById('pubCDobladoRow').style.display = costoDoblado > 0 ? 'flex' : 'none';
         document.getElementById('pubCDoblado').textContent = costoDoblado.toFixed(2);
+        if (costoDoblado > 0) document.getElementById('pubCDobladoLabel').textContent = '(' + millaresPliegosEncuad + ' mill. x $5)';
 
         // Totals
         document.getElementById('pubSubtotalCosto').textContent = subtotalCosto.toFixed(2);
