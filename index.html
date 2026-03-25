@@ -623,7 +623,10 @@
                     <div class="panel-body">
                         <div class="form-group">
                             <label>Descripcion</label>
-                            <input type="text" id="pubDescripcion" placeholder="Ej: Revista corporativa A5" oninput="searchProductsCot(this.value)" onfocus="searchProductsCot(this.value)" onblur="setTimeout(()=>document.getElementById('productDropdown').classList.remove('open'),200)">
+                            <div style="position:relative;">
+                            <input type="text" id="pubDescripcion" placeholder="Ej: Revista corporativa A5" oninput="searchProductsPub(this.value)" onfocus="searchProductsPub(this.value)" onblur="setTimeout(()=>document.getElementById('pubProductDropdown').classList.remove('open'),200)">
+                            <div id="pubProductDropdown" class="product-dropdown"></div>
+                            </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -688,13 +691,20 @@
                 <div class="panel">
                     <div class="panel-header" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;">Portada</div>
                     <div class="panel-body">
-                        <div style="font-size:0.75rem;color:var(--gray-500);margin-bottom:0.5rem;">1 hoja tiro/retiro = 4 paginas (tapa, contratapa, retiraciones)</div>
+                        <div id="pubPortInfo" style="font-size:0.75rem;color:var(--gray-500);margin-bottom:0.5rem;"></div>
                         <div class="form-group">
                             <label>Material portada</label>
                             <select id="pubPortMaterial" onchange="pubOnPortMaterialChange()"></select>
                         </div>
                         <div id="pubPortMaterialInfo" class="text-sm text-muted"></div>
                         <div class="form-row">
+                            <div class="form-group">
+                                <label>Lados</label>
+                                <select id="pubPortLados" onchange="cotCalcPub()">
+                                    <option value="1">1 lado (solo tiro)</option>
+                                    <option value="2" selected>2 lados (tiro y retiro)</option>
+                                </select>
+                            </div>
                             <div class="form-group">
                                 <label>Colores</label>
                                 <select id="pubPortColores" onchange="cotCalcPub()">
@@ -2661,6 +2671,51 @@
         cotCalcPub();
     }
 
+    function searchProductsPub(query) {
+        const dropdown = document.getElementById('pubProductDropdown');
+        const q = query.trim().toLowerCase();
+        if (productosCache.length === 0) {
+            db.from('productos').select('*').order('categoria,nombre').then(({ data }) => {
+                productosCache = data || [];
+                renderProductDropdownPub(q);
+            });
+        } else {
+            renderProductDropdownPub(q);
+        }
+    }
+
+    function renderProductDropdownPub(q) {
+        const dropdown = document.getElementById('pubProductDropdown');
+        let matches = productosCache;
+        if (q.length > 0) {
+            matches = productosCache.filter(p =>
+                (p.nombre || '').toLowerCase().includes(q) ||
+                (p.categoria || '').toLowerCase().includes(q)
+            );
+        }
+        if (matches.length === 0 && q.length > 0) {
+            dropdown.innerHTML = '<div class="product-option" style="color:var(--gray-400);font-style:italic;justify-content:center;">Sin coincidencias</div>';
+            dropdown.classList.add('open');
+            return;
+        }
+        if (matches.length === 0) { dropdown.classList.remove('open'); return; }
+        let html = '';
+        matches.forEach(p => {
+            const matName = getMaterialName(p.material_id);
+            const detail = p.ancho + 'x' + p.alto + ' cm | ' + (p.lados === 2 ? 'T/R' : '1 lado') + (matName !== '-' ? ' | ' + matName : '');
+            html += '<div class="product-option" onmousedown="selectProductPub(' + p.id + ')">'
+                + '<div><div class="prod-name">' + p.nombre + '</div><div class="prod-detail">' + detail + '</div></div>'
+                + '<span class="prod-badge">' + (p.categoria || '') + '</span></div>';
+        });
+        dropdown.innerHTML = html;
+        dropdown.classList.add('open');
+    }
+
+    function selectProductPub(id) {
+        document.getElementById('pubProductDropdown').classList.remove('open');
+        usarProductoInline(id);
+    }
+
     function pubCambiarMaquina() {
         const sel = document.getElementById('pubMaquina').value;
         const maq = maquinasConfig[sel];
@@ -2692,8 +2747,8 @@
 
     function cotCalcPub() {
         // === SHARED INPUTS ===
-        const prodW = +document.getElementById('pubProdW').value || 0;
-        const prodH = +document.getElementById('pubProdH').value || 0;
+        const paginaW = +document.getElementById('pubProdW').value || 0; // tamaño pagina CERRADA
+        const paginaH = +document.getElementById('pubProdH').value || 0;
         const sangrado = +document.getElementById('pubSangrado').value || 0;
         const cantidad = +document.getElementById('pubCantidad').value || 0;
         const hojaW = +document.getElementById('pubHojaW').value || 0;
@@ -2701,8 +2756,10 @@
         const margenMaq = +document.getElementById('pubMargenMaq').value || 0;
         const hojaUtilW = hojaW - 2 * margenMaq;
         const hojaUtilH = hojaH - 2 * margenMaq;
-        const piezaW = prodW + 2 * sangrado;
-        const piezaH = prodH + 2 * sangrado;
+
+        // Pieza ABIERTA: la portada y cada hoja interior se imprime abierta (doble ancho)
+        const piezaAbiertaW = (paginaW * 2) + 2 * sangrado;
+        const piezaAbiertaH = paginaH + 2 * sangrado;
 
         // Machine costs
         const maqKey = document.getElementById('pubMaquina').value;
@@ -2712,13 +2769,16 @@
         const mermaPorJuego = 100;
 
         // === PORTADA ===
+        // La portada es 1 pieza abierta (tapa + contratapa). Misma logica que piezas sueltas.
+        const portLados = +document.getElementById('pubPortLados').value || 2;
         const portMatIdx = document.getElementById('pubPortMaterial').value;
         const portMat = portMatIdx !== '' ? appData.materiales[+portMatIdx] : null;
         const portPliegoW = portMat ? portMat.ancho : 70;
         const portPliegoH = portMat ? portMat.alto : 100;
         const portPrecioPliego = portMat ? portMat.precio : 0;
 
-        const portPiezasHoja = bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
+        // Imposicion portada: cuantas portadas abiertas caben por hoja de maquina
+        const portPiezasHoja = bestCuts(hojaUtilW, hojaUtilH, piezaAbiertaW, piezaAbiertaH);
         const portHojasNetas = portPiezasHoja > 0 ? Math.ceil(cantidad / portPiezasHoja) : 0;
         const portMerma = Math.max(mermaPorJuego, Math.ceil(portHojasNetas * 0.03));
         const portHojasTotales = portHojasNetas + portMerma;
@@ -2727,11 +2787,16 @@
 
         const portColores = +document.getElementById('pubPortColores').value || 4;
         const portCostoMaterial = portPliegosNec * portPrecioPliego;
-        const portTotalPlacas = portColores; // 1 juego
+        const portTotalPlacas = portColores; // 1 juego de placas para portada
         const portCostoPlacas = portTotalPlacas * costoPlaca;
-        const portPasadas = portHojasNetas * 2; // tiro y retiro
+        const portPasadas = portHojasNetas * portLados;
         const portMillares = Math.max(1, Math.ceil(portPasadas / 1000));
         const portCostoImpresion = portMillares * costoMillar * portColores;
+
+        // Info portada
+        const portInfoEl = document.getElementById('pubPortInfo');
+        const portPagsStr = portLados === 2 ? '4 paginas (tapa, contratapa, retiraciones)' : '2 paginas (tapa, contratapa)';
+        portInfoEl.textContent = 'Pieza abierta: ' + piezaAbiertaW.toFixed(1) + 'x' + piezaAbiertaH.toFixed(1) + ' cm | ' + portPiezasHoja + ' portadas/hoja | ' + portPagsStr;
 
         // Terminados portada
         let portCostoTerminados = 0;
@@ -2756,6 +2821,7 @@
         const portSubtotal = portCostoMaterial + portCostoPlacas + portCostoImpresion + portCostoTerminados;
 
         // === INTERIORES ===
+        // Cada hoja interior abierta = 2 paginas (1 por cada lado). Tiro y retiro = 4 paginas por hoja abierta.
         const intMatIdx = document.getElementById('pubIntMaterial').value;
         const intMat = intMatIdx !== '' ? appData.materiales[+intMatIdx] : null;
         const intPliegoW = intMat ? intMat.ancho : 70;
@@ -2763,11 +2829,16 @@
         const intPrecioPliego = intMat ? intMat.precio : 0;
 
         const totalPaginasInt = +document.getElementById('pubIntPaginas').value || 0;
-        const intPiezasHoja = bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
-        const paginasPorPliego = intPiezasHoja * 2; // x2 tiro/retiro
-        const pliegosDiferentes = paginasPorPliego > 0 ? Math.ceil(totalPaginasInt / paginasPorPliego) : 0;
+        // Imposicion: cuantas piezas abiertas (hojas interiores) caben por hoja de maquina
+        const intPiezasHoja = bestCuts(hojaUtilW, hojaUtilH, piezaAbiertaW, piezaAbiertaH);
+        // Cada pieza abierta en tiro = 2 paginas, en retiro = 2 paginas mas = 4 paginas por pieza
+        // Paginas por hoja de maquina = piezas por hoja * 4 (2 paginas por lado * 2 lados)
+        const paginasPorHojaMaquina = intPiezasHoja * 4;
+        // Pliegos diferentes = cuantas hojas de maquina distintas necesitamos para cubrir todas las paginas
+        const pliegosDiferentes = paginasPorHojaMaquina > 0 ? Math.ceil(totalPaginasInt / paginasPorHojaMaquina) : 0;
 
         // Cada pliego diferente requiere su propio juego de placas
+        // Para cada pliego diferente, necesitamos imprimir `cantidad` copias
         const intHojasNetasPorPliego = intPiezasHoja > 0 ? Math.ceil(cantidad / intPiezasHoja) : 0;
         const intMermaPorPliego = Math.max(mermaPorJuego, Math.ceil(intHojasNetasPorPliego * 0.03));
         const intHojasTotalesPorPliego = intHojasNetasPorPliego + intMermaPorPliego;
@@ -2777,18 +2848,19 @@
 
         const intColores = +document.getElementById('pubIntColores').value || 4;
         const intCostoMaterial = intPliegosNec * intPrecioPliego;
-        const intTotalPlacas = intColores * pliegosDiferentes;
+        const intTotalPlacas = intColores * pliegosDiferentes; // cada pliego diferente = 1 juego
         const intCostoPlacas = intTotalPlacas * costoPlaca;
-        const intPasadas = intHojasNetasPorPliego * 2 * pliegosDiferentes;
+        const intPasadas = intHojasNetasPorPliego * 2 * pliegosDiferentes; // siempre tiro/retiro
         const intMillares = Math.max(1, Math.ceil(intPasadas / 1000));
         const intCostoImpresion = intMillares * costoMillar * intColores;
         const intSubtotal = intCostoMaterial + intCostoPlacas + intCostoImpresion;
 
         // Info interiores
         const intInfo = document.getElementById('pubIntCalcInfo');
-        if (paginasPorPliego > 0 && totalPaginasInt > 0) {
-            const paginasReales = pliegosDiferentes * paginasPorPliego;
-            let infoText = '<strong>' + paginasPorPliego + ' paginas/pliego</strong> (' + intPiezasHoja + ' por lado x 2 lados)<br>';
+        if (paginasPorHojaMaquina > 0 && totalPaginasInt > 0) {
+            const paginasReales = pliegosDiferentes * paginasPorHojaMaquina;
+            let infoText = 'Pieza abierta: ' + piezaAbiertaW.toFixed(1) + 'x' + piezaAbiertaH.toFixed(1) + ' cm | ' + intPiezasHoja + ' piezas/hoja<br>';
+            infoText += '<strong>' + paginasPorHojaMaquina + ' pags/hoja maquina</strong> (' + intPiezasHoja + ' piezas x 2 pags x 2 lados)<br>';
             infoText += pliegosDiferentes + ' pliego' + (pliegosDiferentes > 1 ? 's' : '') + ' diferente' + (pliegosDiferentes > 1 ? 's' : '') + ' → ' + intTotalPlacas + ' placas';
             if (paginasReales > totalPaginasInt) {
                 infoText += '<br><span style="color:var(--warning);">⚠ Ultimo pliego no completo (' + (paginasReales - totalPaginasInt) + ' pags sobrantes)</span>';
