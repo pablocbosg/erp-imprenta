@@ -631,12 +631,19 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Ancho producto (cm)</label>
+                                <label>Ancho pagina (cm)</label>
                                 <input type="number" id="pub1ProdW" step="0.1" min="0.1" value="14.8" oninput="cotCalcPub()">
                             </div>
                             <div class="form-group">
-                                <label>Alto producto (cm)</label>
+                                <label>Alto pagina (cm)</label>
                                 <input type="number" id="pub1ProdH" step="0.1" min="0.1" value="21" oninput="cotCalcPub()">
+                            </div>
+                        </div>
+                        <div id="pub1LomoRow" style="display:none;">
+                            <div class="form-group" style="background:#fef3c7;padding:0.5rem 0.75rem;border-radius:6px;border:1px solid #fcd34d;">
+                                <label style="color:#92400e;font-weight:700;">Ancho del lomo (cm)</label>
+                                <input type="number" id="pub1Lomo" step="0.1" min="0" value="0.5" oninput="cotCalcPub()" style="font-weight:600;">
+                                <div style="font-size:0.7rem;color:#92400e;">Pieza abierta: <span id="pub1PiezaAbiertaInfo">-</span></div>
                             </div>
                         </div>
                         <div class="form-row-3">
@@ -785,6 +792,19 @@
                             <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
                                 <input type="checkbox" id="pub1Guillotina" onchange="cotCalcPub()" checked> Corte guillotina
                             </label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="pub1Grafa" onchange="cotCalcPub()" checked> Grafa portada (troquel para doblar)
+                            </label>
+                            <div id="pub1GrafaSection" style="margin-top:0.4rem;padding:0.4rem 0.6rem;background:var(--gray-50);border-radius:6px;font-size:0.85rem;">
+                                <div class="form-group" style="margin-bottom:0.3rem;">
+                                    <label>Maquina troquelado</label>
+                                    <select id="pub1GrafaMaquina" onchange="cotCalcPub()" style="font-size:0.85rem;">
+                                        <option value="auto">Automatica ($6/millar)</option>
+                                        <option value="manual">Manual ($12/millar)</option>
+                                    </select>
+                                </div>
+                                <div id="pub1GrafaInfo" style="font-size:0.75rem;color:var(--gray-500);"></div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Otros terminados ($)</label>
@@ -1251,6 +1271,8 @@
                         <div class="cost-row" id="pubCPortPlastRow" style="display:none;"><span class="cost-label">Plastificado <span id="pubCPortPlastLabel"></span></span><span class="cost-value">$<span id="pubCPortPlast">0.00</span></span></div>
                         <div class="cost-row" id="pubCPortUVRow" style="display:none;"><span class="cost-label">Barniz UV <span id="pubCPortUVLabel"></span></span><span class="cost-value">$<span id="pubCPortUV">0.00</span></span></div>
                         <div class="cost-row" id="pubCPortGuilloRow" style="display:none;"><span class="cost-label">Guillotina portada</span><span class="cost-value">$<span id="pubCPortGuillo">0.00</span></span></div>
+                        <div class="cost-row" id="pubCPortGrafaServRow" style="display:none;"><span class="cost-label">Grafa servicio <span id="pubCPortGrafaServLabel"></span></span><span class="cost-value">$<span id="pubCPortGrafaServ">0.00</span></span></div>
+                        <div class="cost-row" id="pubCPortGrafaTroquelRow" style="display:none;"><span class="cost-label">Grafa troquel <span id="pubCPortGrafaTroquelLabel"></span></span><span class="cost-value">$<span id="pubCPortGrafaTroquel">0.00</span></span></div>
                         <div class="cost-row" id="pubCPortTermRow" style="display:none;"><span class="cost-label">Otros terminados portada</span><span class="cost-value">$<span id="pubCPortTerm">0.00</span></span></div>
                         <div class="cost-row subtotal" style="color:var(--primary);"><span class="cost-label">Subtotal portada</span><span class="cost-value">$<span id="pubCPortSubtotal">0.00</span></span></div>
                         <div class="separator" style="margin:0.4rem 0;"></div>
@@ -3065,7 +3087,128 @@
 
     function cotCalcPub() {
         // === PORTADA ===
-        const port = _pubCalcSeccion('pub1');
+        // La portada es UNA pieza abierta: ancho_pagina × 2 + lomo + sangrados
+        const tipoEncuad = document.getElementById('pubEncuadernacion').value;
+        const esEncolado = tipoEncuad === 'encolado';
+
+        // Mostrar/ocultar campo de lomo segun tipo de encuadernacion
+        document.getElementById('pub1LomoRow').style.display = esEncolado ? 'block' : 'none';
+        const lomo = esEncolado ? (+document.getElementById('pub1Lomo').value || 0) : 0;
+
+        // Calcular pieza abierta: usamos _pubCalcSeccion pero sobreescribimos la pieza
+        // Primero obtenemos los datos base
+        const portBase = _pubCalcSeccion('pub1');
+
+        // Recalcular con pieza abierta (ancho_pagina × 2 + lomo + sangrados)
+        const portProdW = +document.getElementById('pub1ProdW').value || 0;
+        const portProdH = +document.getElementById('pub1ProdH').value || 0;
+        const portSangrado = +document.getElementById('pub1Sangrado').value || 0;
+        const portPiezaAbiertaW = (portProdW * 2) + lomo + (2 * portSangrado);
+        const portPiezaAbiertaH = portProdH + (2 * portSangrado);
+
+        // Info pieza abierta
+        const piezaInfo = document.getElementById('pub1PiezaAbiertaInfo');
+        if (piezaInfo) piezaInfo.textContent = portPiezaAbiertaW.toFixed(1) + ' x ' + portPiezaAbiertaH.toFixed(1) + ' cm' + (lomo > 0 ? ' (incluye lomo ' + lomo + ' cm)' : '');
+
+        // Recalcular imposicion con la pieza abierta
+        const portPiezasPorHoja = (portBase.hojaUtilW > 0 && portBase.hojaUtilH > 0 && portPiezaAbiertaW > 0 && portPiezaAbiertaH > 0)
+            ? bestCuts(portBase.hojaUtilW, portBase.hojaUtilH, portPiezaAbiertaW, portPiezaAbiertaH) : 0;
+        const portHojasNetas = portPiezasPorHoja > 0 ? Math.ceil(portBase.cantidad / portPiezasPorHoja) : 0;
+        const portMerma3pct = Math.ceil(portHojasNetas * 0.03);
+        const portMermaReal = Math.max(+document.getElementById('pub1Merma').value || 0, portMerma3pct);
+        const portMermaTotal = portMermaReal * portBase.juegosPlacas;
+        const portHojasTotales = portHojasNetas + portMermaTotal;
+        const portPliegosNec = portBase.fmtPorPliego > 0 ? Math.ceil(portHojasTotales / portBase.fmtPorPliego) : 0;
+
+        // Recalcular costos con los nuevos valores de hojas
+        const portCostoMaterial = portPliegosNec * portBase.precioPliego;
+        const portTotalPlacas = portBase.colores * portBase.juegosPlacas;
+        const portCostoPlacasTotal = portTotalPlacas * portBase.costoPlaca;
+        const portPasadasImp = portHojasNetas * portBase.lados;
+        const portMillaresImp = Math.ceil(portPasadasImp / 1000);
+        const portCostoImpresion = portMillaresImp * portBase.costoMillarColor * portBase.colores;
+
+        // Plastificado y barniz UV (recalcular con hojas correctas)
+        let portCostoPlastificado = 0;
+        const portPlastEl = document.getElementById('pub1Plastificado');
+        if (portPlastEl && portPlastEl.checked && portBase.hojaW > 0 && portBase.hojaH > 0) {
+            const caras = +document.getElementById('pub1PlastificadoCaras').value || 1;
+            const areaCm2 = portBase.hojaW * portBase.hojaH;
+            const hojasPlast = portHojasNetas + Math.ceil(portMermaTotal / 2);
+            portCostoPlastificado = Math.max(5, areaCm2 * hojasPlast * 0.000035 * caras);
+        }
+        let portCostoBarnizUV = 0;
+        const portBarnizEl = document.getElementById('pub1BarnizUV');
+        if (portBarnizEl && portBarnizEl.checked && portBase.hojaW > 0 && portBase.hojaH > 0) {
+            const carasUV = +document.getElementById('pub1BarnizUVCaras').value || 1;
+            const areaCm2 = portBase.hojaW * portBase.hojaH;
+            const hojasUV = portHojasNetas + Math.ceil(portMermaTotal / 2);
+            portCostoBarnizUV = Math.max(10, areaCm2 * hojasUV * 0.000009 * carasUV);
+        }
+
+        // Guillotina portada
+        let portCostoGuillotina = 0;
+        const portGuilloEl = document.getElementById('pub1Guillotina');
+        if (portGuilloEl && portGuilloEl.checked && portPiezasPorHoja > 1 && portHojasTotales > 0) {
+            const guilloLayout = calcGuillotineCuts(portBase.hojaUtilW, portBase.hojaUtilH, portPiezaAbiertaW, portPiezaAbiertaH);
+            const matIdx = document.getElementById('pub1Material').value;
+            const gramaje = matIdx !== '' ? (appData.materiales[+matIdx]?.gramaje || 0) : 0;
+            const capacidadPila = gramaje > 150 ? 300 : 1000;
+            const pasadasPorCorte = Math.max(1, Math.ceil(portHojasTotales / capacidadPila));
+            portCostoGuillotina = 2 + guilloLayout.cortes * pasadasPorCorte * 0.25;
+        }
+
+        // Grafa portada (troquel para doblar la portada)
+        let portCostoGrafaServicio = 0;
+        let portCostoGrafaTroquel = 0;
+        const grafaEl = document.getElementById('pub1Grafa');
+        const grafaSection = document.getElementById('pub1GrafaSection');
+        const grafaInfo = document.getElementById('pub1GrafaInfo');
+        if (grafaEl && grafaEl.checked) {
+            grafaSection.style.display = 'block';
+            if (portHojasTotales > 0) {
+                // Servicio de troquelado (por millar)
+                const grafaMaq = document.getElementById('pub1GrafaMaquina').value;
+                const costoPorMillarGrafa = grafaMaq === 'auto' ? 6 : 12;
+                const totalParaGrafa = Math.max(0, portHojasTotales - 40);
+                const millaresGrafa = Math.max(1, Math.ceil(totalParaGrafa / 1000));
+                portCostoGrafaServicio = millaresGrafa * costoPorMillarGrafa;
+
+                // Costo del troquel: lineas de grafa
+                // Encolado: 2 grafas (cada lado del lomo), largo = alto de la hoja
+                // Grapado: 1 grafa (centro), largo = alto de la hoja
+                const lineasGrafa = esEncolado ? 2 : 1;
+                const largoGrafa = portPiezaAbiertaH; // alto de la pieza
+                const cmGrafa = lineasGrafa * largoGrafa;
+                const costoPorCm = 0.10;
+                const minimoTroquel = 12;
+                portCostoGrafaTroquel = Math.max(minimoTroquel, cmGrafa * costoPorCm);
+
+                grafaInfo.textContent = (grafaMaq === 'auto' ? 'Auto' : 'Manual') + ' | Serv: ' + millaresGrafa + ' mill. x $' + costoPorMillarGrafa + ' = $' + portCostoGrafaServicio.toFixed(2) + ' | Troquel: ' + lineasGrafa + ' linea' + (lineasGrafa > 1 ? 's' : '') + ' x ' + largoGrafa.toFixed(1) + ' cm = ' + cmGrafa.toFixed(1) + ' cm x $0.10 = $' + portCostoGrafaTroquel.toFixed(2);
+            }
+        } else if (grafaSection) {
+            grafaSection.style.display = 'none';
+        }
+
+        const portTerminadosExtra = +document.getElementById('pub1Terminados').value || 0;
+        const portCostoTerminados = portTerminadosExtra + portCostoPlastificado + portCostoBarnizUV + portCostoGuillotina + portCostoGrafaServicio + portCostoGrafaTroquel;
+        const portSubtotal = portCostoMaterial + portCostoPlacasTotal + portCostoImpresion + portCostoTerminados;
+
+        // Crear objeto port para el resto del codigo
+        const port = {
+            ...portBase,
+            piezaW: portPiezaAbiertaW, piezaH: portPiezaAbiertaH,
+            piezasPorHoja: portPiezasPorHoja, hojasNetas: portHojasNetas,
+            mermaTotal: portMermaTotal, hojasTotales: portHojasTotales,
+            pliegosNec: portPliegosNec, costoMaterial: portCostoMaterial,
+            totalPlacas: portTotalPlacas, costoPlacasTotal: portCostoPlacasTotal,
+            millaresImpresion: portMillaresImp, costoImpresion: portCostoImpresion,
+            costoPlastificado: portCostoPlastificado, costoBarnizUV: portCostoBarnizUV,
+            costoGuillotina: portCostoGuillotina,
+            costoGrafaServicio: portCostoGrafaServicio, costoGrafaTroquel: portCostoGrafaTroquel,
+            terminados: portTerminadosExtra, costoTerminadosTotal: portCostoTerminados,
+            subtotal: portSubtotal
+        };
 
         // Update portada production results
         document.getElementById('pub1ResFmtPliego').textContent = port.fmtPorPliego;
@@ -3076,7 +3219,7 @@
         document.getElementById('pub1ResMermaInfo').textContent = port.mermaTotal;
         // Info badges portada
         const pub1Info = document.getElementById('pub1FormatosInfoMain');
-        if (pub1Info) pub1Info.innerHTML = '<span class="info-badge blue">' + port.fmtPorPliego + ' fmt/pliego</span> <span class="info-badge green">' + port.piezasPorHoja + ' pzas/hoja</span>';
+        if (pub1Info) pub1Info.innerHTML = '<span class="info-badge blue">' + port.fmtPorPliego + ' fmt/pliego</span> <span class="info-badge green">' + port.piezasPorHoja + ' portadas/hoja (' + portPiezaAbiertaW.toFixed(1) + 'x' + portPiezaAbiertaH.toFixed(1) + ' cm)</span>';
         // Area util portada
         const pub1Area = document.getElementById('pub1AreaUtil');
         if (pub1Area && port.margenMaq > 0) pub1Area.textContent = 'Area util: ' + port.hojaUtilW + ' x ' + port.hojaUtilH + ' cm';
@@ -3205,7 +3348,6 @@
 
         // === ENCUADERNACION ===
         const cantidad1 = port.cantidad;
-        const tipoEncuad = document.getElementById('pubEncuadernacion').value;
         let costoEncuad = 0;
         let encuadLabel = '';
         if (tipoEncuad === 'grapado') {
@@ -3267,6 +3409,18 @@
         }
         document.getElementById('pubCPortGuilloRow').style.display = port.costoGuillotina > 0 ? 'flex' : 'none';
         document.getElementById('pubCPortGuillo').textContent = port.costoGuillotina.toFixed(2);
+        document.getElementById('pubCPortGrafaServRow').style.display = port.costoGrafaServicio > 0 ? 'flex' : 'none';
+        document.getElementById('pubCPortGrafaServ').textContent = port.costoGrafaServicio.toFixed(2);
+        if (port.costoGrafaServicio > 0) {
+            const gm = document.getElementById('pub1GrafaMaquina').value;
+            document.getElementById('pubCPortGrafaServLabel').textContent = '(' + (gm === 'auto' ? 'auto' : 'manual') + ')';
+        }
+        document.getElementById('pubCPortGrafaTroquelRow').style.display = port.costoGrafaTroquel > 0 ? 'flex' : 'none';
+        document.getElementById('pubCPortGrafaTroquel').textContent = port.costoGrafaTroquel.toFixed(2);
+        if (port.costoGrafaTroquel > 0) {
+            const lineas = esEncolado ? 2 : 1;
+            document.getElementById('pubCPortGrafaTroquelLabel').textContent = '(' + lineas + ' linea' + (lineas > 1 ? 's' : '') + ')';
+        }
         document.getElementById('pubCPortTermRow').style.display = port.terminados > 0 ? 'flex' : 'none';
         document.getElementById('pubCPortTerm').textContent = port.terminados.toFixed(2);
         document.getElementById('pubCPortSubtotal').textContent = port.subtotal.toFixed(2);
