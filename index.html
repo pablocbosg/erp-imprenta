@@ -5271,8 +5271,14 @@
 
         body.innerHTML = productos.map(p => {
             if (editingProductoId === p.id) {
+                const isPub = p.tipo === 'publicacion';
                 return '<tr class="editing">'
-                    + '<td><input type="text" id="editProdNombre' + p.id + '" value="' + (p.nombre || '') + '"></td>'
+                    + '<td><input type="text" id="editProdNombre' + p.id + '" value="' + (p.nombre || '') + '">'
+                    + '<select id="editProdTipo' + p.id + '" onchange="toggleEditProdPub(' + p.id + ')" style="font-size:0.75rem;margin-top:0.3rem;"><option value="normal"' + (!isPub ? ' selected' : '') + '>Pieza suelta</option><option value="publicacion"' + (isPub ? ' selected' : '') + '>Publicacion</option></select>'
+                    + '<div id="editProdPubFields' + p.id + '" style="display:' + (isPub ? 'flex' : 'none') + ';gap:0.3rem;margin-top:0.3rem;">'
+                    + '<input type="number" id="editProdPaginas' + p.id + '" value="' + (p.paginas_interiores || 32) + '" style="width:50px;" placeholder="Pags" title="Paginas interiores">'
+                    + '<select id="editProdEncuad' + p.id + '" style="font-size:0.75rem;"><option value="grapado"' + (p.encuadernacion !== 'encolado' ? ' selected' : '') + '>Grapado</option><option value="encolado"' + (p.encuadernacion === 'encolado' ? ' selected' : '') + '>Encolado</option></select>'
+                    + '</div></td>'
                     + '<td><input type="text" id="editProdCat' + p.id + '" value="' + (p.categoria || '') + '" placeholder="Ej: Volantes"></td>'
                     + '<td><div style="display:flex;gap:0.3rem;align-items:center;"><input type="number" id="editProdW' + p.id + '" value="' + (p.ancho || 0) + '" style="width:60px;" step="0.1"> x <input type="number" id="editProdH' + p.id + '" value="' + (p.alto || 0) + '" style="width:60px;" step="0.1"></div></td>'
                     + '<td><input type="number" id="editProdSang' + p.id + '" value="' + (p.sangrado || 0.3) + '" style="width:55px;" step="0.1"></td>'
@@ -5284,8 +5290,11 @@
                     + '<button class="btn btn-sm" style="border:1px solid var(--gray-300);margin-top:0.25rem;" onclick="cancelarProductoEdit()">Cancelar</button>'
                     + '</td></tr>';
             }
+            const tipoBadge = p.tipo === 'publicacion'
+                ? '<span style="background:#ecfdf5;color:#059669;padding:0.1rem 0.4rem;border-radius:8px;font-size:0.7rem;font-weight:600;margin-left:0.3rem;">' + (p.encuadernacion === 'encolado' ? 'Encolado' : 'Grapado') + ' · ' + (p.paginas_interiores || '?') + 'p</span>'
+                : '';
             return '<tr>'
-                + '<td><strong>' + (p.nombre || '-') + '</strong></td>'
+                + '<td><strong>' + (p.nombre || '-') + '</strong>' + tipoBadge + '</td>'
                 + '<td><span style="background:var(--primary-light);color:var(--primary);padding:0.15rem 0.5rem;border-radius:10px;font-size:0.75rem;font-weight:600;">' + (p.categoria || '-') + '</span></td>'
                 + '<td>' + p.ancho + ' x ' + p.alto + '</td>'
                 + '<td>' + (p.sangrado || 0.3) + '</td>'
@@ -5305,12 +5314,19 @@
         buscarProductos();
     }
 
+    function toggleEditProdPub(id) {
+        const isPub = document.getElementById('editProdTipo' + id).value === 'publicacion';
+        document.getElementById('editProdPubFields' + id).style.display = isPub ? 'flex' : 'none';
+    }
+
     function cancelarProductoEdit() {
         editingProductoId = null;
         buscarProductos();
     }
 
     async function guardarProductoEdit(id) {
+        const tipoEl = document.getElementById('editProdTipo' + id);
+        const tipo = tipoEl ? tipoEl.value : 'normal';
         const updates = {
             nombre: document.getElementById('editProdNombre' + id).value.trim(),
             categoria: document.getElementById('editProdCat' + id).value.trim() || null,
@@ -5319,7 +5335,10 @@
             sangrado: parseFloat(document.getElementById('editProdSang' + id).value) || 0.3,
             lados: parseInt(document.getElementById('editProdLados' + id).value) || 1,
             material_id: parseInt(document.getElementById('editProdMat' + id).value) || null,
-            colores: parseInt(document.getElementById('editProdCol' + id).value) || 4
+            colores: parseInt(document.getElementById('editProdCol' + id).value) || 4,
+            tipo: tipo,
+            paginas_interiores: tipo === 'publicacion' ? (parseInt(document.getElementById('editProdPaginas' + id)?.value) || 32) : null,
+            encuadernacion: tipo === 'publicacion' ? (document.getElementById('editProdEncuad' + id)?.value || 'grapado') : null
         };
         if (!updates.nombre) { alert('El nombre es requerido'); return; }
         const { error } = await db.from('productos').update(updates).eq('id', id);
@@ -5342,11 +5361,12 @@
         overlay.innerHTML = '<div class="modal" style="max-width:500px;">'
             + '<h3 style="margin-bottom:1rem;">Nuevo Producto</h3>'
             + '<div style="display:grid;gap:0.6rem;">'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Tipo</label><select id="newProdTipo" onchange="toggleNewProdPub()"><option value="normal">Pieza suelta</option><option value="publicacion">Publicacion (revista/libro)</option></select></div>'
             + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Nombre *</label><input type="text" id="newProdNombre" placeholder="Ej: Volante A5"></div>'
             + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Categoria</label><input type="text" id="newProdCat" placeholder="Ej: Volantes, Tarjetas..."></div>'
             + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">'
-            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Ancho (cm)</label><input type="number" id="newProdW" value="21" step="0.1"></div>'
-            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Alto (cm)</label><input type="number" id="newProdH" value="29.7" step="0.1"></div>'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Ancho pagina (cm)</label><input type="number" id="newProdW" value="21" step="0.1"></div>'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Alto pagina (cm)</label><input type="number" id="newProdH" value="29.7" step="0.1"></div>'
             + '</div>'
             + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">'
             + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Sangrado</label><input type="number" id="newProdSang" value="0.3" step="0.1"></div>'
@@ -5354,6 +5374,13 @@
             + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Colores</label><input type="number" id="newProdCol" value="4" min="1" max="6"></div>'
             + '</div>'
             + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Material</label><select id="newProdMat">' + materialOptionsHTML(null) + '</select></div>'
+            + '<div id="newProdPubFields" style="display:none;border-top:1px solid var(--gray-200);padding-top:0.6rem;margin-top:0.3rem;">'
+            + '<div style="font-size:0.8rem;font-weight:700;color:#059669;margin-bottom:0.4rem;">Datos de publicacion</div>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Paginas interiores</label><input type="number" id="newProdPaginas" value="32" min="2" step="2"></div>'
+            + '<div><label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);">Encuadernacion</label><select id="newProdEncuad"><option value="grapado">Grapado</option><option value="encolado">Encolado / Hot melt</option></select></div>'
+            + '</div>'
+            + '</div>'
             + '</div>'
             + '<div style="display:flex;gap:0.5rem;margin-top:1rem;">'
             + '<button class="btn btn-primary" onclick="saveNewProduct()" style="flex:1;">Guardar</button>'
@@ -5362,9 +5389,15 @@
         document.body.appendChild(overlay);
     }
 
+    function toggleNewProdPub() {
+        const isPub = document.getElementById('newProdTipo').value === 'publicacion';
+        document.getElementById('newProdPubFields').style.display = isPub ? 'block' : 'none';
+    }
+
     async function saveNewProduct() {
         const nombre = document.getElementById('newProdNombre').value.trim();
         if (!nombre) { alert('El nombre es requerido'); return; }
+        const tipo = document.getElementById('newProdTipo').value;
         const producto = {
             nombre: nombre,
             categoria: document.getElementById('newProdCat').value.trim() || null,
@@ -5373,7 +5406,10 @@
             sangrado: parseFloat(document.getElementById('newProdSang').value) || 0.3,
             lados: parseInt(document.getElementById('newProdLados').value) || 1,
             material_id: parseInt(document.getElementById('newProdMat').value) || null,
-            colores: parseInt(document.getElementById('newProdCol').value) || 4
+            colores: parseInt(document.getElementById('newProdCol').value) || 4,
+            tipo: tipo,
+            paginas_interiores: tipo === 'publicacion' ? (parseInt(document.getElementById('newProdPaginas').value) || 32) : null,
+            encuadernacion: tipo === 'publicacion' ? document.getElementById('newProdEncuad').value : null
         };
         const { error } = await db.from('productos').insert(producto);
         if (error) { alert('Error: ' + error.message); return; }
