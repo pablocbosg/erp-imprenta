@@ -3175,9 +3175,9 @@
                 portCostoGrafaServicio = millaresGrafa * costoPorMillarGrafa;
 
                 // Costo del troquel: lineas de grafa
-                // Encolado: 2 grafas (cada lado del lomo), largo = alto de la hoja
-                // Grapado: 1 grafa (centro), largo = alto de la hoja
-                const lineasGrafa = esEncolado ? 2 : 1;
+                // Encolado: 4 grafas (2 del lomo + 2 auxiliares a 3mm para pegado), largo = alto de la pieza
+                // Grapado: 1 grafa (centro), largo = alto de la pieza
+                const lineasGrafa = esEncolado ? 4 : 1;
                 const largoGrafa = portPiezaAbiertaH; // alto de la pieza
                 const cmGrafa = lineasGrafa * largoGrafa;
                 const costoPorCm = 0.10;
@@ -3418,7 +3418,7 @@
         document.getElementById('pubCPortGrafaTroquelRow').style.display = port.costoGrafaTroquel > 0 ? 'flex' : 'none';
         document.getElementById('pubCPortGrafaTroquel').textContent = port.costoGrafaTroquel.toFixed(2);
         if (port.costoGrafaTroquel > 0) {
-            const lineas = esEncolado ? 2 : 1;
+            const lineas = esEncolado ? 4 : 1;
             document.getElementById('pubCPortGrafaTroquelLabel').textContent = '(' + lineas + ' linea' + (lineas > 1 ? 's' : '') + ')';
         }
         document.getElementById('pubCPortTermRow').style.display = port.terminados > 0 ? 'flex' : 'none';
