@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
     <style>
         :root {
@@ -321,9 +322,11 @@
         </div>
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('cotizador')">Cotizador</button>
+            <button class="tab-btn" onclick="switchTab('digital')">Imp. Digital</button>
             <button class="tab-btn" onclick="switchTab('proformas')">Proformas</button>
             <button class="tab-btn" onclick="switchTab('productos')">Productos</button>
             <button class="tab-btn" onclick="switchTab('clientes')">Clientes</button>
+            <button class="tab-btn" onclick="switchTab('conciliacion')">Conciliacion</button>
             <button class="tab-btn" onclick="switchTab('admin')">Administracion</button>
         </div>
     </header>
@@ -448,11 +451,11 @@
                             <label>Formato frecuente</label>
                             <select id="cotFormato" onchange="cotOnFormatoChange()">
                                 <option value="50x35">50 x 35 cm</option>
-                                <option value="48.2x33">48.2 x 33 cm</option>
-                                <option value="45x32.5">45 x 32.5 cm</option>
+                                <option value="48.2x33">48,2 x 33 cm</option>
+                                <option value="45x32.5">45 x 32,5 cm</option>
                                 <option value="33x23">33 x 23 cm</option>
-                                <option value="32.5x22.5">32.5 x 22.5 cm</option>
-                                <option value="22.5x32.5">22.5 x 32.5 cm</option>
+                                <option value="32.5x22.5">32,5 x 22,5 cm</option>
+                                <option value="22.5x32.5">22,5 x 32,5 cm</option>
                                 <option value="14x20">14 x 20 cm</option>
                                 <option value="">Personalizado</option>
                             </select>
@@ -704,11 +707,11 @@
                             <label>Formato frecuente</label>
                             <select id="pub1Formato" onchange="pubOnFormatoChange('pub1')">
                                 <option value="50x35">50 x 35 cm</option>
-                                <option value="48.2x33">48.2 x 33 cm</option>
-                                <option value="45x32.5">45 x 32.5 cm</option>
+                                <option value="48.2x33">48,2 x 33 cm</option>
+                                <option value="45x32.5">45 x 32,5 cm</option>
                                 <option value="33x23">33 x 23 cm</option>
-                                <option value="32.5x22.5">32.5 x 22.5 cm</option>
-                                <option value="22.5x32.5">22.5 x 32.5 cm</option>
+                                <option value="32.5x22.5">32,5 x 22,5 cm</option>
+                                <option value="22.5x32.5">22,5 x 32,5 cm</option>
                                 <option value="14x20">14 x 20 cm</option>
                                 <option value="">Personalizado</option>
                             </select>
@@ -883,11 +886,11 @@
                             <label>Formato frecuente</label>
                             <select id="pub2Formato" onchange="pubOnFormatoChange('pub2')">
                                 <option value="50x35">50 x 35 cm</option>
-                                <option value="48.2x33">48.2 x 33 cm</option>
-                                <option value="45x32.5">45 x 32.5 cm</option>
+                                <option value="48.2x33">48,2 x 33 cm</option>
+                                <option value="45x32.5">45 x 32,5 cm</option>
                                 <option value="33x23">33 x 23 cm</option>
-                                <option value="32.5x22.5">32.5 x 22.5 cm</option>
-                                <option value="22.5x32.5">22.5 x 32.5 cm</option>
+                                <option value="32.5x22.5">32,5 x 22,5 cm</option>
+                                <option value="22.5x32.5">22,5 x 32,5 cm</option>
                                 <option value="14x20">14 x 20 cm</option>
                                 <option value="">Personalizado</option>
                             </select>
@@ -969,8 +972,8 @@
                         <div class="form-group">
                             <label>Tipo</label>
                             <select id="pubEncuadernacion" onchange="cotCalcPub()">
-                                <option value="grapado">Grapado ($0.10/u, min $10)</option>
-                                <option value="encolado">Encolado / Hot melt ($0.20/u, min $20)</option>
+                                <option value="grapado">Grapado ($0,10/u, min $10)</option>
+                                <option value="encolado">Encolado / Hot melt ($0,20/u, min $20)</option>
                             </select>
                         </div>
                         <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
@@ -1314,6 +1317,886 @@
         </div>
     </div>
 
+    <!-- ==================== TAB: IMPRESION DIGITAL ==================== -->
+    <div id="tab-digital" class="tab-content">
+        <div class="cot-layout">
+            <div class="cot-sidebar">
+                <!-- Tipo de trabajo digital -->
+                <div class="panel" id="digPanelTipoTrabajo">
+                    <div class="panel-body" style="padding:0.6rem 1rem;">
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Tipo de trabajo</label>
+                            <select id="digTipoTrabajo" onchange="onDigTipoTrabajoChange()" style="font-weight:600;">
+                                <option value="normal">Pieza suelta (volante, tarjeta, etc.)</option>
+                                <option value="publicacion">Publicacion (revista, libro)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div id="digSidebarNormal" style="display:contents;">
+                <!-- Datos del trabajo digital -->
+                <div class="panel">
+                    <div class="panel-header">Datos del Trabajo</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Descripcion</label>
+                            <div class="product-search-wrap">
+                                <input type="text" id="digDescripcion" placeholder="Ej: Tarjetas de presentacion" autocomplete="off" oninput="searchProductsDig(this.value);digCalc();" onfocus="searchProductsDig(this.value);" onblur="setTimeout(()=>document.getElementById('digProductDropdown').classList.remove('open'),200)">
+                                <div id="digProductDropdown" class="product-dropdown"></div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho producto (cm)</label>
+                                <input type="number" id="digProdW" step="0.1" min="0.1" value="8.5" oninput="digCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto producto (cm)</label>
+                                <input type="number" id="digProdH" step="0.1" min="0.1" value="5" oninput="digCalc()">
+                            </div>
+                        </div>
+                        <div class="form-row-3">
+                            <div class="form-group">
+                                <label>Cantidad final</label>
+                                <input type="number" id="digCantidad" min="1" value="100" oninput="window._digMargenManual=false;digCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Sangrado por lado (cm)</label>
+                                <input type="number" id="digSangrado" step="0.1" min="0" value="0.3" oninput="digCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Lados impresos</label>
+                                <select id="digLados" onchange="digCalc()">
+                                    <option value="1">1 lado (solo tiro)</option>
+                                    <option value="2">2 lados (tiro y retiro)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Maquina Digital -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;">Maquina Digital</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Maquina</label>
+                            <select id="digMaquina" onchange="digOnMaquinaChange()" style="font-weight:600;">
+                                <option value="versant80">Versant 80 (Full Color)</option>
+                                <option value="d95">D95 (Blanco y Negro)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tamano de hoja</label>
+                            <select id="digFormato" onchange="digOnFormatoChange()" style="font-weight:600;">
+                                <option value="33x23">33 x 23 cm (click $0,18)</option>
+                                <option value="48x33">48,2 x 33 cm (click $0,32)</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho hoja (cm)</label>
+                                <input type="number" id="digHojaW" step="0.1" value="33" disabled style="background:var(--gray-50);">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto hoja (cm)</label>
+                                <input type="number" id="digHojaH" step="0.1" value="23" disabled style="background:var(--gray-50);">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:0.5rem;">
+                            <label>Margen de maquina por lado (cm)</label>
+                            <input type="number" id="digMargenMaquina" step="0.1" min="0" value="0.3" oninput="digCalc()">
+                        </div>
+                        <div id="digAreaUtil" class="text-sm text-muted mt-1"></div>
+                        <div id="digClickInfo" style="margin-top:0.5rem;padding:0.4rem 0.6rem;background:#f3e8ff;border:1px solid #c084fc;border-radius:6px;font-size:0.8rem;color:#6b21a8;">
+                            <strong>Click:</strong> $<span id="digClickCosto">0,18</span> | <strong>Arranque:</strong> $<span id="digArranqueCosto">0,50</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Material Digital -->
+                <div class="panel">
+                    <div class="panel-header">Material</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Material</label>
+                            <select id="digMaterial" onchange="digOnMaterialChange()">
+                            </select>
+                        </div>
+                        <div id="digMaterialInfo" class="text-sm text-muted"></div>
+                        <div class="separator"></div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho pliego (cm)</label>
+                                <input type="number" id="digPliegoW" step="0.1" value="70" oninput="digCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto pliego (cm)</label>
+                                <input type="number" id="digPliegoH" step="0.1" value="100" oninput="digCalc()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio por pliego ($)</label>
+                            <input type="number" id="digPrecioPliego" step="0.01" min="0" value="0" oninput="digCalc()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terminados Digital -->
+                <div class="panel">
+                    <div class="panel-header">Terminados</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Terminados</label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
+                                <input type="checkbox" id="digPlastificado" onchange="digCalc()"> Plastificado
+                                <select id="digPlastificadoTipo" onchange="digCalc()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="mate">Mate</option>
+                                    <option value="brillante">Brillante</option>
+                                </select>
+                                <select id="digPlastificadoCaras" onchange="digCalc()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="1">1 cara</option>
+                                    <option value="2">2 caras</option>
+                                </select>
+                            </label>
+                            <div id="digPlastificadoInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digBarnizUV" onchange="digCalc()"> Barniz UV brillante
+                                <select id="digBarnizUVCaras" onchange="digCalc()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="1">1 cara</option>
+                                    <option value="2">2 caras</option>
+                                </select>
+                            </label>
+                            <div id="digBarnizUVInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digUVSelectivo" onchange="digCalc()"> UV Selectivo
+                                <select id="digUVSelectivoCaras" onchange="digCalc()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="1">1 lado</option>
+                                    <option value="2">2 lados</option>
+                                </select>
+                            </label>
+                            <div id="digUVSelectivoInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digGuillotina" onchange="digCalc()" checked> Corte guillotina
+                            </label>
+                            <div id="digGuillotinaInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digEnsanduchado" onchange="digCalc()"> Ensanduchado (doble cartulina)
+                            </label>
+                            <div id="digEnsanduchadoInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digTroquelado" onchange="digCalc()"> Troquelado
+                                <select id="digTroquelMaquina" onchange="digCalc()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="manual">Manual 70x50 ($12/millar)</option>
+                                    <option value="auto">Automatica 50x35 ($6/millar)</option>
+                                </select>
+                            </label>
+                            <div id="digTroqueladoInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                            <div id="digTroquelSection" style="display:none;margin-top:0.4rem;padding:0.5rem;background:var(--gray-50);border-radius:6px;border:1px solid var(--gray-200);">
+                                <label style="font-size:0.8rem;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.3rem;display:block;">Troquel (cuchilla)</label>
+                                <div style="display:flex;gap:0.5rem;align-items:center;">
+                                    <div style="flex:1;">
+                                        <label style="font-size:0.72rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray-500);">CM lineales cuchilla</label>
+                                        <input type="number" id="digTroquelCuchilla" step="0.1" min="0" value="0" oninput="digCalc()" style="font-size:0.85rem;padding:0.3rem 0.5rem;">
+                                    </div>
+                                    <div style="flex:1;">
+                                        <label style="font-size:0.72rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--gray-500);">CM lineales grafa</label>
+                                        <input type="number" id="digTroquelGrafa" step="0.1" min="0" value="0" oninput="digCalc()" style="font-size:0.85rem;padding:0.3rem 0.5rem;">
+                                    </div>
+                                </div>
+                                <div id="digTroquelInfo" style="font-size:0.75rem;color:var(--gray-500);margin-top:0.3rem;"></div>
+                            </div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digTroquelPlotter" onchange="digCalc()"> Troquelado en plotter
+                            </label>
+                            <div id="digTroquelPlotterInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Otros terminados ($)</label>
+                            <input type="number" id="digTerminados" step="0.5" min="0" value="0" oninput="digCalc()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Margen y Precio Digital -->
+                <div class="panel">
+                    <div class="panel-header">Margen y Precio</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Margen utilidad %</label>
+                                <input type="number" id="digMargen" step="1" min="0" max="99" value="0" oninput="window._digMargenManual=true;digCalc()" style="font-weight:700;border-color:#c084fc;">
+                                <div style="font-size:0.7rem;color:var(--gray-400);">Sugerido segun cantidad</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Descuento %</label>
+                                <input type="number" id="digDescuento" step="1" min="0" max="99" value="0" oninput="digCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>IVA %</label>
+                                <select id="digIVA" onchange="digCalc()">
+                                    <option value="15" selected>15% (normal)</option>
+                                    <option value="0">0% (libros / exento)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- /digSidebarNormal -->
+
+                <div id="digSidebarPublicacion" style="display:none;">
+                <!-- ========== PORTADA DIGITAL ========== -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;">Portada</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Descripcion</label>
+                            <div class="product-search-wrap">
+                                <input type="text" id="digPub1Descripcion" placeholder="Ej: Portada revista A5" autocomplete="off" oninput="searchProductsDigPub(this.value)" onfocus="searchProductsDigPub(this.value)" onblur="setTimeout(()=>document.getElementById('digPubProductDropdown').classList.remove('open'),200)">
+                                <div id="digPubProductDropdown" class="product-dropdown"></div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho pagina (cm)</label>
+                                <input type="number" id="digPub1ProdW" step="0.1" min="0.1" value="14.8" oninput="digCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto pagina (cm)</label>
+                                <input type="number" id="digPub1ProdH" step="0.1" min="0.1" value="21" oninput="digCalcPub()">
+                            </div>
+                        </div>
+                        <div id="digPub1LomoRow" style="display:none;">
+                            <div class="form-group" style="background:#fef3c7;padding:0.5rem 0.75rem;border-radius:6px;border:1px solid #fcd34d;">
+                                <label style="color:#92400e;font-weight:700;">Ancho del lomo (cm)</label>
+                                <input type="number" id="digPub1Lomo" step="0.1" min="0" value="0.5" oninput="digCalcPub()" style="font-weight:600;">
+                                <div style="font-size:0.7rem;color:#92400e;">Pieza abierta: <span id="digPub1PiezaAbiertaInfo">-</span></div>
+                            </div>
+                        </div>
+                        <div class="form-row-3">
+                            <div class="form-group">
+                                <label>Cantidad final</label>
+                                <input type="number" id="digPub1Cantidad" min="1" value="100" oninput="window._digPubMargenManual=false;digCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Sangrado por lado (cm)</label>
+                                <input type="number" id="digPub1Sangrado" step="0.1" min="0" value="0.3" oninput="digCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Lados impresos</label>
+                                <select id="digPub1Lados" onchange="digCalcPub()">
+                                    <option value="1">1 lado (solo tiro)</option>
+                                    <option value="2" selected>2 lados (tiro y retiro)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Maquina Portada Digital -->
+                <div class="panel">
+                    <div class="panel-header">Maquina Portada</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Maquina</label>
+                            <select id="digPub1Maquina" onchange="digPubOnMaquinaChange('digPub1')" style="font-weight:600;">
+                                <option value="versant80">Versant 80 (Full Color)</option>
+                                <option value="d95">D95 (Blanco y Negro)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tamano de hoja</label>
+                            <select id="digPub1Formato" onchange="digPubOnFormatoChange('digPub1')" style="font-weight:600;">
+                                <option value="33x23">33 x 23 cm</option>
+                                <option value="48x33">48,2 x 33 cm</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho hoja (cm)</label>
+                                <input type="number" id="digPub1HojaW" step="0.1" value="33" disabled style="background:var(--gray-50);">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto hoja (cm)</label>
+                                <input type="number" id="digPub1HojaH" step="0.1" value="23" disabled style="background:var(--gray-50);">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:0.5rem;">
+                            <label>Margen de maquina por lado (cm)</label>
+                            <input type="number" id="digPub1MargenMaquina" step="0.1" min="0" value="0.3" oninput="digCalcPub()">
+                        </div>
+                        <div id="digPub1AreaUtil" class="text-sm text-muted mt-1"></div>
+                    </div>
+                </div>
+                <!-- Material Portada Digital -->
+                <div class="panel">
+                    <div class="panel-header">Material Portada</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Material</label>
+                            <select id="digPub1Material" onchange="digPubOnMaterialChange('digPub1')"></select>
+                        </div>
+                        <div id="digPub1MaterialInfo" class="text-sm text-muted"></div>
+                        <div class="separator"></div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho pliego (cm)</label>
+                                <input type="number" id="digPub1PliegoW" step="0.1" value="70" oninput="digCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto pliego (cm)</label>
+                                <input type="number" id="digPub1PliegoH" step="0.1" value="100" oninput="digCalcPub()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio por pliego ($)</label>
+                            <input type="number" id="digPub1PrecioPliego" step="0.01" min="0" value="0" oninput="digCalcPub()">
+                        </div>
+                    </div>
+                </div>
+                <!-- Terminados Portada Digital -->
+                <div class="panel">
+                    <div class="panel-header">Terminados Portada</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
+                                <input type="checkbox" id="digPub1Plastificado" onchange="digCalcPub()"> Plastificado
+                                <select id="digPub1PlastificadoTipo" onchange="digCalcPub()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="mate">Mate</option>
+                                    <option value="brillante">Brillante</option>
+                                </select>
+                                <select id="digPub1PlastificadoCaras" onchange="digCalcPub()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="1">1 cara</option>
+                                    <option value="2">2 caras</option>
+                                </select>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digPub1BarnizUV" onchange="digCalcPub()"> Barniz UV brillante
+                                <select id="digPub1BarnizUVCaras" onchange="digCalcPub()" style="font-size:0.8rem;padding:0.15rem 0.3rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                    <option value="1">1 cara</option>
+                                    <option value="2">2 caras</option>
+                                </select>
+                            </label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digPub1Guillotina" onchange="digCalcPub()" checked> Corte guillotina
+                            </label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digPub1Grafa" onchange="digCalcPub()" checked> Grafa portada (troquel para doblar)
+                            </label>
+                            <div id="digPub1GrafaSection" style="margin-top:0.4rem;padding:0.4rem 0.6rem;background:var(--gray-50);border-radius:6px;font-size:0.85rem;">
+                                <div class="form-group" style="margin-bottom:0.3rem;">
+                                    <label>Maquina troquelado</label>
+                                    <select id="digPub1GrafaMaquina" onchange="digCalcPub()" style="font-size:0.85rem;">
+                                        <option value="auto">Automatica ($6/millar)</option>
+                                        <option value="manual">Manual ($12/millar)</option>
+                                    </select>
+                                </div>
+                                <div id="digPub1GrafaInfo" style="font-size:0.75rem;color:var(--gray-500);"></div>
+                            </div>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.4rem;">
+                                <input type="checkbox" id="digPub1TroquelPlotter" onchange="digCalcPub()"> Troquelado en plotter
+                            </label>
+                            <div id="digPub1TroquelPlotterInfo" style="display:none;font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Otros terminados ($)</label>
+                            <input type="number" id="digPub1Terminados" step="0.5" min="0" value="0" oninput="digCalcPub()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========== PAGINAS INTERIORES DIGITAL ========== -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#059669,#047857);color:white;">Paginas Interiores</div>
+                    <div class="panel-body">
+                        <div class="form-group" style="background:#ecfdf5;padding:0.5rem 0.75rem;border-radius:6px;border:1px solid #a7f3d0;margin-bottom:0.5rem;">
+                            <label style="color:#059669;font-weight:700;">Numero de paginas interiores</label>
+                            <input type="number" id="digPub2Paginas" step="2" min="2" value="32" oninput="digCalcPub()" style="font-size:1.1rem;font-weight:700;text-align:center;">
+                            <div id="digPub2PaginasInfo" style="font-size:0.75rem;color:#059669;margin-top:0.2rem;"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho pagina (cm)</label>
+                                <input type="number" id="digPub2ProdW" step="0.1" min="0.1" value="14.8" oninput="digCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto pagina (cm)</label>
+                                <input type="number" id="digPub2ProdH" step="0.1" min="0.1" value="21" oninput="digCalcPub()">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Cantidad final</label>
+                                <input type="number" id="digPub2Cantidad" min="1" value="100" oninput="digCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Sangrado por lado (cm)</label>
+                                <input type="number" id="digPub2Sangrado" step="0.1" min="0" value="0.3" oninput="digCalcPub()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Maquina Interiores Digital -->
+                <div class="panel">
+                    <div class="panel-header">Maquina Interiores</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Maquina</label>
+                            <select id="digPub2Maquina" onchange="digPubOnMaquinaChange('digPub2')" style="font-weight:600;">
+                                <option value="versant80">Versant 80 (Full Color)</option>
+                                <option value="d95">D95 (Blanco y Negro)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Tamano de hoja</label>
+                            <select id="digPub2Formato" onchange="digPubOnFormatoChange('digPub2')" style="font-weight:600;">
+                                <option value="33x23">33 x 23 cm</option>
+                                <option value="48x33">48,2 x 33 cm</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho hoja (cm)</label>
+                                <input type="number" id="digPub2HojaW" step="0.1" value="33" disabled style="background:var(--gray-50);">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto hoja (cm)</label>
+                                <input type="number" id="digPub2HojaH" step="0.1" value="23" disabled style="background:var(--gray-50);">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top:0.5rem;">
+                            <label>Margen de maquina por lado (cm)</label>
+                            <input type="number" id="digPub2MargenMaquina" step="0.1" min="0" value="0.3" oninput="digCalcPub()">
+                        </div>
+                        <div id="digPub2AreaUtil" class="text-sm text-muted mt-1"></div>
+                    </div>
+                </div>
+                <!-- Material Interiores Digital -->
+                <div class="panel">
+                    <div class="panel-header">Material Interiores</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Material</label>
+                            <select id="digPub2Material" onchange="digPubOnMaterialChange('digPub2')"></select>
+                        </div>
+                        <div id="digPub2MaterialInfo" class="text-sm text-muted"></div>
+                        <div class="separator"></div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho pliego (cm)</label>
+                                <input type="number" id="digPub2PliegoW" step="0.1" value="70" oninput="digCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto pliego (cm)</label>
+                                <input type="number" id="digPub2PliegoH" step="0.1" value="100" oninput="digCalcPub()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio por pliego ($)</label>
+                            <input type="number" id="digPub2PrecioPliego" step="0.01" min="0" value="0" oninput="digCalcPub()">
+                        </div>
+                    </div>
+                </div>
+                <!-- Terminados Interiores Digital -->
+                <div class="panel">
+                    <div class="panel-header">Terminados Interiores</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
+                                <input type="checkbox" id="digPub2Guillotina" onchange="digCalcPub()" checked> Corte guillotina
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Otros terminados ($)</label>
+                            <input type="number" id="digPub2Terminados" step="0.5" min="0" value="0" oninput="digCalcPub()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========== ENCUADERNACION DIGITAL ========== -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#d97706,#b45309);color:white;">Encuadernacion</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <select id="digPubEncuadernacion" onchange="digCalcPub()">
+                                <option value="grapado">Grapado ($0,10/u, min $10)</option>
+                                <option value="encolado">Encolado / Hot melt ($0,20/u, min $20)</option>
+                            </select>
+                        </div>
+                        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
+                            <input type="checkbox" id="digPubIntercalado" onchange="digCalcPub()" checked> Intercalado / recogida ($3/millar de pliegos)
+                        </label>
+                        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-top:0.3rem;">
+                            <input type="checkbox" id="digPubDoblado" onchange="digCalcPub()" checked> Doblado en cruz ($5/millar de pliegos)
+                        </label>
+                    </div>
+                </div>
+
+                <!-- ========== MARGEN Y PRECIO PUB DIGITAL ========== -->
+                <div class="panel">
+                    <div class="panel-header">Margen y Precio</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Margen utilidad %</label>
+                                <input type="number" id="digPubMargen" step="1" min="0" max="99" value="0" oninput="window._digPubMargenManual=true;digCalcPub()" style="font-weight:700;border-color:#c084fc;">
+                                <div style="font-size:0.7rem;color:var(--gray-400);">Sugerido segun cantidad</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Descuento %</label>
+                                <input type="number" id="digPubDescuento" step="1" min="0" max="99" value="0" oninput="digCalcPub()">
+                            </div>
+                            <div class="form-group">
+                                <label>IVA %</label>
+                                <select id="digPubIVA" onchange="digCalcPub()">
+                                    <option value="15" selected>15% (normal)</option>
+                                    <option value="0">0% (libros / exento)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- /digSidebarPublicacion -->
+            </div>
+
+            <div class="cot-main">
+                <div id="digMainNormal" style="display:contents;">
+                <!-- Calculo de Produccion Digital -->
+                <div class="panel">
+                    <div class="panel-header">Calculo de Produccion</div>
+                    <div class="panel-body">
+                        <div class="results-grid">
+                            <div class="result-card">
+                                <div class="value" id="digResFmtPliego">-</div>
+                                <div class="label">Formatos por pliego</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="digResPiezasHoja">-</div>
+                                <div class="label">Piezas por hoja maquina</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="digResHojasNetas">-</div>
+                                <div class="label">Hojas netas</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="digResHojasTotales">-</div>
+                                <div class="label">Hojas con merma</div>
+                            </div>
+                            <div class="result-card highlight">
+                                <div class="value" id="digResPliegosNec">-</div>
+                                <div class="label">Pliegos de material</div>
+                            </div>
+                            <div class="result-card" style="background:#f3e8ff;border-color:#c084fc;">
+                                <div class="value" style="color:#7c3aed;" id="digResClicksTotal">-</div>
+                                <div class="label">Clicks totales</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vista previa imposicion digital -->
+                <div class="panel">
+                    <div class="panel-header">Vista Previa de Imposicion</div>
+                    <div class="panel-body" style="padding:0.75rem;">
+                        <div id="digFormatosInfoMain" style="margin-bottom:0.5rem;"></div>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+                            <div>
+                                <div style="font-size:0.7rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:0.35rem;">Piezas en hoja maquina</div>
+                                <canvas id="digPreviewHoja" style="width:100%;border:1px solid var(--gray-200);border-radius:6px;background:var(--gray-50);"></canvas>
+                            </div>
+                            <div>
+                                <div style="font-size:0.7rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:0.35rem;">Hojas en pliego de material</div>
+                                <canvas id="digPreviewPliego" style="width:100%;border:1px solid var(--gray-200);border-radius:6px;background:var(--gray-50);"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desglose de costos digital -->
+                <div class="panel">
+                    <div class="panel-header">Desglose de Costos</div>
+                    <div class="panel-body">
+                        <div class="cost-row" style="background:#f3e8ff;border-radius:6px;padding:0.5rem 0.5rem;margin-bottom:0.3rem;">
+                            <span class="cost-label" style="color:#6b21a8;">Clicks (<span id="digCostClicksQty">0</span> clicks x $<span id="digCostClicksPx">0.18</span>)</span>
+                            <span class="cost-value" style="color:#6b21a8;">$<span id="digCostClicks">0.00</span></span>
+                        </div>
+                        <div class="cost-row" style="background:#f3e8ff;border-radius:6px;padding:0.5rem 0.5rem;margin-bottom:0.3rem;">
+                            <span class="cost-label" style="color:#6b21a8;">Arranque ($<span id="digCostArranquePx">0.50</span> / <span id="digCostArranqueQty">0</span> hojas)</span>
+                            <span class="cost-value" style="color:#6b21a8;">$<span id="digCostArranque">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Material (<span id="digCostMatQty">0</span> pliegos x $<span id="digCostMatPx">0</span>)</span>
+                            <span class="cost-value">$<span id="digCostMat">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digCostPlastRow" style="display:none;">
+                            <span class="cost-label">Plastificado <span id="digCostPlastLabel"></span></span>
+                            <span class="cost-value">$<span id="digCostPlast">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digCostUVRow" style="display:none;">
+                            <span class="cost-label">Barniz UV <span id="digCostUVLabel"></span></span>
+                            <span class="cost-value">$<span id="digCostUV">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digCostUVSelRow" style="display:none;">
+                            <span class="cost-label">UV Selectivo <span id="digCostUVSelLabel"></span></span>
+                            <span class="cost-value">$<span id="digCostUVSel">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digCostGuilloRow" style="display:none;">
+                            <span class="cost-label">Guillotina <span id="digCostGuilloLabel"></span></span>
+                            <span class="cost-value">$<span id="digCostGuillo">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digCostTroquelServRow" style="display:none;">
+                            <span class="cost-label">Troquelado <span id="digCostTroquelServLabel"></span></span>
+                            <span class="cost-value">$<span id="digCostTroquelServ">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digCostTroquelRow" style="display:none;">
+                            <span class="cost-label">Troquel <span id="digCostTroquelLabel"></span></span>
+                            <span class="cost-value">$<span id="digCostTroquel">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digCostEnsandMatRow" style="display:none;">
+                            <span class="cost-label">Ensanduchado - material <span id="digCostEnsandMatLabel"></span></span>
+                            <span class="cost-value">$<span id="digCostEnsandMat">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digCostEnsandPegRow" style="display:none;">
+                            <span class="cost-label">Ensanduchado - pegado <span id="digCostEnsandPegLabel"></span></span>
+                            <span class="cost-value">$<span id="digCostEnsandPeg">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digCostPlotterRow" style="display:none;">
+                            <span class="cost-label">Troquelado plotter <span id="digCostPlotterLabel"></span></span>
+                            <span class="cost-value">$<span id="digCostPlotter">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Otros terminados</span>
+                            <span class="cost-value">$<span id="digCostTerm">0.00</span></span>
+                        </div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Subtotal costo</span>
+                            <span class="cost-value">$<span id="digSubtotalCosto">0.00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="cost-row">
+                            <span class="cost-label">Utilidad <span id="digMargenPct">0</span>%</span>
+                            <span class="cost-value">$<span id="digUtilidadNeta">0.00</span></span>
+                        </div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Subtotal sin IVA</span>
+                            <span class="cost-value">$<span id="digSubtotalSinIVA">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digDescuentoRow" style="display:none;color:#dc2626;">
+                            <span class="cost-label">Descuento <span id="digDescuentoPct">0</span>%</span>
+                            <span class="cost-value">-$<span id="digDescuentoMonto">0.00</span></span>
+                        </div>
+                        <div class="cost-row subtotal" id="digSubtotalConDescRow" style="display:none;">
+                            <span class="cost-label">Subtotal con descuento</span>
+                            <span class="cost-value">$<span id="digSubtotalConDesc">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Precio unitario (sin IVA)</span>
+                            <span class="cost-value">$<span id="digPrecioUnit">0.00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="cost-row">
+                            <span class="cost-label">IVA <span id="digIVAPct">15</span>%</span>
+                            <span class="cost-value">$<span id="digMontoIVA">0.00</span></span>
+                        </div>
+                        <div class="cost-row total">
+                            <span class="cost-label">TOTAL CON IVA</span>
+                            <span class="cost-value">$<span id="digPrecioFinal">0.00</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Precio final digital -->
+                <div class="panel">
+                    <div class="panel-body">
+                        <div class="results-grid">
+                            <div class="result-card success">
+                                <div class="value">$<span id="digPrecioFinalBig">0.00</span></div>
+                                <div class="label">Total con IVA</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value">$<span id="digPrecioUnitBig">0.00</span></div>
+                                <div class="label">Unitario sin IVA</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary mt-2 no-print" style="width:100%" onclick="window.print()">Imprimir Proforma</button>
+                    </div>
+                </div>
+                </div><!-- /digMainNormal -->
+
+                <div id="digMainPublicacion" style="display:none;">
+                <!-- Resumen Portada Digital -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;">Produccion Portada</div>
+                    <div class="panel-body">
+                        <div class="results-grid" style="grid-template-columns:repeat(3,1fr);">
+                            <div class="result-card"><div class="value"><span id="digPub1ResFmtPliego">0</span></div><div class="label">Formatos/pliego</div></div>
+                            <div class="result-card"><div class="value"><span id="digPub1ResPiezasHoja">0</span></div><div class="label">Piezas/hoja</div></div>
+                            <div class="result-card"><div class="value"><span id="digPub1ResHojasNetas">0</span></div><div class="label">Hojas netas</div></div>
+                            <div class="result-card"><div class="value"><span id="digPub1ResHojasTotales">0</span></div><div class="label">Hojas + merma</div></div>
+                            <div class="result-card highlight"><div class="value"><span id="digPub1ResPliegosNec">0</span></div><div class="label">Pliegos</div></div>
+                            <div class="result-card" style="background:#f3e8ff;border-color:#c084fc;"><div class="value" style="color:#7c3aed;"><span id="digPub1ResClicks">0</span></div><div class="label">Clicks portada</div></div>
+                        </div>
+                        <div id="digPub1FormatosInfoMain" class="mt-1"></div>
+                    </div>
+                </div>
+                <!-- Resumen Interiores Digital -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#059669,#047857);color:white;">Produccion Interiores</div>
+                    <div class="panel-body">
+                        <div class="results-grid" style="grid-template-columns:repeat(3,1fr);">
+                            <div class="result-card"><div class="value"><span id="digPub2ResFmtPliego">0</span></div><div class="label">Formatos/pliego</div></div>
+                            <div class="result-card"><div class="value"><span id="digPub2ResPiezasHoja">0</span></div><div class="label">Pags/lado</div></div>
+                            <div class="result-card"><div class="value"><span id="digPub2ResPagsHoja">0</span></div><div class="label">Pags/hoja</div></div>
+                            <div class="result-card"><div class="value"><span id="digPub2ResPliegosDif">0</span></div><div class="label">Pliegos dif.</div></div>
+                            <div class="result-card"><div class="value"><span id="digPub2ResHojasTotales">0</span></div><div class="label">Hojas totales</div></div>
+                            <div class="result-card" style="background:#f3e8ff;border-color:#c084fc;"><div class="value" style="color:#7c3aed;"><span id="digPub2ResClicks">0</span></div><div class="label">Clicks interiores</div></div>
+                        </div>
+                        <div id="digPub2FormatosInfoMain" class="mt-1"></div>
+                    </div>
+                </div>
+                <!-- Desglose de costos publicacion digital -->
+                <div class="panel">
+                    <div class="panel-header">Desglose de Costos</div>
+                    <div class="panel-body">
+                        <div style="font-weight:600;font-size:0.8rem;color:#7c3aed;text-transform:uppercase;margin-bottom:0.3rem;">Portada</div>
+                        <div class="cost-row" style="background:#f3e8ff;border-radius:4px;padding:0.3rem 0.4rem;">
+                            <span class="cost-label" style="color:#6b21a8;">Clicks portada (<span id="digPubCPortClicksQty">0</span> x $<span id="digPubCPortClicksPx">0</span>)</span>
+                            <span class="cost-value" style="color:#6b21a8;">$<span id="digPubCPortClicks">0.00</span></span>
+                        </div>
+                        <div class="cost-row" style="background:#f3e8ff;border-radius:4px;padding:0.3rem 0.4rem;">
+                            <span class="cost-label" style="color:#6b21a8;">Arranque portada</span>
+                            <span class="cost-value" style="color:#6b21a8;">$<span id="digPubCPortArranque">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Material (<span id="digPubCPortMatQty">0</span> plg x $<span id="digPubCPortMatPx">0</span>)</span>
+                            <span class="cost-value">$<span id="digPubCPortMat">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCPortPlastRow" style="display:none;">
+                            <span class="cost-label">Plastificado <span id="digPubCPortPlastLabel"></span></span>
+                            <span class="cost-value">$<span id="digPubCPortPlast">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCPortUVRow" style="display:none;">
+                            <span class="cost-label">Barniz UV <span id="digPubCPortUVLabel"></span></span>
+                            <span class="cost-value">$<span id="digPubCPortUV">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCPortGuilloRow" style="display:none;">
+                            <span class="cost-label">Guillotina portada</span>
+                            <span class="cost-value">$<span id="digPubCPortGuillo">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCPortGrafaServRow" style="display:none;">
+                            <span class="cost-label">Grafa servicio <span id="digPubCPortGrafaServLabel"></span></span>
+                            <span class="cost-value">$<span id="digPubCPortGrafaServ">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCPortGrafaTroquelRow" style="display:none;">
+                            <span class="cost-label">Grafa troquel <span id="digPubCPortGrafaTroquelLabel"></span></span>
+                            <span class="cost-value">$<span id="digPubCPortGrafaTroquel">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCPortPlotterRow" style="display:none;">
+                            <span class="cost-label">Plotter portada <span id="digPubCPortPlotterLabel"></span></span>
+                            <span class="cost-value">$<span id="digPubCPortPlotter">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCPortTermRow" style="display:none;">
+                            <span class="cost-label">Otros terminados portada</span>
+                            <span class="cost-value">$<span id="digPubCPortTerm">0.00</span></span>
+                        </div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Subtotal portada</span>
+                            <span class="cost-value">$<span id="digPubCPortSubtotal">0.00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div style="font-weight:600;font-size:0.8rem;color:#059669;text-transform:uppercase;margin-bottom:0.3rem;margin-top:0.3rem;">Interiores</div>
+                        <div class="cost-row" style="background:#f3e8ff;border-radius:4px;padding:0.3rem 0.4rem;">
+                            <span class="cost-label" style="color:#6b21a8;">Clicks interiores (<span id="digPubCIntClicksQty">0</span> x $<span id="digPubCIntClicksPx">0</span>)</span>
+                            <span class="cost-value" style="color:#6b21a8;">$<span id="digPubCIntClicks">0.00</span></span>
+                        </div>
+                        <div class="cost-row" style="background:#f3e8ff;border-radius:4px;padding:0.3rem 0.4rem;">
+                            <span class="cost-label" style="color:#6b21a8;">Arranque interiores</span>
+                            <span class="cost-value" style="color:#6b21a8;">$<span id="digPubCIntArranque">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Material (<span id="digPubCIntMatQty">0</span> plg x $<span id="digPubCIntMatPx">0</span>)</span>
+                            <span class="cost-value">$<span id="digPubCIntMat">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCIntGuilloRow" style="display:none;">
+                            <span class="cost-label">Guillotina interiores</span>
+                            <span class="cost-value">$<span id="digPubCIntGuillo">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCIntTermRow" style="display:none;">
+                            <span class="cost-label">Otros terminados interiores</span>
+                            <span class="cost-value">$<span id="digPubCIntTerm">0.00</span></span>
+                        </div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Subtotal interiores</span>
+                            <span class="cost-value">$<span id="digPubCIntSubtotal">0.00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div style="font-weight:600;font-size:0.8rem;color:#d97706;text-transform:uppercase;margin-bottom:0.3rem;margin-top:0.3rem;">Encuadernacion</div>
+                        <div class="cost-row">
+                            <span class="cost-label"><span id="digPubCEncuadLabel">-</span></span>
+                            <span class="cost-value">$<span id="digPubCEncuad">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCIntercRow" style="display:none;">
+                            <span class="cost-label">Intercalado <span id="digPubCIntercLabel"></span></span>
+                            <span class="cost-value">$<span id="digPubCInterc">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubCDobladoRow" style="display:none;">
+                            <span class="cost-label">Doblado <span id="digPubCDobladoLabel"></span></span>
+                            <span class="cost-value">$<span id="digPubCDoblado">0.00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Subtotal costo total</span>
+                            <span class="cost-value">$<span id="digPubSubtotalCosto">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Utilidad <span id="digPubMargenPct">0</span>%</span>
+                            <span class="cost-value">$<span id="digPubUtilidad">0.00</span></span>
+                        </div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Subtotal sin IVA</span>
+                            <span class="cost-value">$<span id="digPubSubtotalSinIVA">0.00</span></span>
+                        </div>
+                        <div class="cost-row" id="digPubDescuentoRow" style="display:none;color:#dc2626;">
+                            <span class="cost-label">Descuento <span id="digPubDescuentoPct">0</span>%</span>
+                            <span class="cost-value">-$<span id="digPubDescuentoMonto">0.00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Precio unitario (sin IVA)</span>
+                            <span class="cost-value">$<span id="digPubPrecioUnit">0.00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div class="cost-row">
+                            <span class="cost-label">IVA <span id="digPubIVAPct">15</span>%</span>
+                            <span class="cost-value">$<span id="digPubMontoIVA">0.00</span></span>
+                        </div>
+                        <div class="cost-row total">
+                            <span class="cost-label">TOTAL CON IVA</span>
+                            <span class="cost-value">$<span id="digPubPrecioFinal">0.00</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Precio final publicacion digital -->
+                <div class="panel">
+                    <div class="panel-body">
+                        <div class="results-grid">
+                            <div class="result-card success">
+                                <div class="value">$<span id="digPubPrecioFinalBig">0.00</span></div>
+                                <div class="label">Total con IVA</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value">$<span id="digPubPrecioUnitBig">0.00</span></div>
+                                <div class="label">Unitario sin IVA</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary mt-2 no-print" style="width:100%" onclick="window.print()">Imprimir Proforma</button>
+                    </div>
+                </div>
+                </div><!-- /digMainPublicacion -->
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== TAB: PROFORMAS ==================== -->
     <div id="tab-proformas" class="tab-content">
         <div class="proformas-layout">
@@ -1509,6 +2392,145 @@
                     <tbody id="clientesTabBody"></tbody>
                 </table>
                 <div id="clientesEmpty" style="padding:2rem;text-align:center;color:var(--gray-400);font-size:0.9rem;">No se encontraron clientes.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TAB: CONCILIACION BANCARIA ==================== -->
+    <div id="tab-conciliacion" class="tab-content">
+        <div style="max-width:1400px;margin:0 auto;padding:1.25rem;">
+            <!-- Header conciliacion -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <div>
+                    <h2 style="font-size:1.2rem;color:var(--gray-800);margin-bottom:0.2rem;">Conciliacion Bancaria</h2>
+                    <p style="font-size:0.8rem;color:var(--gray-500);">Sube facturas de Contifico y estados del Banco Pichincha para conciliar pagos</p>
+                </div>
+                <div style="display:flex;gap:0.5rem;">
+                    <button class="btn" style="background:#059669;color:white;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;border:none;" onclick="concAutoMatch()">Auto-conciliar</button>
+                    <button class="btn" style="background:var(--primary);color:white;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;border:none;" onclick="concExportReport()">Exportar informe</button>
+                </div>
+            </div>
+
+            <!-- Zona de carga de archivos -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.25rem;">
+                <!-- Contifico -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#d97706,#b45309);color:white;">Facturas Contifico</div>
+                    <div class="panel-body" style="text-align:center;">
+                        <button onclick="concSyncContifico()" style="width:100%;padding:0.75rem;background:linear-gradient(135deg,#d97706,#b45309);color:white;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;margin-bottom:0.5rem;">🔄 Sincronizar con Contifico</button>
+                        <div style="font-size:0.75rem;color:var(--gray-400);margin-bottom:0.5rem;">Jala todas las facturas via API</div>
+                        <div style="border-top:1px solid var(--gray-200);padding-top:0.5rem;">
+                            <div style="font-size:0.7rem;color:var(--gray-400);margin-bottom:0.3rem;">O sube archivo .xls manual:</div>
+                            <input type="file" id="concContificoFile" accept=".xls,.xlsx" style="font-size:0.75rem;width:100%;" onchange="if(this.files[0])concLoadContifico(this.files[0]);">
+                        </div>
+                        <div id="concContificoStatus" style="margin-top:0.5rem;font-size:0.8rem;color:var(--gray-500);"></div>
+                    </div>
+                </div>
+                <!-- Banco Web -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;">Estado Banco Web (.xlsx)</div>
+                    <div class="panel-body" style="text-align:center;">
+                        <div id="concWebDropzone" style="border:2px dashed var(--gray-300);border-radius:8px;padding:1.5rem 1rem;cursor:pointer;transition:all 0.2s;" ondragover="event.preventDefault();this.style.borderColor='var(--primary)';this.style.background='var(--primary-light)';" ondragleave="this.style.borderColor='var(--gray-300)';this.style.background='transparent';" ondrop="event.preventDefault();this.style.borderColor='var(--gray-300)';this.style.background='transparent';concLoadBancoWeb(event.dataTransfer.files[0]);" onclick="document.getElementById('concWebFile').click();">
+                            <input type="file" id="concWebFile" accept=".xlsx,.xls" style="display:none;" onchange="if(this.files[0])concLoadBancoWeb(this.files[0]);">
+                            <div style="font-size:1.5rem;">🏦</div>
+                            <div style="font-size:0.85rem;font-weight:600;color:var(--gray-700);margin-top:0.3rem;">Estado de cuenta web</div>
+                            <div style="font-size:0.75rem;color:var(--gray-400);">Tiene nombres de empresas SPI</div>
+                        </div>
+                        <div id="concWebStatus" style="margin-top:0.5rem;font-size:0.8rem;color:var(--gray-500);"></div>
+                    </div>
+                </div>
+                <!-- Banco Celular -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;">Estado Banco Celular (.xlsx)</div>
+                    <div class="panel-body" style="text-align:center;">
+                        <div id="concCelDropzone" style="border:2px dashed var(--gray-300);border-radius:8px;padding:1.5rem 1rem;cursor:pointer;transition:all 0.2s;" ondragover="event.preventDefault();this.style.borderColor='#7c3aed';this.style.background='#f3e8ff';" ondragleave="this.style.borderColor='var(--gray-300)';this.style.background='transparent';" ondrop="event.preventDefault();this.style.borderColor='var(--gray-300)';this.style.background='transparent';concLoadBancoCelular(event.dataTransfer.files[0]);" onclick="document.getElementById('concCelFile').click();">
+                            <input type="file" id="concCelFile" accept=".xlsx,.xls" style="display:none;" onchange="if(this.files[0])concLoadBancoCelular(this.files[0]);">
+                            <div style="font-size:1.5rem;">📱</div>
+                            <div style="font-size:0.85rem;font-weight:600;color:var(--gray-700);margin-top:0.3rem;">Estado de cuenta celular</div>
+                            <div style="font-size:0.75rem;color:var(--gray-400);">Tiene nombres de personas</div>
+                        </div>
+                        <div id="concCelStatus" style="margin-top:0.5rem;font-size:0.8rem;color:var(--gray-500);"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen -->
+            <div id="concResumen" style="display:none;margin-bottom:1.25rem;">
+                <div class="panel">
+                    <div class="panel-header">Resumen</div>
+                    <div class="panel-body">
+                        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;">
+                            <div class="result-card"><div class="value" id="concResFacturas">0</div><div class="label">Facturas pendientes</div></div>
+                            <div class="result-card"><div class="value" id="concResDepositos">0</div><div class="label">Depositos</div></div>
+                            <div class="result-card success"><div class="value" id="concResConciliados">0</div><div class="label">Conciliados</div></div>
+                            <div class="result-card" style="background:#fef3c7;border-color:#f59e0b;"><div class="value" style="color:#d97706;" id="concResSinConciliar">0</div><div class="label">Sin conciliar</div></div>
+                            <div class="result-card" style="background:#fee2e2;border-color:#dc2626;"><div class="value" style="color:#dc2626;" id="concResAlertas">0</div><div class="label">Alertas</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de conciliacion -->
+            <div id="concTablaSection" style="display:none;">
+                <div class="panel">
+                    <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+                        <span>Depositos Bancarios</span>
+                        <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <select id="concFiltroEstado" onchange="concRenderDepositos()" style="font-size:0.8rem;padding:0.2rem 0.4rem;border-radius:4px;border:1px solid var(--gray-300);">
+                                <option value="todos">Todos</option>
+                                <option value="sin_conciliar">Sin conciliar</option>
+                                <option value="conciliado">Conciliados</option>
+                                <option value="no_aplica">No aplica</option>
+                            </select>
+                            <input type="text" id="concBuscar" placeholder="Buscar..." oninput="concRenderDepositos()" style="font-size:0.8rem;padding:0.2rem 0.4rem;border-radius:4px;border:1px solid var(--gray-300);width:150px;">
+                        </div>
+                    </div>
+                    <div class="panel-body" style="padding:0;overflow-x:auto;">
+                        <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+                            <thead>
+                                <tr style="background:var(--gray-50);border-bottom:2px solid var(--gray-200);">
+                                    <th style="padding:0.5rem;text-align:left;">Fecha</th>
+                                    <th style="padding:0.5rem;text-align:left;">Depositante</th>
+                                    <th style="padding:0.5rem;text-align:right;">Monto</th>
+                                    <th style="padding:0.5rem;text-align:left;">Descripcion</th>
+                                    <th style="padding:0.5rem;text-align:center;">Estado</th>
+                                    <th style="padding:0.5rem;text-align:left;">Facturas asociadas</th>
+                                    <th style="padding:0.5rem;text-align:center;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="concDepositosBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal para conciliar manualmente -->
+            <div id="concModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;overflow-y:auto;">
+                <div style="max-width:700px;margin:2rem auto;background:white;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--gray-200);display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <div style="font-weight:700;font-size:1rem;">Conciliar deposito</div>
+                            <div id="concModalDepInfo" style="font-size:0.85rem;color:var(--gray-500);"></div>
+                        </div>
+                        <button onclick="concCloseModal()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--gray-400);">✕</button>
+                    </div>
+                    <div style="padding:1.25rem;">
+                        <div id="concModalSugerencias" style="margin-bottom:1rem;"></div>
+                        <div style="font-weight:600;font-size:0.85rem;color:var(--gray-600);margin-bottom:0.5rem;">Facturas pendientes</div>
+                        <input type="text" id="concModalBuscar" placeholder="Buscar factura..." oninput="concRenderModalFacturas()" style="width:100%;margin-bottom:0.5rem;padding:0.4rem 0.6rem;border:1.5px solid var(--gray-300);border-radius:6px;font-size:0.85rem;">
+                        <div id="concModalFacturas" style="max-height:300px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:6px;"></div>
+                        <div style="margin-top:0.75rem;display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <span style="font-size:0.85rem;color:var(--gray-500);">Seleccionado: $<span id="concModalTotal">0,00</span></span>
+                                <span id="concModalDiff" style="font-size:0.85rem;margin-left:0.5rem;"></span>
+                            </div>
+                            <div style="display:flex;gap:0.5rem;">
+                                <button onclick="concMarcarNoAplica()" style="background:var(--gray-200);color:var(--gray-700);border:none;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;">No aplica</button>
+                                <button id="concModalConfirm" onclick="concConfirmMatch()" style="background:#059669;color:white;border:none;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;" disabled>Conciliar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1817,8 +2839,8 @@
                 const srcPdf = await PDFLib.PDFDocument.load(sourcePdfBytes);
                 const page0 = srcPdf.getPage(0);
                 const { width, height } = page0.getSize();
-                const wCm = (width / CM_TO_PT).toFixed(2);
-                const hCm = (height / CM_TO_PT).toFixed(2);
+                const wCm = fmtN(width / CM_TO_PT, 2);
+                const hCm = fmtN(height / CM_TO_PT, 2);
 
                 document.getElementById('pdfFileName').textContent = file.name + ' (' + srcPdf.getPageCount() + ' pagina' + (srcPdf.getPageCount() > 1 ? 's' : '') + ')';
                 document.getElementById('pdfFileDims').textContent = 'Dimensiones: ' + wCm + ' x ' + hCm + ' cm (' + Math.round(width) + ' x ' + Math.round(height) + ' pt)';
@@ -1838,7 +2860,7 @@
                                        (Math.abs(+wCm - prodH) < 0.2 && Math.abs(+hCm - prodW) < 0.2);
 
                 if (!matchesWithBleed && !matchesNoBleed) {
-                    warnEl.textContent = 'Atencion: las dimensiones del PDF (' + wCm + 'x' + hCm + ') no coinciden con el producto (' + piezaW + 'x' + piezaH + ' con sangrado)';
+                    warnEl.textContent = 'Atencion: las dimensiones del PDF (' + fmtN(wCm,1) + 'x' + fmtN(hCm,1) + ') no coinciden con el producto (' + fmtN(piezaW,1) + 'x' + fmtN(piezaH,1) + ' con sangrado)';
                     warnEl.style.display = 'block';
                 } else if (matchesNoBleed && !matchesWithBleed) {
                     warnEl.textContent = 'El PDF parece no tener sangrado. Se escalara al tamano con sangrado.';
@@ -2166,7 +3188,7 @@
             const link = document.getElementById('pdfDownloadLink');
             link.href = prevPdfUrl;
             link.download = 'imposicion_' + hojaW + 'x' + hojaH + '_' + placements.length + 'up.pdf';
-            link.textContent = 'Descargar PDF (' + placements.length + ' piezas en ' + hojaW + 'x' + hojaH + ')';
+            link.textContent = 'Descargar PDF (' + placements.length + ' piezas en ' + fmtN(hojaW,1) + 'x' + fmtN(hojaH,1) + ')';
             document.getElementById('pdfDownloadArea').style.display = 'block';
 
         } catch(err) {
@@ -2250,7 +3272,8 @@
     // Close dropdown when clicking outside
     document.addEventListener('click', function(e) {
         if (!e.target.closest('.client-search-wrap')) {
-            document.getElementById('clientDropdown').classList.remove('open');
+            const cdd = document.getElementById('clientDropdown');
+            if (cdd) cdd.classList.remove('open');
             const pdd = document.getElementById('profClientDropdown');
             if (pdd) pdd.classList.remove('open');
         }
@@ -2523,7 +3546,7 @@
             // Show result
             resultDiv.style.background = '#ecfdf5';
             resultDiv.style.borderColor = '#a7f3d0';
-            resultDiv.innerHTML = '<strong>✅ ' + file.name + '</strong> (' + pageWcm.toFixed(1) + ' x ' + pageHcm.toFixed(1) + ' cm)<br>'
+            resultDiv.innerHTML = '<strong>✅ ' + file.name + '</strong> (' + fmtN(pageWcm, 1) + ' x ' + fmtN(pageHcm, 1) + ' cm)<br>'
                 + cuttingPaths.length + ' formas de corte detectadas'
                 + (guidePaths.length > 0 ? ' | ' + guidePaths.length + ' guias ignoradas' : '')
                 + (framePaths.length > 0 ? ' | ' + framePaths.length + ' marco ignorado' : '')
@@ -2649,9 +3672,16 @@
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById('tab-' + tab).classList.add('active');
         const btns = document.querySelectorAll('.tab-btn');
-        btns.forEach(b => { if (b.textContent.toLowerCase().includes(tab === 'admin' ? 'administracion' : tab)) b.classList.add('active'); });
+        btns.forEach(b => {
+            const txt = b.textContent.toLowerCase();
+            if (tab === 'admin' && txt.includes('administracion')) b.classList.add('active');
+            else if (tab === 'digital' && txt.includes('digital')) b.classList.add('active');
+            else if (tab !== 'admin' && tab !== 'digital' && txt.includes(tab)) b.classList.add('active');
+        });
         if (tab === 'calculadora') calcCalc();
         if (tab === 'cotizador') { cotCalc(); updateAddToProformaBtn(); }
+        if (tab === 'digital') { digPopulateMaterials(); digCalc(); }
+        if (tab === 'conciliacion') { concInit(); }
         if (tab === 'proformas') cargarProformas();
         if (tab === 'productos') cargarProductos();
         if (tab === 'clientes') cargarClientesTab();
@@ -2796,7 +3826,7 @@
         const prev = sel.value;
         sel.innerHTML = '<option value="">-- Seleccionar material --</option>';
         appData.materiales.forEach((m, i) => {
-            sel.innerHTML += `<option value="${i}">${m.nombre} (${m.gramaje}g) - ${m.ancho}x${m.alto} - $${m.precio}</option>`;
+            sel.innerHTML += `<option value="${i}">${m.nombre} (${m.gramaje}g) - ${fmtN(m.ancho,1)}x${fmtN(m.alto,1)} - $${fmtN(m.precio,2)}</option>`;
         });
         sel.value = prev;
     }
@@ -2851,7 +3881,7 @@
         for (const [key, val] of Object.entries(maq.formatos)) {
             const opt = document.createElement('option');
             opt.value = key;
-            opt.textContent = val.w + ' x ' + val.h + ' cm';
+            opt.textContent = fmtN(val.w, 1) + ' x ' + fmtN(val.h, 1) + ' cm';
             formatoSel.appendChild(opt);
         }
         const customOpt = document.createElement('option');
@@ -2892,7 +3922,7 @@
             if (sel.options.length <= 1) {
                 let html = '<option value="">-- Seleccionar material --</option>';
                 appData.materiales.forEach((m, i) => {
-                    html += '<option value="' + i + '">' + m.nombre + ' (' + m.gramaje + 'g) - ' + m.ancho + 'x' + m.alto + ' - $' + m.precio + '</option>';
+                    html += '<option value="' + i + '">' + m.nombre + ' (' + m.gramaje + 'g) - ' + fmtN(m.ancho,1) + 'x' + fmtN(m.alto,1) + ' - $' + fmtN(m.precio,2) + '</option>';
                 });
                 sel.innerHTML = html;
             }
@@ -2966,7 +3996,7 @@
         formatoSel.innerHTML = '';
         for (const [key, val] of Object.entries(maq.formatos)) {
             const opt = document.createElement('option');
-            opt.value = key; opt.textContent = val.w + ' x ' + val.h + ' cm';
+            opt.value = key; opt.textContent = fmtN(val.w, 1) + ' x ' + fmtN(val.h, 1) + ' cm';
             formatoSel.appendChild(opt);
         }
         formatoSel.innerHTML += '<option value="">Personalizado</option>';
@@ -3108,7 +4138,7 @@
 
         // Info pieza abierta
         const piezaInfo = document.getElementById('pub1PiezaAbiertaInfo');
-        if (piezaInfo) piezaInfo.textContent = portPiezaAbiertaW.toFixed(1) + ' x ' + portPiezaAbiertaH.toFixed(1) + ' cm' + (lomo > 0 ? ' (incluye lomo ' + lomo + ' cm)' : '');
+        if (piezaInfo) piezaInfo.textContent = fmtN(portPiezaAbiertaW, 1) + ' x ' + fmtN(portPiezaAbiertaH, 1) + ' cm' + (lomo > 0 ? ' (incluye lomo ' + fmtN(lomo, 1) + ' cm)' : '');
 
         // Recalcular imposicion con la pieza abierta
         const portPiezasPorHoja = (portBase.hojaUtilW > 0 && portBase.hojaUtilH > 0 && portPiezaAbiertaW > 0 && portPiezaAbiertaH > 0)
@@ -3184,7 +4214,7 @@
                 const minimoTroquel = 12;
                 portCostoGrafaTroquel = Math.max(minimoTroquel, cmGrafa * costoPorCm);
 
-                grafaInfo.textContent = (grafaMaq === 'auto' ? 'Auto' : 'Manual') + ' | Serv: ' + millaresGrafa + ' mill. x $' + costoPorMillarGrafa + ' = $' + portCostoGrafaServicio.toFixed(2) + ' | Troquel: ' + lineasGrafa + ' linea' + (lineasGrafa > 1 ? 's' : '') + ' x ' + largoGrafa.toFixed(1) + ' cm = ' + cmGrafa.toFixed(1) + ' cm x $0.10 = $' + portCostoGrafaTroquel.toFixed(2);
+                grafaInfo.textContent = (grafaMaq === 'auto' ? 'Auto' : 'Manual') + ' | Serv: ' + millaresGrafa + ' mill. x $' + costoPorMillarGrafa + ' = $' + fmtN(portCostoGrafaServicio, 2) + ' | Troquel: ' + lineasGrafa + ' linea' + (lineasGrafa > 1 ? 's' : '') + ' x ' + fmtN(largoGrafa, 1) + ' cm = ' + fmtN(cmGrafa, 1) + ' cm x $0,10 = $' + fmtN(portCostoGrafaTroquel, 2);
             }
         } else if (grafaSection) {
             grafaSection.style.display = 'none';
@@ -3219,10 +4249,10 @@
         document.getElementById('pub1ResMermaInfo').textContent = port.mermaTotal;
         // Info badges portada
         const pub1Info = document.getElementById('pub1FormatosInfoMain');
-        if (pub1Info) pub1Info.innerHTML = '<span class="info-badge blue">' + port.fmtPorPliego + ' fmt/pliego</span> <span class="info-badge green">' + port.piezasPorHoja + ' portadas/hoja (' + portPiezaAbiertaW.toFixed(1) + 'x' + portPiezaAbiertaH.toFixed(1) + ' cm)</span>';
+        if (pub1Info) pub1Info.innerHTML = '<span class="info-badge blue">' + port.fmtPorPliego + ' fmt/pliego</span> <span class="info-badge green">' + port.piezasPorHoja + ' portadas/hoja (' + fmtN(portPiezaAbiertaW, 1) + 'x' + fmtN(portPiezaAbiertaH, 1) + ' cm)</span>';
         // Area util portada
         const pub1Area = document.getElementById('pub1AreaUtil');
-        if (pub1Area && port.margenMaq > 0) pub1Area.textContent = 'Area util: ' + port.hojaUtilW + ' x ' + port.hojaUtilH + ' cm';
+        if (pub1Area && port.margenMaq > 0) pub1Area.textContent = 'Area util: ' + fmtN(port.hojaUtilW, 1) + ' x ' + fmtN(port.hojaUtilH, 1) + ' cm';
         else if (pub1Area) pub1Area.textContent = '';
 
         // === INTERIORES ===
@@ -3341,9 +4371,9 @@
         document.getElementById('pub2ResHojasTotales').textContent = intTotalHojasMaquina;
         document.getElementById('pub2ResPliegosNec').textContent = intPliegosNec;
         const pub2Info = document.getElementById('pub2FormatosInfoMain');
-        if (pub2Info) pub2Info.innerHTML = '<span class="info-badge" style="background:#ecfdf5;color:#059669;">' + paginasPorLado + ' pags/tiro (' + intPiezaW.toFixed(1) + 'x' + intPiezaH.toFixed(1) + ' cm c/u)</span> <span class="info-badge" style="background:#fef3c7;color:#92400e;">' + pliegosDiferentes + ' pliegos dif. x 2 = ' + intTotalJuegosPlacas + ' juegos placas</span>';
+        if (pub2Info) pub2Info.innerHTML = '<span class="info-badge" style="background:#ecfdf5;color:#059669;">' + paginasPorLado + ' pags/tiro (' + fmtN(intPiezaW, 1) + 'x' + fmtN(intPiezaH, 1) + ' cm c/u)</span> <span class="info-badge" style="background:#fef3c7;color:#92400e;">' + pliegosDiferentes + ' pliegos dif. x 2 = ' + intTotalJuegosPlacas + ' juegos placas</span>';
         const pub2Area = document.getElementById('pub2AreaUtil');
-        if (pub2Area && intMargenMaq > 0) pub2Area.textContent = 'Area util: ' + intHojaUtilW + ' x ' + intHojaUtilH + ' cm';
+        if (pub2Area && intMargenMaq > 0) pub2Area.textContent = 'Area util: ' + fmtN(intHojaUtilW, 1) + ' x ' + fmtN(intHojaUtilH, 1) + ' cm';
         else if (pub2Area) pub2Area.textContent = '';
 
         // === ENCUADERNACION ===
@@ -3352,10 +4382,10 @@
         let encuadLabel = '';
         if (tipoEncuad === 'grapado') {
             costoEncuad = Math.max(10, cantidad1 * 0.10);
-            encuadLabel = 'Grapado (' + cantidad1 + ' x $0.10)';
+            encuadLabel = 'Grapado (' + cantidad1 + ' x $0,10)';
         } else if (tipoEncuad === 'encolado') {
             costoEncuad = Math.max(20, cantidad1 * 0.20);
-            encuadLabel = 'Encolado (' + cantidad1 + ' x $0.20)';
+            encuadLabel = 'Encolado (' + cantidad1 + ' x $0,20)';
         }
         // Doblado e intercalado se cobran por millar de PLIEGOS (hojas de maquina)
         // Cada revista tiene `pliegosDiferentes` hojas interiores que doblar/recoger
@@ -3386,85 +4416,85 @@
         // === UPDATE DOM - Desglose de costos ===
         // Portada
         document.getElementById('pubCPortMatQty').textContent = port.pliegosNec;
-        document.getElementById('pubCPortMatPx').textContent = port.precioPliego.toFixed(2);
-        document.getElementById('pubCPortMat').textContent = port.costoMaterial.toFixed(2);
+        document.getElementById('pubCPortMatPx').textContent = fmtN(port.precioPliego, 2);
+        document.getElementById('pubCPortMat').textContent = fmtN(port.costoMaterial, 2);
         document.getElementById('pubCPortPlacasQty').textContent = port.totalPlacas;
-        document.getElementById('pubCPortPlacasPx').textContent = port.costoPlaca.toFixed(2);
-        document.getElementById('pubCPortPlacas').textContent = port.costoPlacasTotal.toFixed(2);
+        document.getElementById('pubCPortPlacasPx').textContent = fmtN(port.costoPlaca, 2);
+        document.getElementById('pubCPortPlacas').textContent = fmtN(port.costoPlacasTotal, 2);
         document.getElementById('pubCPortImpQty').textContent = port.millaresImpresion;
         document.getElementById('pubCPortImpCol').textContent = port.colores;
-        document.getElementById('pubCPortImp').textContent = port.costoImpresion.toFixed(2);
+        document.getElementById('pubCPortImp').textContent = fmtN(port.costoImpresion, 2);
         document.getElementById('pubCPortPlastRow').style.display = port.costoPlastificado > 0 ? 'flex' : 'none';
-        document.getElementById('pubCPortPlast').textContent = port.costoPlastificado.toFixed(2);
+        document.getElementById('pubCPortPlast').textContent = fmtN(port.costoPlastificado, 2);
         if (port.costoPlastificado > 0) {
             const tp = document.getElementById('pub1PlastificadoTipo').value;
             const cr = +document.getElementById('pub1PlastificadoCaras').value;
             document.getElementById('pubCPortPlastLabel').textContent = '(' + (tp === 'mate' ? 'mate' : 'brillante') + ', ' + cr + ' cara' + (cr > 1 ? 's' : '') + ')';
         }
         document.getElementById('pubCPortUVRow').style.display = port.costoBarnizUV > 0 ? 'flex' : 'none';
-        document.getElementById('pubCPortUV').textContent = port.costoBarnizUV.toFixed(2);
+        document.getElementById('pubCPortUV').textContent = fmtN(port.costoBarnizUV, 2);
         if (port.costoBarnizUV > 0) {
             const crUV = +document.getElementById('pub1BarnizUVCaras').value;
             document.getElementById('pubCPortUVLabel').textContent = '(' + crUV + ' cara' + (crUV > 1 ? 's' : '') + ')';
         }
         document.getElementById('pubCPortGuilloRow').style.display = port.costoGuillotina > 0 ? 'flex' : 'none';
-        document.getElementById('pubCPortGuillo').textContent = port.costoGuillotina.toFixed(2);
+        document.getElementById('pubCPortGuillo').textContent = fmtN(port.costoGuillotina, 2);
         document.getElementById('pubCPortGrafaServRow').style.display = port.costoGrafaServicio > 0 ? 'flex' : 'none';
-        document.getElementById('pubCPortGrafaServ').textContent = port.costoGrafaServicio.toFixed(2);
+        document.getElementById('pubCPortGrafaServ').textContent = fmtN(port.costoGrafaServicio, 2);
         if (port.costoGrafaServicio > 0) {
             const gm = document.getElementById('pub1GrafaMaquina').value;
             document.getElementById('pubCPortGrafaServLabel').textContent = '(' + (gm === 'auto' ? 'auto' : 'manual') + ')';
         }
         document.getElementById('pubCPortGrafaTroquelRow').style.display = port.costoGrafaTroquel > 0 ? 'flex' : 'none';
-        document.getElementById('pubCPortGrafaTroquel').textContent = port.costoGrafaTroquel.toFixed(2);
+        document.getElementById('pubCPortGrafaTroquel').textContent = fmtN(port.costoGrafaTroquel, 2);
         if (port.costoGrafaTroquel > 0) {
             const lineas = esEncolado ? 4 : 1;
             document.getElementById('pubCPortGrafaTroquelLabel').textContent = '(' + lineas + ' linea' + (lineas > 1 ? 's' : '') + ')';
         }
         document.getElementById('pubCPortTermRow').style.display = port.terminados > 0 ? 'flex' : 'none';
-        document.getElementById('pubCPortTerm').textContent = port.terminados.toFixed(2);
-        document.getElementById('pubCPortSubtotal').textContent = port.subtotal.toFixed(2);
+        document.getElementById('pubCPortTerm').textContent = fmtN(port.terminados, 2);
+        document.getElementById('pubCPortSubtotal').textContent = fmtN(port.subtotal, 2);
 
         // Interiores
         document.getElementById('pubCIntMatQty').textContent = inte.pliegosNec;
-        document.getElementById('pubCIntMatPx').textContent = inte.precioPliego.toFixed(2);
-        document.getElementById('pubCIntMat').textContent = inte.costoMaterial.toFixed(2);
+        document.getElementById('pubCIntMatPx').textContent = fmtN(inte.precioPliego, 2);
+        document.getElementById('pubCIntMat').textContent = fmtN(inte.costoMaterial, 2);
         document.getElementById('pubCIntPlacasQty').textContent = inte.totalPlacas;
-        document.getElementById('pubCIntPlacasPx').textContent = inte.costoPlaca.toFixed(2);
-        document.getElementById('pubCIntPlacas').textContent = inte.costoPlacasTotal.toFixed(2);
+        document.getElementById('pubCIntPlacasPx').textContent = fmtN(inte.costoPlaca, 2);
+        document.getElementById('pubCIntPlacas').textContent = fmtN(inte.costoPlacasTotal, 2);
         document.getElementById('pubCIntImpQty').textContent = inte.millaresImpresion;
         document.getElementById('pubCIntImpCol').textContent = inte.colores;
-        document.getElementById('pubCIntImp').textContent = inte.costoImpresion.toFixed(2);
+        document.getElementById('pubCIntImp').textContent = fmtN(inte.costoImpresion, 2);
         document.getElementById('pubCIntGuilloRow').style.display = inte.costoGuillotina > 0 ? 'flex' : 'none';
-        document.getElementById('pubCIntGuillo').textContent = inte.costoGuillotina.toFixed(2);
+        document.getElementById('pubCIntGuillo').textContent = fmtN(inte.costoGuillotina, 2);
         document.getElementById('pubCIntTermRow').style.display = inte.terminados > 0 ? 'flex' : 'none';
-        document.getElementById('pubCIntTerm').textContent = inte.terminados.toFixed(2);
-        document.getElementById('pubCIntSubtotal').textContent = inte.subtotal.toFixed(2);
+        document.getElementById('pubCIntTerm').textContent = fmtN(inte.terminados, 2);
+        document.getElementById('pubCIntSubtotal').textContent = fmtN(inte.subtotal, 2);
 
         // Encuadernacion
         document.getElementById('pubCEncuadLabel').textContent = encuadLabel;
-        document.getElementById('pubCEncuad').textContent = costoEncuad.toFixed(2);
+        document.getElementById('pubCEncuad').textContent = fmtN(costoEncuad, 2);
         document.getElementById('pubCIntercRow').style.display = costoIntercalado > 0 ? 'flex' : 'none';
-        document.getElementById('pubCInterc').textContent = costoIntercalado.toFixed(2);
+        document.getElementById('pubCInterc').textContent = fmtN(costoIntercalado, 2);
         if (costoIntercalado > 0) document.getElementById('pubCIntercLabel').textContent = '(' + millaresPliegosEncuad + ' mill. x $3)';
         document.getElementById('pubCDobladoRow').style.display = costoDoblado > 0 ? 'flex' : 'none';
-        document.getElementById('pubCDoblado').textContent = costoDoblado.toFixed(2);
+        document.getElementById('pubCDoblado').textContent = fmtN(costoDoblado, 2);
         if (costoDoblado > 0) document.getElementById('pubCDobladoLabel').textContent = '(' + millaresPliegosEncuad + ' mill. x $5)';
 
         // Totals
-        document.getElementById('pubSubtotalCosto').textContent = subtotalCosto.toFixed(2);
+        document.getElementById('pubSubtotalCosto').textContent = fmtN(subtotalCosto, 2);
         document.getElementById('pubMargenPct').textContent = margenPct;
-        document.getElementById('pubUtilidad').textContent = (precioSinIVA - subtotalCosto).toFixed(2);
-        document.getElementById('pubSubtotalSinIVA').textContent = precioSinIVA.toFixed(2);
+        document.getElementById('pubUtilidad').textContent = fmtN(precioSinIVA - subtotalCosto, 2);
+        document.getElementById('pubSubtotalSinIVA').textContent = fmtN(precioSinIVA, 2);
         document.getElementById('pubDescuentoPct').textContent = descuentoPct;
-        document.getElementById('pubDescuentoMonto').textContent = descuentoMonto.toFixed(2);
+        document.getElementById('pubDescuentoMonto').textContent = fmtN(descuentoMonto, 2);
         document.getElementById('pubDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
-        document.getElementById('pubPrecioUnit').textContent = precioUnit.toFixed(4);
+        document.getElementById('pubPrecioUnit').textContent = fmtN(precioUnit, 4);
         document.getElementById('pubIVAPct').textContent = ivaPct;
-        document.getElementById('pubMontoIVA').textContent = montoIVA.toFixed(2);
-        document.getElementById('pubPrecioFinal').textContent = precioFinal.toFixed(2);
-        document.getElementById('pubPrecioFinalBig').textContent = precioFinal.toFixed(2);
-        document.getElementById('pubPrecioUnitBig').textContent = precioUnit.toFixed(4);
+        document.getElementById('pubMontoIVA').textContent = fmtN(montoIVA, 2);
+        document.getElementById('pubPrecioFinal').textContent = fmtN(precioFinal, 2);
+        document.getElementById('pubPrecioFinalBig').textContent = fmtN(precioFinal, 2);
+        document.getElementById('pubPrecioUnitBig').textContent = fmtN(precioUnit, 4);
 
         // === VISTAS PREVIAS ===
         // Portada: pieza en hoja maquina + hojas en pliego
@@ -3477,6 +4507,722 @@
             cotDrawPreview('pub2PreviewHoja', inte.hojaW, inte.hojaH, inte.piezaW, inte.piezaH, inte.margenMaq, false);
             cotDrawPreview('pub2PreviewPliego', inte.pliegoW, inte.pliegoH, inte.hojaW, inte.hojaH, 0, false);
         }
+    }
+
+    // =====================================================
+    // IMPRESION DIGITAL: Constantes y helpers
+    // =====================================================
+    const DIG_CLICK = {
+        versant80: { '33x23': 0.18, '48x33': 0.32 },
+        d95: { '33x23': 0.01, '48x33': 0.02 }
+    };
+    const DIG_ARRANQUE = { '33x23': 0.50, '48x33': 1.00 };
+    const DIG_FORMATO = { '33x23': { w: 33, h: 23 }, '48x33': { w: 48.2, h: 33 } };
+    const DIG_MARGEN = [
+        { min: 1, max: 10, pct: 60 },
+        { min: 11, max: 50, pct: 45 },
+        { min: 51, max: 150, pct: 35 },
+        { min: 151, max: 250, pct: 25 },
+        { min: 251, max: Infinity, pct: 20 }
+    ];
+    const DIG_PLOTTER = {
+        '33x23': { adhesivo: 0.50, papel: 1.00 },
+        '48x33': { adhesivo: 0.70, papel: 1.40 }
+    };
+
+    // Formatear numero con coma decimal para display
+    function fmtN(n, d) { return n.toFixed(d).replace('.', ','); }
+
+    function digGetMargenPct(cantidad) {
+        for (const r of DIG_MARGEN) {
+            if (cantidad >= r.min && cantidad <= r.max) return r.pct;
+        }
+        return 20;
+    }
+
+    function digGetClickCosto(maquina, formato) {
+        return DIG_CLICK[maquina]?.[formato] || 0.18;
+    }
+
+    function digGetPlotterCosto(formato, material) {
+        const p = DIG_PLOTTER[formato];
+        if (!p) return 0;
+        const mat = material ? material.toLowerCase() : '';
+        const esAdhesivo = mat.includes('adhesiv') || mat.includes('polipropileno') || mat.includes('vinil');
+        return esAdhesivo ? p.adhesivo : p.papel;
+    }
+
+    // =====================================================
+    // DIGITAL: UI helpers
+    // =====================================================
+    function onDigTipoTrabajoChange() {
+        const isPub = document.getElementById('digTipoTrabajo').value === 'publicacion';
+        document.getElementById('digSidebarNormal').style.display = isPub ? 'none' : 'contents';
+        document.getElementById('digSidebarPublicacion').style.display = isPub ? 'contents' : 'none';
+        document.getElementById('digMainNormal').style.display = isPub ? 'none' : 'contents';
+        document.getElementById('digMainPublicacion').style.display = isPub ? 'contents' : 'none';
+        if (isPub) {
+            digPubPopulateMaterials();
+            digCalcPub();
+        } else {
+            digCalc();
+        }
+    }
+
+    function digOnMaquinaChange() {
+        const maquina = document.getElementById('digMaquina').value;
+        const formato = document.getElementById('digFormato').value;
+        const clickCosto = digGetClickCosto(maquina, formato);
+        // Update formato options labels
+        const fmtSel = document.getElementById('digFormato');
+        fmtSel.options[0].text = '33 x 23 cm (click $' + fmtN(DIG_CLICK[maquina]['33x23'], 2) + ')';
+        fmtSel.options[1].text = '48,2 x 33 cm (click $' + fmtN(DIG_CLICK[maquina]['48x33'], 2) + ')';
+        document.getElementById('digClickCosto').textContent = fmtN(clickCosto, 2);
+        digCalc();
+    }
+
+    function digOnFormatoChange() {
+        const formato = document.getElementById('digFormato').value;
+        const fmt = DIG_FORMATO[formato];
+        document.getElementById('digHojaW').value = fmt.w;
+        document.getElementById('digHojaH').value = fmt.h;
+        const maquina = document.getElementById('digMaquina').value;
+        document.getElementById('digClickCosto').textContent = fmtN(digGetClickCosto(maquina, formato), 2);
+        document.getElementById('digArranqueCosto').textContent = fmtN(DIG_ARRANQUE[formato], 2);
+        digCalc();
+    }
+
+    function digOnMaterialChange() {
+        const idx = document.getElementById('digMaterial').value;
+        const info = document.getElementById('digMaterialInfo');
+        if (idx !== '' && appData.materiales[+idx]) {
+            const m = appData.materiales[+idx];
+            document.getElementById('digPliegoW').value = m.ancho;
+            document.getElementById('digPliegoH').value = m.alto;
+            document.getElementById('digPrecioPliego').value = m.precio;
+            info.textContent = m.nombre + ' (' + m.gramaje + 'g) - ' + fmtN(m.ancho,1) + ' x ' + fmtN(m.alto,1) + ' cm - $' + fmtN(m.precio,2);
+        } else {
+            info.textContent = '';
+        }
+        digCalc();
+    }
+
+    function digPopulateMaterials() {
+        const sel = document.getElementById('digMaterial');
+        if (sel.options.length <= 1) {
+            let html = '<option value="">-- Seleccionar material --</option>';
+            appData.materiales.forEach((m, i) => {
+                html += '<option value="' + i + '">' + m.nombre + ' (' + m.gramaje + 'g) - ' + fmtN(m.ancho,1) + 'x' + fmtN(m.alto,1) + ' - $' + fmtN(m.precio,2) + '</option>';
+            });
+            sel.innerHTML = html;
+        }
+    }
+
+    function digPubPopulateMaterials() {
+        ['digPub1Material', 'digPub2Material'].forEach(id => {
+            const sel = document.getElementById(id);
+            if (sel.options.length <= 1) {
+                let html = '<option value="">-- Seleccionar material --</option>';
+                appData.materiales.forEach((m, i) => {
+                    html += '<option value="' + i + '">' + m.nombre + ' (' + m.gramaje + 'g) - ' + fmtN(m.ancho,1) + 'x' + fmtN(m.alto,1) + ' - $' + fmtN(m.precio,2) + '</option>';
+                });
+                sel.innerHTML = html;
+            }
+        });
+    }
+
+    function digPubOnMaquinaChange(prefix) {
+        digCalcPub();
+    }
+    function digPubOnFormatoChange(prefix) {
+        const formato = document.getElementById(prefix + 'Formato').value;
+        const fmt = DIG_FORMATO[formato];
+        document.getElementById(prefix + 'HojaW').value = fmt.w;
+        document.getElementById(prefix + 'HojaH').value = fmt.h;
+        digCalcPub();
+    }
+    function digPubOnMaterialChange(prefix) {
+        const idx = document.getElementById(prefix + 'Material').value;
+        const info = document.getElementById(prefix + 'MaterialInfo');
+        if (idx !== '' && appData.materiales[+idx]) {
+            const m = appData.materiales[+idx];
+            document.getElementById(prefix + 'PliegoW').value = m.ancho;
+            document.getElementById(prefix + 'PliegoH').value = m.alto;
+            document.getElementById(prefix + 'PrecioPliego').value = m.precio;
+            info.textContent = m.nombre + ' (' + m.gramaje + 'g) - ' + fmtN(m.ancho,1) + ' x ' + fmtN(m.alto,1) + ' cm - $' + fmtN(m.precio,2);
+        } else {
+            info.textContent = '';
+        }
+        digCalcPub();
+    }
+
+    function searchProductsDig(query) {
+        // Reuse offset product search logic for digital tab
+        const dropdown = document.getElementById('digProductDropdown');
+        if (!query || query.length < 2) { dropdown.classList.remove('open'); return; }
+        const q = query.toLowerCase();
+        const matches = (appData.productos || []).filter(p => p.nombre.toLowerCase().includes(q)).slice(0, 8);
+        if (matches.length === 0) { dropdown.classList.remove('open'); return; }
+        dropdown.innerHTML = matches.map(p => {
+            const dims = p.ancho && p.alto ? p.ancho + 'x' + p.alto + 'cm' : '';
+            return '<div class="product-item" onmousedown="selectProductDig(' + JSON.stringify(JSON.stringify(p)) + ')">' + p.nombre + (dims ? ' <span style=\'color:var(--gray-400);font-size:0.8rem\'>' + dims + '</span>' : '') + '</div>';
+        }).join('');
+        dropdown.classList.add('open');
+    }
+    function selectProductDig(pJson) {
+        const p = JSON.parse(pJson);
+        document.getElementById('digDescripcion').value = p.nombre;
+        if (p.ancho) document.getElementById('digProdW').value = p.ancho;
+        if (p.alto) document.getElementById('digProdH').value = p.alto;
+        document.getElementById('digProductDropdown').classList.remove('open');
+        digCalc();
+    }
+    function searchProductsDigPub(query) {
+        const dropdown = document.getElementById('digPubProductDropdown');
+        if (!query || query.length < 2) { dropdown.classList.remove('open'); return; }
+        const q = query.toLowerCase();
+        const matches = (appData.productos || []).filter(p => p.nombre.toLowerCase().includes(q) && p.tipo === 'publicacion').slice(0, 8);
+        if (matches.length === 0) { dropdown.classList.remove('open'); return; }
+        dropdown.innerHTML = matches.map(p => {
+            return '<div class="product-item" onmousedown="selectProductDigPub(' + JSON.stringify(JSON.stringify(p)) + ')">' + p.nombre + '</div>';
+        }).join('');
+        dropdown.classList.add('open');
+    }
+    function selectProductDigPub(pJson) {
+        const p = JSON.parse(pJson);
+        document.getElementById('digPub1Descripcion').value = p.nombre;
+        if (p.ancho) { document.getElementById('digPub1ProdW').value = p.ancho; document.getElementById('digPub2ProdW').value = p.ancho; }
+        if (p.alto) { document.getElementById('digPub1ProdH').value = p.alto; document.getElementById('digPub2ProdH').value = p.alto; }
+        if (p.paginas_interiores) document.getElementById('digPub2Paginas').value = p.paginas_interiores;
+        if (p.encuadernacion) document.getElementById('digPubEncuadernacion').value = p.encuadernacion;
+        document.getElementById('digPubProductDropdown').classList.remove('open');
+        digCalcPub();
+    }
+
+    // =====================================================
+    // DIGITAL: Main calculation (hoja suelta)
+    // =====================================================
+    function digCalc() {
+        const prodW = +document.getElementById('digProdW').value || 0;
+        const prodH = +document.getElementById('digProdH').value || 0;
+        const sangrado = +document.getElementById('digSangrado').value || 0;
+        const cantidad = +document.getElementById('digCantidad').value || 0;
+        const lados = +document.getElementById('digLados').value;
+        const maquina = document.getElementById('digMaquina').value;
+        const formato = document.getElementById('digFormato').value;
+        const hojaW = +document.getElementById('digHojaW').value || 0;
+        const hojaH = +document.getElementById('digHojaH').value || 0;
+        const margenMaq = +document.getElementById('digMargenMaquina').value || 0;
+        const pliegoW = +document.getElementById('digPliegoW').value || 0;
+        const pliegoH = +document.getElementById('digPliegoH').value || 0;
+        const precioPliego = +document.getElementById('digPrecioPliego').value || 0;
+        const terminados = +document.getElementById('digTerminados').value || 0;
+        const ivaPct = +document.getElementById('digIVA').value || 0;
+
+        const piezaW = prodW + 2 * sangrado;
+        const piezaH = prodH + 2 * sangrado;
+        const hojaUtilW = hojaW - 2 * margenMaq;
+        const hojaUtilH = hojaH - 2 * margenMaq;
+
+        // Area util
+        const areaUtilEl = document.getElementById('digAreaUtil');
+        if (areaUtilEl && margenMaq > 0) areaUtilEl.textContent = 'Area util: ' + fmtN(hojaUtilW, 1) + ' x ' + fmtN(hojaUtilH, 1) + ' cm';
+        else if (areaUtilEl) areaUtilEl.textContent = '';
+
+        // Formatos por pliego
+        const fmtPorPliego = (pliegoW > 0 && pliegoH > 0 && hojaW > 0 && hojaH > 0) ? bestCuts(pliegoW, pliegoH, hojaW, hojaH) : 0;
+
+        // Piezas por hoja maquina
+        const piezasPorHoja = (hojaUtilW > 0 && hojaUtilH > 0 && piezaW > 0 && piezaH > 0) ? bestCuts(hojaUtilW, hojaUtilH, piezaW, piezaH) : 0;
+
+        // Hojas netas
+        const hojasNetas = piezasPorHoja > 0 ? Math.ceil(cantidad / piezasPorHoja) : 0;
+
+        // Merma digital: max(1, 8% de hojas netas)
+        const merma8pct = Math.ceil(hojasNetas * 0.08);
+        const mermaTotal = Math.max(1, merma8pct);
+        const hojasTotales = hojasNetas + mermaTotal;
+
+        // Pliegos necesarios
+        const pliegosNec = fmtPorPliego > 0 ? Math.ceil(hojasTotales / fmtPorPliego) : 0;
+
+        // Clicks
+        const clickCosto = digGetClickCosto(maquina, formato);
+        const arranqueCosto = DIG_ARRANQUE[formato] || 0.50;
+        const clicksTotales = hojasTotales * lados;
+        const costoClicks = clicksTotales * clickCosto;
+        const costoArranque = arranqueCosto; // fijo, se reparte en el precio
+
+        // Material
+        const costoMaterial = pliegosNec * precioPliego;
+
+        // Margen por cantidad (sugerencia editable)
+        const margenSugerido = digGetMargenPct(cantidad);
+        if (!window._digMargenManual) document.getElementById('digMargen').value = margenSugerido;
+        const margenPct = +document.getElementById('digMargen').value || 0;
+
+        // Terminados
+        let costoPlastificado = 0;
+        const plastChecked = document.getElementById('digPlastificado').checked;
+        const plastInfo = document.getElementById('digPlastificadoInfo');
+        if (plastChecked && hojaW > 0 && hojaH > 0) {
+            const caras = +document.getElementById('digPlastificadoCaras').value || 1;
+            const areaCm2 = hojaW * hojaH;
+            const hojasPlast = hojasNetas + Math.ceil(mermaTotal / 2);
+            costoPlastificado = Math.max(5, areaCm2 * hojasPlast * 0.000035 * caras);
+            plastInfo.textContent = (document.getElementById('digPlastificadoTipo').value === 'mate' ? 'Mate' : 'Brillante') + ' | ' + areaCm2 + ' cm2 x ' + hojasPlast + ' hojas x ' + caras + ' cara' + (caras > 1 ? 's' : '') + ' = $' + fmtN(costoPlastificado, 2);
+            plastInfo.style.display = 'block';
+        } else { plastInfo.style.display = 'none'; }
+
+        let costoBarnizUV = 0;
+        const barnizChecked = document.getElementById('digBarnizUV').checked;
+        const barnizInfo = document.getElementById('digBarnizUVInfo');
+        if (barnizChecked && hojaW > 0 && hojaH > 0) {
+            const carasUV = +document.getElementById('digBarnizUVCaras').value || 1;
+            const areaCm2 = hojaW * hojaH;
+            const hojasUV = hojasNetas + Math.ceil(mermaTotal / 2);
+            costoBarnizUV = Math.max(10, areaCm2 * hojasUV * 0.000009 * carasUV);
+            barnizInfo.textContent = areaCm2 + ' cm2 x ' + hojasUV + ' hojas x ' + carasUV + ' cara' + (carasUV > 1 ? 's' : '') + ' = $' + fmtN(costoBarnizUV, 2);
+            barnizInfo.style.display = 'block';
+        } else { barnizInfo.style.display = 'none'; }
+
+        let costoUVSelectivo = 0;
+        const uvSelChecked = document.getElementById('digUVSelectivo').checked;
+        const uvSelInfo = document.getElementById('digUVSelectivoInfo');
+        if (uvSelChecked && hojaW > 0 && hojaH > 0) {
+            const ladosUV = +document.getElementById('digUVSelectivoCaras').value || 1;
+            const hojasUV = hojasNetas + Math.ceil(mermaTotal / 2);
+            const millaresUV = Math.max(1, Math.ceil(hojasUV / 1000));
+            const costoImpUV = millaresUV * 55 * ladosUV;
+            const areaCm2 = hojaW * hojaH;
+            const costoPelicula = areaCm2 * 0.01 * ladosUV;
+            costoUVSelectivo = costoImpUV + costoPelicula;
+            uvSelInfo.textContent = ladosUV + ' lado' + (ladosUV > 1 ? 's' : '') + ' | Imp: ' + millaresUV + ' mill x $55 x ' + ladosUV + ' = $' + fmtN(costoImpUV, 2) + ' | Pelicula: $' + fmtN(costoPelicula, 2);
+            uvSelInfo.style.display = 'block';
+        } else { uvSelInfo.style.display = 'none'; }
+
+        let costoGuillotina = 0;
+        const guilloChecked = document.getElementById('digGuillotina').checked;
+        const guilloInfo = document.getElementById('digGuillotinaInfo');
+        if (guilloChecked && piezasPorHoja > 1 && hojasTotales > 0) {
+            const guilloLayout = calcGuillotineCuts(hojaUtilW, hojaUtilH, piezaW, piezaH);
+            const matIdx = document.getElementById('digMaterial').value;
+            const gramaje = matIdx !== '' ? (appData.materiales[+matIdx]?.gramaje || 0) : 0;
+            const capacidadPila = gramaje > 150 ? 300 : 1000;
+            const pasadasPorCorte = Math.max(1, Math.ceil(hojasTotales / capacidadPila));
+            const totalBajadas = guilloLayout.cortes * pasadasPorCorte;
+            costoGuillotina = 2 + totalBajadas * 0.25;
+            guilloInfo.textContent = guilloLayout.cortes + ' cortes/hoja x ' + pasadasPorCorte + ' pasada' + (pasadasPorCorte > 1 ? 's' : '') + ' = ' + totalBajadas + ' bajadas = $' + fmtN(costoGuillotina, 2);
+            guilloInfo.style.display = 'block';
+        } else { guilloInfo.style.display = 'none'; }
+
+        // Troquelado normal
+        let costoTroquelServicio = 0, costoTroquel = 0;
+        const troquelChecked = document.getElementById('digTroquelado').checked;
+        const troquelSection = document.getElementById('digTroquelSection');
+        const troqueladoInfo = document.getElementById('digTroqueladoInfo');
+        const troquelInfo = document.getElementById('digTroquelInfo');
+        if (troquelChecked) {
+            troquelSection.style.display = 'block';
+            if (hojasTotales > 0) {
+                const maqTr = document.getElementById('digTroquelMaquina').value;
+                const costoPorMillar = maqTr === 'auto' ? 6 : 12;
+                const totalParaTroquel = Math.max(0, hojasTotales - 40);
+                const millaresTroquel = Math.max(1, Math.ceil(totalParaTroquel / 1000));
+                costoTroquelServicio = millaresTroquel * costoPorMillar;
+                troqueladoInfo.textContent = (maqTr === 'auto' ? 'Auto' : 'Manual') + ' | ' + millaresTroquel + ' mill. x $' + costoPorMillar + ' = $' + fmtN(costoTroquelServicio, 2);
+                troqueladoInfo.style.display = 'block';
+            } else { troqueladoInfo.style.display = 'none'; }
+            const cmCuchilla = parseFloat(document.getElementById('digTroquelCuchilla').value) || 0;
+            const cmGrafa = parseFloat(document.getElementById('digTroquelGrafa').value) || 0;
+            const totalCm = cmCuchilla + cmGrafa;
+            if (totalCm > 0) {
+                costoTroquel = Math.max(12, totalCm * 0.10);
+                troquelInfo.textContent = totalCm + ' cm x $0,10 = $' + fmtN(totalCm * 0.10, 2) + (totalCm * 0.10 < 12 ? ' (min $12)' : '');
+            } else {
+                troquelInfo.textContent = 'Ingresa cm lineales ($0,10/cm, min $12)';
+            }
+        } else {
+            troquelSection.style.display = 'none';
+            troqueladoInfo.style.display = 'none';
+        }
+
+        // Ensanduchado
+        let costoEnsandMaterial = 0, costoEnsandPegado = 0;
+        const ensandChecked = document.getElementById('digEnsanduchado').checked;
+        const ensandInfo = document.getElementById('digEnsanduchadoInfo');
+        if (ensandChecked && hojasTotales > 0) {
+            costoEnsandMaterial = costoMaterial;
+            costoEnsandPegado = Math.max(10, hojasTotales * 0.10);
+            ensandInfo.textContent = 'Material x2: +$' + fmtN(costoEnsandMaterial, 2) + ' | Pegado: ' + hojasTotales + ' hojas x $0,10 = $' + fmtN(costoEnsandPegado, 2);
+            ensandInfo.style.display = 'block';
+        } else { ensandInfo.style.display = 'none'; }
+
+        // Troquelado en plotter
+        let costoPlotter = 0;
+        const plotterChecked = document.getElementById('digTroquelPlotter').checked;
+        const plotterInfo = document.getElementById('digTroquelPlotterInfo');
+        if (plotterChecked && cantidad > 0) {
+            const matIdx = document.getElementById('digMaterial').value;
+            const matNombre = matIdx !== '' ? (appData.materiales[+matIdx]?.nombre || '') : '';
+            costoPlotter = digGetPlotterCosto(formato, matNombre) * cantidad;
+            const precioUnit = digGetPlotterCosto(formato, matNombre);
+            plotterInfo.textContent = cantidad + ' pzas x $' + fmtN(precioUnit, 2) + '/pza = $' + fmtN(costoPlotter, 2);
+            plotterInfo.style.display = 'block';
+        } else { plotterInfo.style.display = 'none'; }
+
+        const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina + costoTroquelServicio + costoTroquel + costoEnsandPegado + costoPlotter;
+        const subtotalCosto = costoClicks + costoArranque + costoMaterial + costoTerminados + costoEnsandMaterial;
+        const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
+        const descuentoPct = +document.getElementById('digDescuento').value || 0;
+        const descuentoMonto = precioSinIVA * (descuentoPct / 100);
+        const precioConDesc = precioSinIVA - descuentoMonto;
+        const montoIVA = precioConDesc * (ivaPct / 100);
+        const precioFinal = precioConDesc + montoIVA;
+        const precioUnit = cantidad > 0 ? precioConDesc / cantidad : 0;
+
+        // Update production results
+        document.getElementById('digResFmtPliego').textContent = fmtPorPliego;
+        document.getElementById('digResPiezasHoja').textContent = piezasPorHoja;
+        document.getElementById('digResHojasNetas').textContent = hojasNetas;
+        document.getElementById('digResHojasTotales').textContent = hojasTotales;
+        document.getElementById('digResPliegosNec').textContent = pliegosNec;
+        document.getElementById('digResClicksTotal').textContent = clicksTotales;
+
+        // Info badges
+        const infoEl = document.getElementById('digFormatosInfoMain');
+        if (infoEl) infoEl.innerHTML = '<span class="info-badge blue">' + fmtPorPliego + ' fmt/pliego</span> <span class="info-badge green">' + piezasPorHoja + ' pzas/hoja</span> <span class="info-badge" style="background:#f3e8ff;color:#6b21a8;">' + clicksTotales + ' clicks (' + lados + ' lado' + (lados > 1 ? 's' : '') + ')</span>';
+
+        // Update cost breakdown
+        document.getElementById('digCostClicksQty').textContent = clicksTotales;
+        document.getElementById('digCostClicksPx').textContent = fmtN(clickCosto, 2);
+        document.getElementById('digCostClicks').textContent = fmtN(costoClicks, 2);
+        document.getElementById('digCostArranquePx').textContent = fmtN(arranqueCosto, 2);
+        document.getElementById('digCostArranqueQty').textContent = hojasNetas;
+        document.getElementById('digCostArranque').textContent = fmtN(costoArranque, 2);
+        document.getElementById('digCostMatQty').textContent = pliegosNec;
+        document.getElementById('digCostMatPx').textContent = fmtN(precioPliego, 2);
+        document.getElementById('digCostMat').textContent = fmtN(costoMaterial, 2);
+        document.getElementById('digCostPlast').textContent = fmtN(costoPlastificado, 2);
+        document.getElementById('digCostPlastRow').style.display = costoPlastificado > 0 ? 'flex' : 'none';
+        if (costoPlastificado > 0) { const tp = document.getElementById('digPlastificadoTipo').value; const cr = +document.getElementById('digPlastificadoCaras').value; document.getElementById('digCostPlastLabel').textContent = '(' + (tp === 'mate' ? 'mate' : 'brillante') + ', ' + cr + ' cara' + (cr > 1 ? 's' : '') + ')'; }
+        document.getElementById('digCostUV').textContent = fmtN(costoBarnizUV, 2);
+        document.getElementById('digCostUVRow').style.display = costoBarnizUV > 0 ? 'flex' : 'none';
+        document.getElementById('digCostUVSel').textContent = fmtN(costoUVSelectivo, 2);
+        document.getElementById('digCostUVSelRow').style.display = costoUVSelectivo > 0 ? 'flex' : 'none';
+        document.getElementById('digCostGuillo').textContent = fmtN(costoGuillotina, 2);
+        document.getElementById('digCostGuilloRow').style.display = costoGuillotina > 0 ? 'flex' : 'none';
+        document.getElementById('digCostTroquelServ').textContent = fmtN(costoTroquelServicio, 2);
+        document.getElementById('digCostTroquelServRow').style.display = costoTroquelServicio > 0 ? 'flex' : 'none';
+        document.getElementById('digCostTroquel').textContent = fmtN(costoTroquel, 2);
+        document.getElementById('digCostTroquelRow').style.display = costoTroquel > 0 ? 'flex' : 'none';
+        document.getElementById('digCostEnsandMat').textContent = fmtN(costoEnsandMaterial, 2);
+        document.getElementById('digCostEnsandMatRow').style.display = costoEnsandMaterial > 0 ? 'flex' : 'none';
+        document.getElementById('digCostEnsandPeg').textContent = fmtN(costoEnsandPegado, 2);
+        document.getElementById('digCostEnsandPegRow').style.display = costoEnsandPegado > 0 ? 'flex' : 'none';
+        document.getElementById('digCostPlotter').textContent = fmtN(costoPlotter, 2);
+        document.getElementById('digCostPlotterRow').style.display = costoPlotter > 0 ? 'flex' : 'none';
+        if (costoPlotter > 0) document.getElementById('digCostPlotterLabel').textContent = '(' + cantidad + ' pzas)';
+        document.getElementById('digCostTerm').textContent = fmtN(terminados, 2);
+        document.getElementById('digSubtotalCosto').textContent = fmtN(subtotalCosto, 2);
+        document.getElementById('digMargenPct').textContent = margenPct;
+        document.getElementById('digUtilidadNeta').textContent = fmtN(precioSinIVA - subtotalCosto, 2);
+        document.getElementById('digSubtotalSinIVA').textContent = fmtN(precioSinIVA, 2);
+        document.getElementById('digDescuentoPct').textContent = descuentoPct;
+        document.getElementById('digDescuentoMonto').textContent = fmtN(descuentoMonto, 2);
+        document.getElementById('digDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
+        document.getElementById('digSubtotalConDesc').textContent = fmtN(precioConDesc, 2);
+        document.getElementById('digSubtotalConDescRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
+        document.getElementById('digPrecioUnit').textContent = fmtN(precioUnit, 4);
+        document.getElementById('digIVAPct').textContent = ivaPct;
+        document.getElementById('digMontoIVA').textContent = fmtN(montoIVA, 2);
+        document.getElementById('digPrecioFinal').textContent = fmtN(precioFinal, 2);
+        document.getElementById('digPrecioFinalBig').textContent = fmtN(precioFinal, 2);
+        document.getElementById('digPrecioUnitBig').textContent = fmtN(precioUnit, 4);
+
+        // Draw previews
+        cotDrawPreview('digPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, false);
+        cotDrawPreview('digPreviewPliego', pliegoW, pliegoH, hojaW, hojaH, 0, false);
+    }
+
+    // =====================================================
+    // DIGITAL: Publication calculation
+    // =====================================================
+    function digCalcPub() {
+        const tipoEncuad = document.getElementById('digPubEncuadernacion').value;
+        const esEncolado = tipoEncuad === 'encolado';
+        document.getElementById('digPub1LomoRow').style.display = esEncolado ? 'block' : 'none';
+        const lomo = esEncolado ? (+document.getElementById('digPub1Lomo').value || 0) : 0;
+
+        // ---- PORTADA ----
+        const p1ProdW = +document.getElementById('digPub1ProdW').value || 0;
+        const p1ProdH = +document.getElementById('digPub1ProdH').value || 0;
+        const p1Sangrado = +document.getElementById('digPub1Sangrado').value || 0;
+        const p1Cantidad = +document.getElementById('digPub1Cantidad').value || 0;
+        const p1Lados = +document.getElementById('digPub1Lados').value || 2;
+        const p1Maquina = document.getElementById('digPub1Maquina').value;
+        const p1Formato = document.getElementById('digPub1Formato').value;
+        const p1HojaW = +document.getElementById('digPub1HojaW').value || 0;
+        const p1HojaH = +document.getElementById('digPub1HojaH').value || 0;
+        const p1MargenMaq = +document.getElementById('digPub1MargenMaquina').value || 0;
+        const p1PliegoW = +document.getElementById('digPub1PliegoW').value || 0;
+        const p1PliegoH = +document.getElementById('digPub1PliegoH').value || 0;
+        const p1PrecioPliego = +document.getElementById('digPub1PrecioPliego').value || 0;
+        const p1TermExtra = +document.getElementById('digPub1Terminados').value || 0;
+
+        // Pieza abierta portada
+        const p1PiezaW = (p1ProdW * 2) + lomo + (2 * p1Sangrado);
+        const p1PiezaH = p1ProdH + (2 * p1Sangrado);
+        const p1Info = document.getElementById('digPub1PiezaAbiertaInfo');
+        if (p1Info) p1Info.textContent = fmtN(p1PiezaW, 1) + ' x ' + fmtN(p1PiezaH, 1) + ' cm' + (lomo > 0 ? ' (lomo ' + fmtN(lomo, 1) + ' cm)' : '');
+
+        const p1HojaUtilW = p1HojaW - 2 * p1MargenMaq;
+        const p1HojaUtilH = p1HojaH - 2 * p1MargenMaq;
+        const p1Area = document.getElementById('digPub1AreaUtil');
+        if (p1Area && p1MargenMaq > 0) p1Area.textContent = 'Area util: ' + fmtN(p1HojaUtilW, 1) + ' x ' + fmtN(p1HojaUtilH, 1) + ' cm';
+
+        const p1FmtPliego = (p1PliegoW > 0 && p1PliegoH > 0) ? bestCuts(p1PliegoW, p1PliegoH, p1HojaW, p1HojaH) : 0;
+        const p1PiezasHoja = (p1HojaUtilW > 0 && p1HojaUtilH > 0 && p1PiezaW > 0 && p1PiezaH > 0) ? bestCuts(p1HojaUtilW, p1HojaUtilH, p1PiezaW, p1PiezaH) : 0;
+        const p1HojasNetas = p1PiezasHoja > 0 ? Math.ceil(p1Cantidad / p1PiezasHoja) : 0;
+        const p1Merma = Math.max(1, Math.ceil(p1HojasNetas * 0.08));
+        const p1HojasTotales = p1HojasNetas + p1Merma;
+        const p1PliegosNec = p1FmtPliego > 0 ? Math.ceil(p1HojasTotales / p1FmtPliego) : 0;
+
+        const p1ClickCosto = digGetClickCosto(p1Maquina, p1Formato);
+        const p1ArranqueCosto = DIG_ARRANQUE[p1Formato] || 0.50;
+        const p1Clicks = p1HojasTotales * p1Lados;
+        const p1CostoClicks = p1Clicks * p1ClickCosto;
+        const p1CostoArranque = p1ArranqueCosto;
+        const p1CostoMaterial = p1PliegosNec * p1PrecioPliego;
+
+        // Terminados portada
+        let p1CostoPlast = 0;
+        if (document.getElementById('digPub1Plastificado').checked && p1HojaW > 0 && p1HojaH > 0) {
+            const caras = +document.getElementById('digPub1PlastificadoCaras').value || 1;
+            p1CostoPlast = Math.max(5, p1HojaW * p1HojaH * (p1HojasNetas + Math.ceil(p1Merma / 2)) * 0.000035 * caras);
+        }
+        let p1CostoBarniz = 0;
+        if (document.getElementById('digPub1BarnizUV').checked && p1HojaW > 0 && p1HojaH > 0) {
+            const caras = +document.getElementById('digPub1BarnizUVCaras').value || 1;
+            p1CostoBarniz = Math.max(10, p1HojaW * p1HojaH * (p1HojasNetas + Math.ceil(p1Merma / 2)) * 0.000009 * caras);
+        }
+        let p1CostoGuillo = 0;
+        if (document.getElementById('digPub1Guillotina').checked && p1PiezasHoja > 1 && p1HojasTotales > 0) {
+            const gl = calcGuillotineCuts(p1HojaUtilW, p1HojaUtilH, p1PiezaW, p1PiezaH);
+            const matIdx = document.getElementById('digPub1Material').value;
+            const gramaje = matIdx !== '' ? (appData.materiales[+matIdx]?.gramaje || 0) : 0;
+            const cap = gramaje > 150 ? 300 : 1000;
+            p1CostoGuillo = 2 + gl.cortes * Math.max(1, Math.ceil(p1HojasTotales / cap)) * 0.25;
+        }
+        // Grafa portada
+        let p1CostoGrafaServ = 0, p1CostoGrafaTroquel = 0;
+        const grafaEl = document.getElementById('digPub1Grafa');
+        const grafaSection = document.getElementById('digPub1GrafaSection');
+        const grafaInfo = document.getElementById('digPub1GrafaInfo');
+        if (grafaEl && grafaEl.checked) {
+            grafaSection.style.display = 'block';
+            if (p1HojasTotales > 0) {
+                const grafaMaq = document.getElementById('digPub1GrafaMaquina').value;
+                const costoPorMillar = grafaMaq === 'auto' ? 6 : 12;
+                const totalParaGrafa = Math.max(0, p1HojasTotales - 40);
+                const millaresGrafa = Math.max(1, Math.ceil(totalParaGrafa / 1000));
+                p1CostoGrafaServ = millaresGrafa * costoPorMillar;
+                const lineasGrafa = esEncolado ? 4 : 1;
+                const cmGrafa = lineasGrafa * p1PiezaH;
+                p1CostoGrafaTroquel = Math.max(12, cmGrafa * 0.10);
+                grafaInfo.textContent = (grafaMaq === 'auto' ? 'Auto' : 'Manual') + ' | Serv: $' + fmtN(p1CostoGrafaServ, 2) + ' | Troquel: ' + lineasGrafa + ' lin x ' + fmtN(p1PiezaH, 1) + ' cm = $' + fmtN(p1CostoGrafaTroquel, 2);
+            }
+        } else if (grafaSection) { grafaSection.style.display = 'none'; }
+
+        // Plotter portada
+        let p1CostoPlotter = 0;
+        if (document.getElementById('digPub1TroquelPlotter').checked && p1Cantidad > 0) {
+            const matIdx = document.getElementById('digPub1Material').value;
+            const matNombre = matIdx !== '' ? (appData.materiales[+matIdx]?.nombre || '') : '';
+            p1CostoPlotter = digGetPlotterCosto(p1Formato, matNombre) * p1Cantidad;
+            const pInfo = document.getElementById('digPub1TroquelPlotterInfo');
+            pInfo.textContent = p1Cantidad + ' pzas x $' + fmtN(digGetPlotterCosto(p1Formato, matNombre), 2) + ' = $' + fmtN(p1CostoPlotter, 2);
+            pInfo.style.display = 'block';
+        } else { document.getElementById('digPub1TroquelPlotterInfo').style.display = 'none'; }
+
+        const p1CostoTerm = p1TermExtra + p1CostoPlast + p1CostoBarniz + p1CostoGuillo + p1CostoGrafaServ + p1CostoGrafaTroquel + p1CostoPlotter;
+        const p1Subtotal = p1CostoClicks + p1CostoArranque + p1CostoMaterial + p1CostoTerm;
+
+        // ---- INTERIORES ----
+        const p2ProdW = +document.getElementById('digPub2ProdW').value || 0;
+        const p2ProdH = +document.getElementById('digPub2ProdH').value || 0;
+        const p2Sangrado = +document.getElementById('digPub2Sangrado').value || 0;
+        const p2Cantidad = +document.getElementById('digPub2Cantidad').value || 0;
+        const totalPaginas = +document.getElementById('digPub2Paginas').value || 0;
+        const p2Maquina = document.getElementById('digPub2Maquina').value;
+        const p2Formato = document.getElementById('digPub2Formato').value;
+        const p2HojaW = +document.getElementById('digPub2HojaW').value || 0;
+        const p2HojaH = +document.getElementById('digPub2HojaH').value || 0;
+        const p2MargenMaq = +document.getElementById('digPub2MargenMaquina').value || 0;
+        const p2PliegoW = +document.getElementById('digPub2PliegoW').value || 0;
+        const p2PliegoH = +document.getElementById('digPub2PliegoH').value || 0;
+        const p2PrecioPliego = +document.getElementById('digPub2PrecioPliego').value || 0;
+        const p2TermExtra = +document.getElementById('digPub2Terminados').value || 0;
+
+        const p2PiezaW = p2ProdW + 2 * p2Sangrado;
+        const p2PiezaH = p2ProdH + 2 * p2Sangrado;
+        const p2HojaUtilW = p2HojaW - 2 * p2MargenMaq;
+        const p2HojaUtilH = p2HojaH - 2 * p2MargenMaq;
+        const p2Area = document.getElementById('digPub2AreaUtil');
+        if (p2Area && p2MargenMaq > 0) p2Area.textContent = 'Area util: ' + fmtN(p2HojaUtilW, 1) + ' x ' + fmtN(p2HojaUtilH, 1) + ' cm';
+
+        const paginasPorLado = (p2HojaUtilW > 0 && p2HojaUtilH > 0 && p2PiezaW > 0 && p2PiezaH > 0) ? bestCuts(p2HojaUtilW, p2HojaUtilH, p2PiezaW, p2PiezaH) : 0;
+        const paginasPorHoja = paginasPorLado * 2;
+        const pliegosDif = paginasPorHoja > 0 ? Math.ceil(totalPaginas / paginasPorHoja) : 0;
+
+        // En digital: cada pliego diferente se imprime cantidad veces, tiro y retiro son pasadas separadas
+        const p2HojasNetasPorDiseno = p2Cantidad;
+        const p2Merma = Math.max(1, Math.ceil(p2HojasNetasPorDiseno * 0.08));
+        const p2HojasTotalesPorDiseno = p2HojasNetasPorDiseno + p2Merma;
+        const p2TotalHojas = p2HojasTotalesPorDiseno * pliegosDif;
+
+        const p2FmtPliego = (p2PliegoW > 0 && p2PliegoH > 0) ? bestCuts(p2PliegoW, p2PliegoH, p2HojaW, p2HojaH) : 0;
+        const p2PliegosNec = p2FmtPliego > 0 ? Math.ceil(p2TotalHojas / p2FmtPliego) : 0;
+
+        // Clicks interiores: cada hoja pasa 2 veces (tiro + retiro)
+        const p2ClickCosto = digGetClickCosto(p2Maquina, p2Formato);
+        const p2ArranqueCosto = DIG_ARRANQUE[p2Formato] || 0.50;
+        const p2Clicks = p2TotalHojas * 2; // siempre tiro+retiro
+        const p2CostoClicks = p2Clicks * p2ClickCosto;
+        // Arranque por cada pliego diferente (cada uno necesita un setup)
+        const p2CostoArranque = p2ArranqueCosto * pliegosDif * 2; // x2 por tiro y retiro
+
+        const p2CostoMaterial = p2PliegosNec * p2PrecioPliego;
+
+        let p2CostoGuillo = 0;
+        if (document.getElementById('digPub2Guillotina').checked && paginasPorLado > 1 && p2TotalHojas > 0) {
+            const gl = calcGuillotineCuts(p2HojaUtilW, p2HojaUtilH, p2PiezaW, p2PiezaH);
+            const matIdx = document.getElementById('digPub2Material').value;
+            const gramaje = matIdx !== '' ? (appData.materiales[+matIdx]?.gramaje || 0) : 0;
+            const cap = gramaje > 150 ? 300 : 1000;
+            p2CostoGuillo = 2 + gl.cortes * Math.max(1, Math.ceil(p2TotalHojas / cap)) * 0.25;
+        }
+
+        const p2CostoTerm = p2TermExtra + p2CostoGuillo;
+        const p2Subtotal = p2CostoClicks + p2CostoArranque + p2CostoMaterial + p2CostoTerm;
+
+        // Info paginas
+        const pagInfo = document.getElementById('digPub2PaginasInfo');
+        if (pagInfo && paginasPorHoja > 0) {
+            pagInfo.textContent = paginasPorLado + ' pags/lado x 2 = ' + paginasPorHoja + ' pags/hoja → ' + pliegosDif + ' pliego' + (pliegosDif > 1 ? 's' : '') + ' dif.';
+        }
+
+        // ---- ENCUADERNACION ----
+        let costoEncuad = 0, encuadLabel = '';
+        if (tipoEncuad === 'grapado') { costoEncuad = Math.max(10, p1Cantidad * 0.10); encuadLabel = 'Grapado (' + p1Cantidad + ' x $0,10)'; }
+        else { costoEncuad = Math.max(20, p1Cantidad * 0.20); encuadLabel = 'Encolado (' + p1Cantidad + ' x $0,20)'; }
+        const totalPliegosEncuad = p1Cantidad * pliegosDif;
+        const millaresPliegos = Math.max(1, Math.ceil(totalPliegosEncuad / 1000));
+        let costoInterc = 0, costoDoblado = 0;
+        if (document.getElementById('digPubIntercalado').checked) costoInterc = millaresPliegos * 3;
+        if (document.getElementById('digPubDoblado').checked) costoDoblado = millaresPliegos * 5;
+        const encuadSubtotal = costoEncuad + costoInterc + costoDoblado;
+
+        // ---- TOTALES ----
+        const subtotalCosto = p1Subtotal + p2Subtotal + encuadSubtotal;
+        const margenSugerido = digGetMargenPct(p1Cantidad);
+        if (!window._digPubMargenManual) document.getElementById('digPubMargen').value = margenSugerido;
+        const margenPct = +document.getElementById('digPubMargen').value || 0;
+        const ivaPct = +document.getElementById('digPubIVA').value || 0;
+        const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
+        const descuentoPct = +document.getElementById('digPubDescuento').value || 0;
+        const descuentoMonto = precioSinIVA * (descuentoPct / 100);
+        const precioConDesc = precioSinIVA - descuentoMonto;
+        const montoIVA = precioConDesc * (ivaPct / 100);
+        const precioFinal = precioConDesc + montoIVA;
+        const precioUnit = p1Cantidad > 0 ? precioConDesc / p1Cantidad : 0;
+
+        // ---- UPDATE DOM ----
+        // Portada
+        document.getElementById('digPub1ResFmtPliego').textContent = p1FmtPliego;
+        document.getElementById('digPub1ResPiezasHoja').textContent = p1PiezasHoja;
+        document.getElementById('digPub1ResHojasNetas').textContent = p1HojasNetas;
+        document.getElementById('digPub1ResHojasTotales').textContent = p1HojasTotales;
+        document.getElementById('digPub1ResPliegosNec').textContent = p1PliegosNec;
+        document.getElementById('digPub1ResClicks').textContent = p1Clicks;
+        const pub1InfoEl = document.getElementById('digPub1FormatosInfoMain');
+        if (pub1InfoEl) pub1InfoEl.innerHTML = '<span class="info-badge blue">' + p1FmtPliego + ' fmt/pliego</span> <span class="info-badge" style="background:#f3e8ff;color:#6b21a8;">' + p1Clicks + ' clicks (' + fmtN(p1PiezaW, 1) + 'x' + fmtN(p1PiezaH, 1) + ')</span>';
+
+        // Interiores
+        document.getElementById('digPub2ResFmtPliego').textContent = p2FmtPliego;
+        document.getElementById('digPub2ResPiezasHoja').textContent = paginasPorLado;
+        document.getElementById('digPub2ResPagsHoja').textContent = paginasPorHoja;
+        document.getElementById('digPub2ResPliegosDif').textContent = pliegosDif;
+        document.getElementById('digPub2ResHojasTotales').textContent = p2TotalHojas;
+        document.getElementById('digPub2ResClicks').textContent = p2Clicks;
+        const pub2InfoEl = document.getElementById('digPub2FormatosInfoMain');
+        if (pub2InfoEl) pub2InfoEl.innerHTML = '<span class="info-badge" style="background:#ecfdf5;color:#059669;">' + paginasPorLado + ' pags/tiro</span> <span class="info-badge" style="background:#f3e8ff;color:#6b21a8;">' + p2Clicks + ' clicks (' + pliegosDif + ' pliegos dif.)</span>';
+
+        // Cost breakdown portada
+        document.getElementById('digPubCPortClicksQty').textContent = p1Clicks;
+        document.getElementById('digPubCPortClicksPx').textContent = fmtN(p1ClickCosto, 2);
+        document.getElementById('digPubCPortClicks').textContent = fmtN(p1CostoClicks, 2);
+        document.getElementById('digPubCPortArranque').textContent = fmtN(p1CostoArranque, 2);
+        document.getElementById('digPubCPortMatQty').textContent = p1PliegosNec;
+        document.getElementById('digPubCPortMatPx').textContent = fmtN(p1PrecioPliego, 2);
+        document.getElementById('digPubCPortMat').textContent = fmtN(p1CostoMaterial, 2);
+        document.getElementById('digPubCPortPlastRow').style.display = p1CostoPlast > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCPortPlast').textContent = fmtN(p1CostoPlast, 2);
+        if (p1CostoPlast > 0) { const tp = document.getElementById('digPub1PlastificadoTipo').value; const cr = +document.getElementById('digPub1PlastificadoCaras').value; document.getElementById('digPubCPortPlastLabel').textContent = '(' + (tp === 'mate' ? 'mate' : 'brillante') + ', ' + cr + ' cara' + (cr > 1 ? 's' : '') + ')'; }
+        document.getElementById('digPubCPortUVRow').style.display = p1CostoBarniz > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCPortUV').textContent = fmtN(p1CostoBarniz, 2);
+        document.getElementById('digPubCPortGuilloRow').style.display = p1CostoGuillo > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCPortGuillo').textContent = fmtN(p1CostoGuillo, 2);
+        document.getElementById('digPubCPortGrafaServRow').style.display = p1CostoGrafaServ > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCPortGrafaServ').textContent = fmtN(p1CostoGrafaServ, 2);
+        if (p1CostoGrafaServ > 0) { const gm = document.getElementById('digPub1GrafaMaquina').value; document.getElementById('digPubCPortGrafaServLabel').textContent = '(' + (gm === 'auto' ? 'auto' : 'manual') + ')'; }
+        document.getElementById('digPubCPortGrafaTroquelRow').style.display = p1CostoGrafaTroquel > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCPortGrafaTroquel').textContent = fmtN(p1CostoGrafaTroquel, 2);
+        if (p1CostoGrafaTroquel > 0) { document.getElementById('digPubCPortGrafaTroquelLabel').textContent = '(' + (esEncolado ? 4 : 1) + ' linea' + (esEncolado ? 's' : '') + ')'; }
+        document.getElementById('digPubCPortPlotterRow').style.display = p1CostoPlotter > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCPortPlotter').textContent = fmtN(p1CostoPlotter, 2);
+        document.getElementById('digPubCPortTermRow').style.display = p1TermExtra > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCPortTerm').textContent = fmtN(p1TermExtra, 2);
+        document.getElementById('digPubCPortSubtotal').textContent = fmtN(p1Subtotal, 2);
+
+        // Cost breakdown interiores
+        document.getElementById('digPubCIntClicksQty').textContent = p2Clicks;
+        document.getElementById('digPubCIntClicksPx').textContent = fmtN(p2ClickCosto, 2);
+        document.getElementById('digPubCIntClicks').textContent = fmtN(p2CostoClicks, 2);
+        document.getElementById('digPubCIntArranque').textContent = fmtN(p2CostoArranque, 2);
+        document.getElementById('digPubCIntMatQty').textContent = p2PliegosNec;
+        document.getElementById('digPubCIntMatPx').textContent = fmtN(p2PrecioPliego, 2);
+        document.getElementById('digPubCIntMat').textContent = fmtN(p2CostoMaterial, 2);
+        document.getElementById('digPubCIntGuilloRow').style.display = p2CostoGuillo > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCIntGuillo').textContent = fmtN(p2CostoGuillo, 2);
+        document.getElementById('digPubCIntTermRow').style.display = p2TermExtra > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCIntTerm').textContent = fmtN(p2TermExtra, 2);
+        document.getElementById('digPubCIntSubtotal').textContent = fmtN(p2Subtotal, 2);
+
+        // Encuadernacion
+        document.getElementById('digPubCEncuadLabel').textContent = encuadLabel;
+        document.getElementById('digPubCEncuad').textContent = fmtN(costoEncuad, 2);
+        document.getElementById('digPubCIntercRow').style.display = costoInterc > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCInterc').textContent = fmtN(costoInterc, 2);
+        if (costoInterc > 0) document.getElementById('digPubCIntercLabel').textContent = '(' + millaresPliegos + ' mill. x $3)';
+        document.getElementById('digPubCDobladoRow').style.display = costoDoblado > 0 ? 'flex' : 'none';
+        document.getElementById('digPubCDoblado').textContent = fmtN(costoDoblado, 2);
+        if (costoDoblado > 0) document.getElementById('digPubCDobladoLabel').textContent = '(' + millaresPliegos + ' mill. x $5)';
+
+        // Totals
+        document.getElementById('digPubSubtotalCosto').textContent = fmtN(subtotalCosto, 2);
+        document.getElementById('digPubMargenPct').textContent = margenPct;
+        document.getElementById('digPubUtilidad').textContent = fmtN(precioSinIVA - subtotalCosto, 2);
+        document.getElementById('digPubSubtotalSinIVA').textContent = fmtN(precioSinIVA, 2);
+        document.getElementById('digPubDescuentoPct').textContent = descuentoPct;
+        document.getElementById('digPubDescuentoMonto').textContent = fmtN(descuentoMonto, 2);
+        document.getElementById('digPubDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
+        document.getElementById('digPubPrecioUnit').textContent = fmtN(precioUnit, 4);
+        document.getElementById('digPubIVAPct').textContent = ivaPct;
+        document.getElementById('digPubMontoIVA').textContent = fmtN(montoIVA, 2);
+        document.getElementById('digPubPrecioFinal').textContent = fmtN(precioFinal, 2);
+        document.getElementById('digPubPrecioFinalBig').textContent = fmtN(precioFinal, 2);
+        document.getElementById('digPubPrecioUnitBig').textContent = fmtN(precioUnit, 4);
     }
 
     function cotOnFormatoChange() {
@@ -3570,7 +5316,7 @@
         // Mostrar area util
         const areaUtilEl = document.getElementById('cotAreaUtil');
         if (areaUtilEl && margenMaq > 0) {
-            areaUtilEl.textContent = `Area util: ${hojaUtilW} x ${hojaUtilH} cm (descontando ${margenMaq} cm por lado)`;
+            areaUtilEl.textContent = 'Area util: ' + fmtN(hojaUtilW, 1) + ' x ' + fmtN(hojaUtilH, 1) + ' cm (descontando ' + fmtN(margenMaq, 1) + ' cm por lado)';
         } else if (areaUtilEl) {
             areaUtilEl.textContent = '';
         }
@@ -3698,7 +5444,7 @@
             const hojasPlast = hojasNetas + Math.ceil(mermaTotal / 2);
             costoPlastificado = areaCm2 * hojasPlast * 0.000035 * caras;
             if (costoPlastificado < 5) costoPlastificado = 5;
-            plastificadoInfo.textContent = (tipoPlast === 'mate' ? 'Mate' : 'Brillante') + ' | ' + areaCm2 + ' cm2 x ' + hojasPlast + ' hojas x ' + caras + ' cara' + (caras > 1 ? 's' : '') + ' = $' + costoPlastificado.toFixed(2) + (costoPlastificado === 5 ? ' (minimo)' : '');
+            plastificadoInfo.textContent = (tipoPlast === 'mate' ? 'Mate' : 'Brillante') + ' | ' + areaCm2 + ' cm2 x ' + hojasPlast + ' hojas x ' + caras + ' cara' + (caras > 1 ? 's' : '') + ' = $' + fmtN(costoPlastificado, 2) + (costoPlastificado === 5 ? ' (minimo)' : '');
             plastificadoInfo.style.display = 'block';
         } else {
             plastificadoInfo.style.display = 'none';
@@ -3714,7 +5460,7 @@
             const hojasUV = hojasNetas + Math.ceil(mermaTotal / 2);
             costoBarnizUV = areaCm2 * hojasUV * 0.000009 * carasUV;
             if (costoBarnizUV < 10) costoBarnizUV = 10;
-            barnizUVInfo.textContent = areaCm2 + ' cm2 x ' + hojasUV + ' hojas x ' + carasUV + ' cara' + (carasUV > 1 ? 's' : '') + ' = $' + costoBarnizUV.toFixed(2) + (costoBarnizUV === 10 ? ' (minimo)' : '');
+            barnizUVInfo.textContent = areaCm2 + ' cm2 x ' + hojasUV + ' hojas x ' + carasUV + ' cara' + (carasUV > 1 ? 's' : '') + ' = $' + fmtN(costoBarnizUV, 2) + (costoBarnizUV === 10 ? ' (minimo)' : '');
             barnizUVInfo.style.display = 'block';
         } else {
             barnizUVInfo.style.display = 'none';
@@ -3734,7 +5480,7 @@
             const areaCm2 = hojaW * hojaH;
             const costoPelicula = areaCm2 * 0.01 * ladosUV;
             costoUVSelectivo = costoImpUV + costoPelicula;
-            uvSelInfo.textContent = ladosUV + ' lado' + (ladosUV > 1 ? 's' : '') + ' | Impresion: ' + millaresUV + ' millar' + (millaresUV > 1 ? 'es' : '') + ' x $55 x ' + ladosUV + ' = $' + costoImpUV.toFixed(2) + ' | Pelicula: ' + areaCm2 + ' cm2 x $0.01 x ' + ladosUV + ' = $' + costoPelicula.toFixed(2);
+            uvSelInfo.textContent = ladosUV + ' lado' + (ladosUV > 1 ? 's' : '') + ' | Impresion: ' + millaresUV + ' millar' + (millaresUV > 1 ? 'es' : '') + ' x $55 x ' + ladosUV + ' = $' + fmtN(costoImpUV, 2) + ' | Pelicula: ' + areaCm2 + ' cm2 x $0,01 x ' + ladosUV + ' = $' + fmtN(costoPelicula, 2);
             uvSelInfo.style.display = 'block';
         } else {
             uvSelInfo.style.display = 'none';
@@ -3786,7 +5532,7 @@
             const costoPorBajada = 0.25;
             costoGuillotina = costoFijoGuillo + totalBajadas * costoPorBajada;
 
-            guilloInfo.textContent = cortesPorHoja + ' cortes/hoja x ' + pasadasPorCorte + ' pasada' + (pasadasPorCorte > 1 ? 's' : '') + ' (' + (gramaje > 150 ? '300' : '1000') + ' hojas/pila, ' + gramaje + 'g) = ' + totalBajadas + ' bajadas x $' + costoPorBajada.toFixed(2) + ' + $' + costoFijoGuillo.toFixed(2) + ' setup = $' + costoGuillotina.toFixed(2);
+            guilloInfo.textContent = cortesPorHoja + ' cortes/hoja x ' + pasadasPorCorte + ' pasada' + (pasadasPorCorte > 1 ? 's' : '') + ' (' + (gramaje > 150 ? '300' : '1000') + ' hojas/pila, ' + gramaje + 'g) = ' + totalBajadas + ' bajadas x $' + fmtN(costoPorBajada, 2) + ' + $' + fmtN(costoFijoGuillo, 2) + ' setup = $' + fmtN(costoGuillotina, 2);
             guilloInfo.style.display = 'block';
         } else {
             guilloInfo.style.display = 'none';
@@ -3809,7 +5555,7 @@
                 const totalParaTroquel = Math.max(0, hojasTotales - 40);
                 const millaresTroquel = Math.max(1, Math.ceil(totalParaTroquel / 1000));
                 costoTroquelServicio = millaresTroquel * costoPorMillarTroquel;
-                troqueladoInfo.textContent = (maquinaTroquel === 'auto' ? 'Automatica' : 'Manual') + ' | ' + totalParaTroquel + ' hojas (' + hojasTotales + ' - 40 merma imp.) = ' + millaresTroquel + ' millar' + (millaresTroquel > 1 ? 'es' : '') + ' x $' + costoPorMillarTroquel + ' = $' + costoTroquelServicio.toFixed(2);
+                troqueladoInfo.textContent = (maquinaTroquel === 'auto' ? 'Automatica' : 'Manual') + ' | ' + totalParaTroquel + ' hojas (' + hojasTotales + ' - 40 merma imp.) = ' + millaresTroquel + ' millar' + (millaresTroquel > 1 ? 'es' : '') + ' x $' + costoPorMillarTroquel + ' = $' + fmtN(costoTroquelServicio, 2);
                 troqueladoInfo.style.display = 'block';
             } else {
                 troqueladoInfo.style.display = 'none';
@@ -3822,9 +5568,9 @@
             const minimoTroquel = 12;
             if (totalCmLineales > 0) {
                 costoTroquel = Math.max(minimoTroquel, totalCmLineales * costoPorCm);
-                troquelInfo.textContent = (cmCuchilla > 0 ? cmCuchilla + ' cm cuchilla' : '') + (cmCuchilla > 0 && cmGrafa > 0 ? ' + ' : '') + (cmGrafa > 0 ? cmGrafa + ' cm grafa' : '') + ' = ' + totalCmLineales + ' cm x $' + costoPorCm.toFixed(2) + ' = $' + (totalCmLineales * costoPorCm).toFixed(2) + (totalCmLineales * costoPorCm < minimoTroquel ? ' (minimo $' + minimoTroquel + ')' : '');
+                troquelInfo.textContent = (cmCuchilla > 0 ? cmCuchilla + ' cm cuchilla' : '') + (cmCuchilla > 0 && cmGrafa > 0 ? ' + ' : '') + (cmGrafa > 0 ? cmGrafa + ' cm grafa' : '') + ' = ' + totalCmLineales + ' cm x $' + fmtN(costoPorCm, 2) + ' = $' + fmtN(totalCmLineales * costoPorCm, 2) + (totalCmLineales * costoPorCm < minimoTroquel ? ' (minimo $' + minimoTroquel + ')' : '');
             } else {
-                troquelInfo.textContent = 'Ingresa cm lineales de cuchilla y/o grafa ($' + costoPorCm.toFixed(2) + '/cm, minimo $' + minimoTroquel + ')';
+                troquelInfo.textContent = 'Ingresa cm lineales de cuchilla y/o grafa ($' + fmtN(costoPorCm, 2) + '/cm, minimo $' + minimoTroquel + ')';
             }
         } else {
             troquelSection.style.display = 'none';
@@ -3849,10 +5595,10 @@
                 const placasExtra = colores * costoPlaca;
                 const impresionExtra = millaresImpresion * costoMillarColor * colores;
                 costoEnsandImpresion = placasExtra + impresionExtra;
-                ensandInfo.innerHTML = 'Material x2: +$' + costoEnsandMaterial.toFixed(2) + ' | Pegado: ' + hojasTotales + ' hojas x $' + costoPegadoPorHoja.toFixed(2) + ' = $' + costoEnsandPegado.toFixed(2)
-                    + '<br>Tiro/retiro: +' + colores + ' placas ($' + placasExtra.toFixed(2) + ') + impresion ($' + impresionExtra.toFixed(2) + ') = +$' + costoEnsandImpresion.toFixed(2);
+                ensandInfo.innerHTML = 'Material x2: +$' + fmtN(costoEnsandMaterial, 2) + ' | Pegado: ' + hojasTotales + ' hojas x $' + fmtN(costoPegadoPorHoja, 2) + ' = $' + fmtN(costoEnsandPegado, 2)
+                    + '<br>Tiro/retiro: +' + colores + ' placas ($' + fmtN(placasExtra, 2) + ') + impresion ($' + fmtN(impresionExtra, 2) + ') = +$' + fmtN(costoEnsandImpresion, 2);
             } else {
-                ensandInfo.textContent = 'Material x2: +$' + costoEnsandMaterial.toFixed(2) + ' | Pegado: ' + hojasTotales + ' hojas x $' + costoPegadoPorHoja.toFixed(2) + ' = $' + costoEnsandPegado.toFixed(2);
+                ensandInfo.textContent = 'Material x2: +$' + fmtN(costoEnsandMaterial, 2) + ' | Pegado: ' + hojasTotales + ' hojas x $' + fmtN(costoPegadoPorHoja, 2) + ' = $' + fmtN(costoEnsandPegado, 2);
             }
             ensandInfo.style.display = 'block';
         } else {
@@ -3872,46 +5618,46 @@
 
         // Update cost breakdown
         document.getElementById('cotCostMatQty').textContent = pliegosNec;
-        document.getElementById('cotCostMatPx').textContent = precioPliego.toFixed(2);
-        document.getElementById('cotCostMat').textContent = costoMaterial.toFixed(2);
+        document.getElementById('cotCostMatPx').textContent = fmtN(precioPliego, 2);
+        document.getElementById('cotCostMat').textContent = fmtN(costoMaterial, 2);
         document.getElementById('cotCostPlacasQty').textContent = totalPlacas;
-        document.getElementById('cotCostPlacasPx').textContent = costoPlaca.toFixed(2);
-        document.getElementById('cotCostPlacas').textContent = costoPlacasTotal.toFixed(2);
+        document.getElementById('cotCostPlacasPx').textContent = fmtN(costoPlaca, 2);
+        document.getElementById('cotCostPlacas').textContent = fmtN(costoPlacasTotal, 2);
         document.getElementById('cotCostImpQty').textContent = millaresImpresion;
         document.getElementById('cotCostImpColores').textContent = colores;
-        document.getElementById('cotCostImpPx').textContent = costoMillarColor.toFixed(2);
-        document.getElementById('cotCostImp').textContent = costoImpresion.toFixed(2);
-        document.getElementById('cotCostPlast').textContent = costoPlastificado.toFixed(2);
+        document.getElementById('cotCostImpPx').textContent = fmtN(costoMillarColor, 2);
+        document.getElementById('cotCostImp').textContent = fmtN(costoImpresion, 2);
+        document.getElementById('cotCostPlast').textContent = fmtN(costoPlastificado, 2);
         document.getElementById('cotCostPlastRow').style.display = costoPlastificado > 0 ? 'flex' : 'none';
         if (costoPlastificado > 0) {
             const tp = document.getElementById('cotPlastificadoTipo').value;
             const cr = +document.getElementById('cotPlastificadoCaras').value;
             document.getElementById('cotCostPlastLabel').textContent = '(' + (tp === 'mate' ? 'mate' : 'brillante') + ', ' + cr + ' cara' + (cr > 1 ? 's' : '') + ')';
         }
-        document.getElementById('cotCostUV').textContent = costoBarnizUV.toFixed(2);
+        document.getElementById('cotCostUV').textContent = fmtN(costoBarnizUV, 2);
         document.getElementById('cotCostUVRow').style.display = costoBarnizUV > 0 ? 'flex' : 'none';
         if (costoBarnizUV > 0) {
             const crUV = +document.getElementById('cotBarnizUVCaras').value;
             document.getElementById('cotCostUVLabel').textContent = '(brillante, ' + crUV + ' cara' + (crUV > 1 ? 's' : '') + ')';
         }
-        document.getElementById('cotCostUVSel').textContent = costoUVSelectivo.toFixed(2);
+        document.getElementById('cotCostUVSel').textContent = fmtN(costoUVSelectivo, 2);
         document.getElementById('cotCostUVSelRow').style.display = costoUVSelectivo > 0 ? 'flex' : 'none';
         if (costoUVSelectivo > 0) {
             const lUV = +document.getElementById('cotUVSelectivoCaras').value;
             document.getElementById('cotCostUVSelLabel').textContent = '(' + lUV + ' lado' + (lUV > 1 ? 's' : '') + ')';
         }
-        document.getElementById('cotCostGuillo').textContent = costoGuillotina.toFixed(2);
+        document.getElementById('cotCostGuillo').textContent = fmtN(costoGuillotina, 2);
         document.getElementById('cotCostGuilloRow').style.display = costoGuillotina > 0 ? 'flex' : 'none';
         if (costoGuillotina > 0) {
             document.getElementById('cotCostGuilloLabel').textContent = '(' + (guilloInfo.textContent.match(/\d+ cortes/)?.[0] || '') + ')';
         }
-        document.getElementById('cotCostTroquelServ').textContent = costoTroquelServicio.toFixed(2);
+        document.getElementById('cotCostTroquelServ').textContent = fmtN(costoTroquelServicio, 2);
         document.getElementById('cotCostTroquelServRow').style.display = costoTroquelServicio > 0 ? 'flex' : 'none';
         if (costoTroquelServicio > 0) {
             const maqTr = document.getElementById('cotTroquelMaquina').value;
             document.getElementById('cotCostTroquelServLabel').textContent = '(' + (maqTr === 'auto' ? 'automatica' : 'manual') + ')';
         }
-        document.getElementById('cotCostTroquel').textContent = costoTroquel.toFixed(2);
+        document.getElementById('cotCostTroquel').textContent = fmtN(costoTroquel, 2);
         document.getElementById('cotCostTroquelRow').style.display = costoTroquel > 0 ? 'flex' : 'none';
         if (costoTroquel > 0) {
             const cmC = parseFloat(document.getElementById('cotTroquelCuchilla').value) || 0;
@@ -3919,38 +5665,38 @@
             document.getElementById('cotCostTroquelLabel').textContent = '(' + (cmC + cmG) + ' cm lineales)';
         }
         // Ensanduchado display
-        document.getElementById('cotCostEnsandMat').textContent = costoEnsandMaterial.toFixed(2);
+        document.getElementById('cotCostEnsandMat').textContent = fmtN(costoEnsandMaterial, 2);
         document.getElementById('cotCostEnsandMatRow').style.display = costoEnsandMaterial > 0 ? 'flex' : 'none';
         if (costoEnsandMaterial > 0) {
-            document.getElementById('cotCostEnsandMatLabel').textContent = '(' + pliegosNec + ' pliegos x $' + precioPliego.toFixed(2) + ')';
+            document.getElementById('cotCostEnsandMatLabel').textContent = '(' + pliegosNec + ' pliegos x $' + fmtN(precioPliego, 2) + ')';
         }
-        document.getElementById('cotCostEnsandPeg').textContent = costoEnsandPegado.toFixed(2);
+        document.getElementById('cotCostEnsandPeg').textContent = fmtN(costoEnsandPegado, 2);
         document.getElementById('cotCostEnsandPegRow').style.display = costoEnsandPegado > 0 ? 'flex' : 'none';
         if (costoEnsandPegado > 0) {
             document.getElementById('cotCostEnsandPegLabel').textContent = '(' + hojasTotales + ' hojas)';
         }
-        document.getElementById('cotCostEnsandImp').textContent = costoEnsandImpresion.toFixed(2);
+        document.getElementById('cotCostEnsandImp').textContent = fmtN(costoEnsandImpresion, 2);
         document.getElementById('cotCostEnsandImpRow').style.display = costoEnsandImpresion > 0 ? 'flex' : 'none';
         if (costoEnsandImpresion > 0) {
             document.getElementById('cotCostEnsandImpLabel').textContent = '(tiro/retiro)';
         }
-        document.getElementById('cotCostTerm').textContent = terminados.toFixed(2);
-        document.getElementById('cotSubtotalCosto').textContent = subtotalCosto.toFixed(2);
+        document.getElementById('cotCostTerm').textContent = fmtN(terminados, 2);
+        document.getElementById('cotSubtotalCosto').textContent = fmtN(subtotalCosto, 2);
         document.getElementById('cotMargenPct').textContent = margenPct;
-        document.getElementById('cotUtilidadNeta').textContent = (precioSinIVA - subtotalCosto).toFixed(2);
-        document.getElementById('cotSubtotalSinIVA').textContent = precioSinIVA.toFixed(2);
+        document.getElementById('cotUtilidadNeta').textContent = fmtN(precioSinIVA - subtotalCosto, 2);
+        document.getElementById('cotSubtotalSinIVA').textContent = fmtN(precioSinIVA, 2);
         // Descuento
         document.getElementById('cotDescuentoPct').textContent = descuentoPct;
-        document.getElementById('cotDescuentoMonto').textContent = descuentoMonto.toFixed(2);
+        document.getElementById('cotDescuentoMonto').textContent = fmtN(descuentoMonto, 2);
         document.getElementById('cotDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
-        document.getElementById('cotSubtotalConDesc').textContent = precioConDesc.toFixed(2);
+        document.getElementById('cotSubtotalConDesc').textContent = fmtN(precioConDesc, 2);
         document.getElementById('cotSubtotalConDescRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
-        document.getElementById('cotPrecioUnit').textContent = precioUnit.toFixed(4);
+        document.getElementById('cotPrecioUnit').textContent = fmtN(precioUnit, 4);
         document.getElementById('cotIVAPct').textContent = ivaPct;
-        document.getElementById('cotMontoIVA').textContent = montoIVA.toFixed(2);
-        document.getElementById('cotPrecioFinal').textContent = precioFinal.toFixed(2);
-        document.getElementById('cotPrecioFinalBig').textContent = precioFinal.toFixed(2);
-        document.getElementById('cotPrecioUnitBig').textContent = precioUnit.toFixed(4);
+        document.getElementById('cotMontoIVA').textContent = fmtN(montoIVA, 2);
+        document.getElementById('cotPrecioFinal').textContent = fmtN(precioFinal, 2);
+        document.getElementById('cotPrecioFinalBig').textContent = fmtN(precioFinal, 2);
+        document.getElementById('cotPrecioUnitBig').textContent = fmtN(precioUnit, 4);
 
         // Draw previews (releer placasTR porque pudo cambiar automaticamente)
         const placasTRActual = document.getElementById('cotPlacasTR').value;
@@ -4333,7 +6079,7 @@
                 if (el1) el1.textContent = data.length;
                 const sub = data.reduce((s, i) => s + (i.cantidad * i.precio_unitario), 0);
                 const iva = sub * (p.iva_porcentaje || 15) / 100;
-                if (el2) el2.textContent = '$' + (sub + iva).toFixed(2);
+                if (el2) el2.textContent = '$' + fmtN(sub + iva, 2);
             }
         });
     }
@@ -4460,7 +6206,7 @@
                 <td><textarea onchange="updateProformaItem(${i},'descripcion',this.value)">${item.descripcion || ''}</textarea></td>
                 <td><input type="number" min="0" value="${item.cantidad || 0}" onchange="updateProformaItem(${i},'cantidad',parseFloat(this.value)||0)"></td>
                 <td><input type="number" min="0" step="0.01" value="${item.precio_unitario || 0}" onchange="updateProformaItem(${i},'precio_unitario',parseFloat(this.value)||0)"></td>
-                <td style="text-align:right;font-weight:600;">$${importe.toFixed(2)}</td>
+                <td style="text-align:right;font-weight:600;">$${fmtN(importe, 2)}</td>
                 <td>${item.imagen_url
                     ? `<img src="${item.imagen_url}" class="item-img" onclick="cambiarImagenItem(${i})" title="Click para cambiar">`
                     : `<div class="item-img-placeholder" onclick="cambiarImagenItem(${i})" title="Subir imagen">+</div>`
@@ -4497,12 +6243,12 @@
         document.getElementById('profSubtotal0Row').style.display = subtotal0 > 0 ? 'flex' : 'none';
         document.getElementById('profSubtotal15Row').style.display = subtotal15 > 0 ? 'flex' : 'none';
 
-        document.getElementById('profSubtotal0').textContent = subtotal0.toFixed(2);
-        document.getElementById('profSubtotal15').textContent = subtotal15.toFixed(2);
-        document.getElementById('profSubtotal').textContent = subtotal.toFixed(2);
+        document.getElementById('profSubtotal0').textContent = fmtN(subtotal0, 2);
+        document.getElementById('profSubtotal15').textContent = fmtN(subtotal15, 2);
+        document.getElementById('profSubtotal').textContent = fmtN(subtotal, 2);
         document.getElementById('profIVALabel').textContent = '15';
-        document.getElementById('profIVAMonto').textContent = ivaMonto.toFixed(2);
-        document.getElementById('profTotal').textContent = total.toFixed(2);
+        document.getElementById('profIVAMonto').textContent = fmtN(ivaMonto, 2);
+        document.getElementById('profTotal').textContent = fmtN(total, 2);
     }
 
     function agregarItemDesdeEditor() {
@@ -4858,8 +6604,8 @@
                 it.codigo || '',
                 String(it.cantidad || 0),
                 '', // descripcion se maneja aparte
-                (it.precio_unitario || 0).toFixed(3),
-                '$' + imp.toFixed(2),
+                fmtN(it.precio_unitario || 0, 3),
+                '$' + fmtN(imp, 2),
                 '' // imagen se maneja aparte
             ];
 
@@ -4906,26 +6652,26 @@
         if (_sub0 > 0) {
             cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
             doc.text('Subtotal IVA 0%', totX + 3, y + 5.5);
-            doc.text('$' + _sub0.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
+            doc.text('$' + fmtN(_sub0, 2), totX + totW2 - 3, y + 5.5, { align: 'right' });
             y += 8;
         }
         // Subtotal IVA 15% (solo si hay)
         if (_sub15 > 0) {
             cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
             doc.text('Subtotal IVA 15%', totX + 3, y + 5.5);
-            doc.text('$' + _sub15.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
+            doc.text('$' + fmtN(_sub15, 2), totX + totW2 - 3, y + 5.5, { align: 'right' });
             y += 8;
         }
         // Subtotal
         cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
         doc.text('Subtotal', totX + 3, y + 5.5);
-        doc.text('$' + subtotal.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
+        doc.text('$' + fmtN(subtotal, 2), totX + totW2 - 3, y + 5.5, { align: 'right' });
         y += 8;
 
         // IVA 15%
         cell(totX, y, totLabelW, 8); cell(totX + totLabelW, y, totValW, 8);
         doc.text('IVA 15%', totX + 3, y + 5.5);
-        doc.text('$' + iva.toFixed(2), totX + totW2 - 3, y + 5.5, { align: 'right' });
+        doc.text('$' + fmtN(iva, 2), totX + totW2 - 3, y + 5.5, { align: 'right' });
         y += 8;
 
         // TOTAL
@@ -4936,7 +6682,7 @@
         doc.setTextColor(...cPrimary);
         doc.text('TOTAL', totX + 3, y + 7);
         doc.setTextColor(22, 163, 74);
-        doc.text('$' + total.toFixed(2), totX + totW2 - 3, y + 7, { align: 'right' });
+        doc.text('$' + fmtN(total, 2), totX + totW2 - 3, y + 7, { align: 'right' });
 
         y += 18;
 
@@ -5072,7 +6818,7 @@
             const textH = dL.length*4+4;
             const rH = Math.max(hasImg ? 24 : 8, textH);
             if (y+rH > H-40) { doc.addPage(); y = M; }
-            const vals = [it.codigo||'', String(it.cantidad||0), '', (it.precio_unitario||0).toFixed(3), '$'+imp.toFixed(2), ''];
+            const vals = [it.codigo||'', String(it.cantidad||0), '', fmtN(it.precio_unitario||0, 3), '$'+fmtN(imp, 2), ''];
             cx = M;
             vals.forEach((v, j) => {
                 cell(cx, y, colW[j], rH);
@@ -5088,16 +6834,16 @@
         if (y > H-55) { doc.addPage(); y = M; }
         const totX = M+pw*0.55, totW2 = pw*0.45, totLW = totW2*0.55, totVW = totW2*0.45;
         doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...cDark);
-        if (_sub0 > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.text('Subtotal IVA 0%',totX+3,y+5.5); doc.text('$'+_sub0.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8; }
-        if (_sub15 > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.text('Subtotal IVA 15%',totX+3,y+5.5); doc.text('$'+_sub15.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8; }
+        if (_sub0 > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.text('Subtotal IVA 0%',totX+3,y+5.5); doc.text('$'+fmtN(_sub0, 2),totX+totW2-3,y+5.5,{align:'right'}); y+=8; }
+        if (_sub15 > 0) { cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8); doc.text('Subtotal IVA 15%',totX+3,y+5.5); doc.text('$'+fmtN(_sub15, 2),totX+totW2-3,y+5.5,{align:'right'}); y+=8; }
         cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8);
-        doc.text('Subtotal',totX+3,y+5.5); doc.text('$'+subtotal.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8;
+        doc.text('Subtotal',totX+3,y+5.5); doc.text('$'+fmtN(subtotal, 2),totX+totW2-3,y+5.5,{align:'right'}); y+=8;
         cell(totX,y,totLW,8); cell(totX+totLW,y,totVW,8);
-        doc.text('IVA 15%',totX+3,y+5.5); doc.text('$'+iva.toFixed(2),totX+totW2-3,y+5.5,{align:'right'}); y+=8;
+        doc.text('IVA 15%',totX+3,y+5.5); doc.text('$'+fmtN(iva, 2),totX+totW2-3,y+5.5,{align:'right'}); y+=8;
         cell(totX,y,totLW,10,{fill:cHeaderBg}); cell(totX+totLW,y,totVW,10,{fill:cHeaderBg});
         doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...cPrimary);
         doc.text('TOTAL', totX+3, y+7); doc.setTextColor(22,163,74);
-        doc.text('$'+total.toFixed(2), totX+totW2-3, y+7, {align:'right'}); y+=18;
+        doc.text('$'+fmtN(total, 2), totX+totW2-3, y+7, {align:'right'}); y+=18;
 
         if (y > H-30) { doc.addPage(); y = M; }
         cell(M,y,halfW,8); cell(M+halfW,y,halfW,8);
@@ -5183,7 +6929,7 @@
         msg += `INGENIA - Experiencia Creativa\n\n`;
         if (proformaActiva.cliente_nombre) msg += `Cliente: ${proformaActiva.cliente_nombre}\n`;
         msg += `Fecha: ${new Date().toLocaleDateString('es-EC')}\n`;
-        msg += `*TOTAL: $${total.toFixed(2)}*\n\n`;
+        msg += `*TOTAL: $${fmtN(total, 2)}*\n\n`;
         msg += `📄 *Descarga tu proforma aqui:*\n${pdfUrl}\n\n`;
         msg += `Quedamos atentos a tus comentarios.`;
 
@@ -5214,7 +6960,7 @@
 
         const subject = `Proforma #${proformaActiva.numero} - INGENIA`;
         let body = `Estimado/a ${proformaActiva.cliente_nombre || 'cliente'},\n\n`;
-        body += `Le enviamos la Proforma #${proformaActiva.numero} por un total de $${total.toFixed(2)}.\n\n`;
+        body += `Le enviamos la Proforma #${proformaActiva.numero} por un total de $${fmtN(total, 2)}.\n\n`;
         body += `Puede descargar su proforma en PDF aqui:\n${pdfUrl}\n\n`;
         body += `Tiempo de entrega: ${document.getElementById('profTiempoEntrega').value}\n`;
         body += `Forma de pago: ${document.getElementById('profFormaPago').value}\n\n`;
@@ -5645,5 +7391,6 @@
     window.addEventListener('resize', drawPreview);
     checkSession();
     </script>
+    <script src="conciliacion.js"></script>
 </body>
 </html>
