@@ -8,10 +8,20 @@ let concData = {
     bancoCelular: [],
     matches: {},
     config: {},
+    facturasById: {},  // lookup Map for O(1) access
+    depositosById: {}, // lookup Map for O(1) access
     initialized: false
 };
 let concModalDepositoId = null;
 let concModalSelected = new Set();
+
+// Build ID lookup maps after loading data
+function concBuildMaps() {
+    concData.facturasById = {};
+    concData.facturas.forEach(f => { concData.facturasById[f.id] = f; });
+    concData.depositosById = {};
+    concData.depositos.forEach(d => { concData.depositosById[d.id] = d; });
+}
 
 // =====================================================
 // INIT
@@ -34,6 +44,7 @@ async function concInit() {
         });
         concData.config = {};
         (cfgRes.data || []).forEach(c => { concData.config[c.clave] = c.valor; });
+        concBuildMaps();
         concData.initialized = true;
         concUpdateResumen();
         concRenderDepositos();
@@ -50,7 +61,6 @@ async function concSyncContifico() {
     status.innerHTML = '<span style="color:var(--primary);">Sincronizando con Contifico...</span>';
 
     try {
-        // Fetch ALL documents from Contifico API via Edge Function proxy
         const resp = await fetch('https://ekrdnfecegwfavdgtgsa.supabase.co/functions/v1/contifico-proxy', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
@@ -59,10 +69,9 @@ async function concSyncContifico() {
         if (!resp.ok) throw new Error('Proxy error: ' + resp.status);
         const docs = await resp.json();
 
-        // Filter FAC and DNA with relevant data
         const facturas = docs.filter(d => d.tipo_documento === 'FAC' || d.tipo_documento === 'DNA').map(d => ({
             contifico_id: d.id,
-            fecha: concParseDateContifico(d.fecha_emision),
+            fecha: concParseDate(d.fecha_emision),
             tipo_documento: d.tipo_documento === 'FAC' ? 'Factura' : 'Doc no autorizado',
             numero_factura: d.documento,
             cliente: d.persona ? d.persona.razon_social : '',
@@ -71,87 +80,36 @@ async function concSyncContifico() {
             saldo: parseFloat(d.saldo) || 0,
             retenciones: parseFloat(d.retenciones || 0),
             estado: d.estado === 'C' ? 'Cobrada' : d.estado === 'A' ? 'Anulada' : 'Pendiente',
-            // Si saldo=0 o estado=C → pagada, sino pendiente
             estado_pago: (d.estado === 'C' || parseFloat(d.saldo) === 0) ? 'pagada' : 'pendiente'
         }));
 
-        // Batch upsert to Supabase (50 at a time for speed)
-        let nuevas = 0, actualizadas = 0;
+        // Batch upsert (50 at a time)
+        let nuevas = 0;
         const batchSize = 50;
         for (let i = 0; i < facturas.length; i += batchSize) {
             const batch = facturas.slice(i, i + batchSize);
-            const { data, error } = await db.from('facturas').upsert(batch, { onConflict: 'numero_factura' });
-            if (!error) nuevas += batch.length;
+            await db.from('facturas').upsert(batch, { onConflict: 'numero_factura' });
+            nuevas += batch.length;
             status.innerHTML = '<span style="color:var(--primary);">Sincronizando... ' + Math.min(i + batchSize, facturas.length) + '/' + facturas.length + '</span>';
         }
-        actualizadas = facturas.filter(f => f.estado_pago === 'pagada').length;
 
-        // Reload
+        // Reload and rebuild maps
         const facRes = await db.from('facturas').select('*').order('fecha', { ascending: false });
         concData.facturas = facRes.data || [];
+        concBuildMaps();
 
-        // Auto-conciliate deposits that match paid invoices
-        const pagadas = concData.facturas.filter(f => f.estado_pago === 'pagada');
-        let autoConciliados = 0;
-        for (const dep of concData.depositos.filter(d => d.estado === 'sin_conciliar')) {
-            const monto = +dep.monto;
-            // Try exact match with paid invoice
-            for (const f of pagadas) {
-                if (Math.abs(f.total - monto) <= 0.02 && concNombreCoincide(dep.nombre_depositante, f.cliente)) {
-                    if (!concData.matches[dep.id]) {
-                        concData.matches[dep.id] = [{ factura_id: f.id, monto: f.total }];
-                        dep.estado = 'conciliado';
-                        await db.from('depositos').update({ estado: 'conciliado' }).eq('id', dep.id);
-                        await db.from('conciliacion_matches').upsert({ deposito_id: dep.id, factura_id: f.id, monto_aplicado: f.total }, { onConflict: 'deposito_id,factura_id' });
-                        autoConciliados++;
-                        break;
-                    }
-                }
-            }
-        }
+        // Auto-conciliate using existing concAutoMatch (avoids code duplication)
+        const autoConciliados = await concAutoMatchInternal();
 
         const totalPend = concData.facturas.filter(f => f.estado_pago === 'pendiente').length;
-        const totalPag = pagadas.length;
-        status.innerHTML = '<span style="color:#059669;">' + facturas.length + ' facturas sincronizadas (' + nuevas + ' nuevas, ' + actualizadas + ' actualizadas)<br>' + totalPend + ' pendientes, ' + totalPag + ' pagadas' + (autoConciliados > 0 ? '<br>' + autoConciliados + ' depositos auto-conciliados' : '') + '</span>';
+        const totalPag = facturas.filter(f => f.estado_pago === 'pagada').length;
+        status.innerHTML = '<span style="color:#059669;">' + facturas.length + ' facturas sincronizadas<br>' + totalPend + ' pendientes, ' + totalPag + ' pagadas' + (autoConciliados > 0 ? '<br>' + autoConciliados + ' depositos auto-conciliados' : '') + '</span>';
 
         concUpdateResumen();
         concRenderDepositos();
     } catch (e) {
         status.innerHTML = '<span style="color:#dc2626;">Error: ' + e.message + '</span>';
         console.error('Contifico sync error:', e);
-    }
-}
-
-// Register payment in Contifico when conciliating
-async function concRegistrarPagoContifico(facturaId, monto, docNumero, fechaPago) {
-    const apiKey = concData.config['contifico_api_key'];
-    const cuentaBancaria = concData.config['contifico_cuenta_bancaria_id'];
-    const factura = concData.facturas.find(f => f.id === facturaId);
-    if (!apiKey || !factura || !factura.contifico_id) return false;
-
-    try {
-        const cobro = {
-            forma_cobro: 'TRA',
-            monto: String(monto),
-            cuenta_bancaria_id: cuentaBancaria || null,
-            numero_comprobante: docNumero || '',
-            fecha: fechaPago || new Date().toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' })
-        };
-
-        const resp = await fetch('https://ekrdnfecegwfavdgtgsa.supabase.co/functions/v1/contifico-proxy', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
-            body: JSON.stringify({
-                endpoint: 'documento/' + factura.contifico_id + '/cobro/',
-                apiKey: apiKey,
-                method: 'POST',
-                body: cobro
-            })
-        });
-        return resp.ok;
-    } catch (e) {
-        console.error('Error registrando pago en Contifico:', e);
-        return false;
     }
 }
 
@@ -179,7 +137,7 @@ async function concLoadContifico(file) {
         const iP = headers.indexOf('Persona'), iId = headers.indexOf('Identificación');
         const iSI = headers.indexOf('Subtotal IVA mayor a 0%'), iS0 = headers.indexOf('Subtotal IVA 0%');
         const iIVA = headers.indexOf('IVA'), iT = headers.indexOf('Total'), iSa = headers.indexOf('Saldo');
-        const iR = headers.indexOf('Retenciones'), iE = headers.indexOf('Estado'), iDe = headers.indexOf('Descripción');
+        const iR = headers.indexOf('Retenciones'), iDe = headers.indexOf('Descripción');
 
         const facturas = [];
         for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -200,15 +158,16 @@ async function concLoadContifico(file) {
             });
         }
 
-        let nuevas = 0;
-        for (const f of facturas) {
-            const { error } = await db.from('facturas').upsert(f, { onConflict: 'numero_factura', ignoreDuplicates: true });
-            if (!error) nuevas++;
+        // Batch upsert (same pattern as sync)
+        const batchSize = 50;
+        for (let i = 0; i < facturas.length; i += batchSize) {
+            await db.from('facturas').upsert(facturas.slice(i, i + batchSize), { onConflict: 'numero_factura', ignoreDuplicates: true });
         }
 
         const facRes = await db.from('facturas').select('*').order('fecha', { ascending: false });
         concData.facturas = facRes.data || [];
-        status.innerHTML = '<span style="color:#059669;">' + facturas.length + ' facturas (' + nuevas + ' nuevas)</span>';
+        concBuildMaps();
+        status.innerHTML = '<span style="color:#059669;">' + facturas.length + ' facturas cargadas</span>';
         concUpdateResumen();
         concRenderDepositos();
     } catch (e) { status.textContent = 'Error: ' + e.message; console.error(e); }
@@ -223,20 +182,14 @@ async function concLoadBancoWeb(file) {
     try {
         const data = await file.arrayBuffer();
         const wb = XLSX.read(data, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
         const creditos = [];
         for (let i = 1; i < rows.length; i++) {
             const r = rows[i];
             if (!r || r.length < 7) continue;
             const credito = parseFloat(r[5]) || 0;
             if (credito <= 0) continue;
-            creditos.push({
-                fecha: concParseDateWeb(String(r[0] || '')),
-                doc_numero: String(r[2] || '').trim(),
-                descripcion_web: String(r[3] || '').trim(),
-                monto: credito
-            });
+            creditos.push({ fecha: concParseDate(String(r[0] || '')), doc_numero: String(r[2] || '').trim(), descripcion_web: String(r[3] || '').trim(), monto: credito });
         }
         concData.bancoWeb = creditos;
         status.innerHTML = '<span style="color:#059669;">' + creditos.length + ' depositos</span>';
@@ -254,8 +207,7 @@ async function concLoadBancoCelular(file) {
     try {
         const data = await file.arrayBuffer();
         const wb = XLSX.read(data, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const allRows = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: '' });
+        const allRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 'A', defval: '' });
         const creditos = [];
         for (let i = 0; i < allRows.length; i++) {
             const row = allRows[i];
@@ -263,8 +215,7 @@ async function concLoadBancoCelular(file) {
             const concepto = String(row['E'] || '').trim();
             const monto = concParseMontoEC(String(row['O'] || ''));
             const fecha = String(row['D'] || '').trim();
-            let doc_numero = '';
-            if (i + 1 < allRows.length) doc_numero = String(allRows[i + 1]['H'] || '').trim();
+            let doc_numero = (i + 1 < allRows.length) ? String(allRows[i + 1]['H'] || '').trim() : '';
             let nombre = '';
             const deMatch = concepto.match(/(?:TRANSF\.\s*(?:DIRECTA|INTERBANCARIA)\s*DE\s+)(.+)/i);
             if (deMatch) nombre = deMatch[1].trim();
@@ -297,29 +248,33 @@ async function concMergeAndSave() {
             merged.push({ fecha: w.fecha, fecha_hora: '', monto: w.monto, doc_numero: w.doc_numero, concepto_celular: '', descripcion_web: w.descripcion_web, nombre_depositante: concExtractNombreWeb(w.descripcion_web), tipo_transaccion: concDetectTipoTx(w.descripcion_web) });
         }
     });
-    let nuevos = 0;
-    for (const d of merged) {
-        const { error } = await db.from('depositos').upsert(d, { onConflict: 'doc_numero,monto,fecha', ignoreDuplicates: true });
-        if (!error) nuevos++;
+    // Batch upsert (50 at a time)
+    const batchSize = 50;
+    for (let i = 0; i < merged.length; i += batchSize) {
+        await db.from('depositos').upsert(merged.slice(i, i + batchSize), { onConflict: 'doc_numero,monto,fecha', ignoreDuplicates: true });
     }
     const depRes = await db.from('depositos').select('*').order('fecha', { ascending: false });
     concData.depositos = depRes.data || [];
-    document.getElementById('concWebStatus').innerHTML = '<span style="color:#059669;">Merged! ' + merged.length + ' depositos (' + nuevos + ' nuevos)</span>';
+    concBuildMaps();
+    document.getElementById('concWebStatus').innerHTML = '<span style="color:#059669;">Merged! ' + merged.length + ' depositos</span>';
     document.getElementById('concCelStatus').innerHTML = '<span style="color:#059669;">Merged! ' + merged.length + ' depositos</span>';
     concUpdateResumen();
     concRenderDepositos();
 }
 
 // =====================================================
-// AUTO-MATCH
+// AUTO-MATCH (internal - returns count, no alert)
 // =====================================================
-function concAutoMatch() {
-    if (concData.facturas.length === 0 || concData.depositos.length === 0) { alert('Necesitas facturas y depositos cargados'); return; }
+async function concAutoMatchInternal() {
     const pendientes = concData.facturas.filter(f => f.estado_pago === 'pendiente');
     const sinConciliar = concData.depositos.filter(d => d.estado === 'sin_conciliar');
+    if (pendientes.length === 0 || sinConciliar.length === 0) return 0;
+
     let matched = 0;
     const tolerance = 0.02;
     const usedFacturas = new Set();
+    const newMatches = []; // collect for batch save
+    const depUpdates = []; // collect deposit IDs to update
 
     for (const dep of sinConciliar) {
         const monto = +dep.monto;
@@ -328,6 +283,8 @@ function concAutoMatch() {
         for (const f of pendientes) {
             if (!usedFacturas.has(f.id) && Math.abs(f.saldo - monto) <= tolerance && concNombreCoincide(dep.nombre_depositante, f.cliente)) {
                 concData.matches[dep.id] = [{ factura_id: f.id, monto: f.saldo }];
+                newMatches.push({ deposito_id: dep.id, factura_id: f.id, monto_aplicado: f.saldo });
+                depUpdates.push(dep.id);
                 usedFacturas.add(f.id);
                 dep.estado = 'conciliado';
                 found = true; matched++; break;
@@ -341,17 +298,44 @@ function concAutoMatch() {
                 if (combo) {
                     const mfs = combo.map(idx => clientFacs[idx]);
                     concData.matches[dep.id] = mfs.map(f => ({ factura_id: f.id, monto: f.saldo }));
-                    mfs.forEach(f => usedFacturas.add(f.id));
+                    mfs.forEach(f => {
+                        newMatches.push({ deposito_id: dep.id, factura_id: f.id, monto_aplicado: f.saldo });
+                        usedFacturas.add(f.id);
+                    });
+                    depUpdates.push(dep.id);
                     dep.estado = 'conciliado'; matched++;
                 }
             }
         }
     }
-    concSaveMatches().then(() => {
-        concUpdateResumen();
-        concRenderDepositos();
-        alert('Auto-conciliacion: ' + matched + ' de ' + sinConciliar.length + ' depositos conciliados');
-    });
+
+    // Batch save matches and updates
+    if (newMatches.length > 0) {
+        const batchSize = 50;
+        for (let i = 0; i < newMatches.length; i += batchSize) {
+            await db.from('conciliacion_matches').upsert(newMatches.slice(i, i + batchSize), { onConflict: 'deposito_id,factura_id' });
+        }
+    }
+    // Batch update deposit states
+    await Promise.all(depUpdates.map(id => db.from('depositos').update({ estado: 'conciliado' }).eq('id', id)));
+    // Batch update invoice states
+    const matchedFacIds = [...usedFacturas];
+    await Promise.all(matchedFacIds.map(id => {
+        const f = concData.facturasById[id];
+        if (f) f.estado_pago = 'pagada';
+        return db.from('facturas').update({ estado_pago: 'pagada', fecha_pago: new Date().toISOString() }).eq('id', id);
+    }));
+
+    return matched;
+}
+
+// Public auto-match with alert
+async function concAutoMatch() {
+    if (concData.facturas.length === 0 || concData.depositos.length === 0) { alert('Necesitas facturas y depositos cargados'); return; }
+    const matched = await concAutoMatchInternal();
+    concUpdateResumen();
+    concRenderDepositos();
+    alert('Auto-conciliacion: ' + matched + ' depositos conciliados');
 }
 
 function concFindCombination(amounts, target, tolerance, maxItems = 5) {
@@ -386,29 +370,21 @@ function concNombreCoincide(depositante, cliente) {
 }
 
 // =====================================================
-// SAVE MATCHES + register in Contifico
+// SAVE: Only specific matches (not all)
 // =====================================================
-async function concSaveMatches(docNumero, fechaPago) {
-    for (const [depId, factures] of Object.entries(concData.matches)) {
-        const dep = concData.depositos.find(d => d.id === +depId);
-        for (const m of factures) {
-            await db.from('conciliacion_matches').upsert({ deposito_id: +depId, factura_id: m.factura_id, monto_aplicado: m.monto }, { onConflict: 'deposito_id,factura_id' });
-        }
-        await db.from('depositos').update({ estado: 'conciliado' }).eq('id', +depId);
+async function concSaveSpecificMatches(depositoId, matchedFacturas, docNumero, fechaPago) {
+    const dep = concData.depositosById[depositoId];
+    // Save matches to DB
+    const inserts = matchedFacturas.map(m => ({ deposito_id: depositoId, factura_id: m.factura_id, monto_aplicado: m.monto }));
+    await db.from('conciliacion_matches').upsert(inserts, { onConflict: 'deposito_id,factura_id' });
+    await db.from('depositos').update({ estado: 'conciliado' }).eq('id', depositoId);
 
-        // Update invoices + register payment in Contifico
-        for (const m of factures) {
-            await db.from('facturas').update({ estado_pago: 'pagada', fecha_pago: new Date().toISOString() }).eq('id', m.factura_id);
-            const f = concData.facturas.find(f => f.id === m.factura_id);
-            if (f) f.estado_pago = 'pagada';
-
-            // Register in Contifico
-            const doc = docNumero || (dep ? dep.doc_numero : '');
-            const fecha = fechaPago || (dep ? dep.fecha : '');
-            const fechaFmt = fecha ? concFormatDateContifico(fecha) : '';
-            await concRegistrarPagoContifico(m.factura_id, m.monto, doc, fechaFmt);
-        }
-    }
+    // Update invoices
+    await Promise.all(matchedFacturas.map(m => {
+        const f = concData.facturasById[m.factura_id];
+        if (f) f.estado_pago = 'pagada';
+        return db.from('facturas').update({ estado_pago: 'pagada', fecha_pago: new Date().toISOString() }).eq('id', m.factura_id);
+    }));
 }
 
 // =====================================================
@@ -434,7 +410,7 @@ function concRenderDepositos() {
     for (const d of deps) {
         const matches = concData.matches[d.id] || [];
         const facturasHtml = matches.map(m => {
-            const f = concData.facturas.find(f => f.id === m.factura_id);
+            const f = concData.facturasById[m.factura_id];
             return f ? '<span style="background:#dcfce7;color:#059669;padding:0.1rem 0.3rem;border-radius:3px;font-size:0.72rem;">' + f.numero_factura + '</span>' : '';
         }).join(' ');
         const eC = d.estado === 'conciliado', eNA = d.estado === 'no_aplica';
@@ -445,37 +421,44 @@ function concRenderDepositos() {
         html += '<td style="padding:0.4rem 0.5rem;white-space:nowrap;font-size:0.78rem;">' + (d.fecha || '') + '</td>';
         html += '<td style="padding:0.4rem 0.5rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;font-size:0.78rem;" title="' + (d.concepto_celular || '').replace(/"/g, '') + '">' + (d.nombre_depositante || '<em style=color:var(--gray-400)>sin nombre</em>') + '</td>';
         html += '<td style="padding:0.4rem 0.5rem;text-align:right;font-weight:600;font-size:0.85rem;">$' + fmtN(+d.monto, 2) + '</td>';
+        html += '<td style="padding:0.4rem 0.5rem;font-size:0.78rem;color:var(--gray-600);">' + (d.doc_numero || '—') + '</td>';
         html += '<td style="padding:0.4rem 0.5rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;font-size:0.72rem;color:var(--gray-500);" title="' + (d.descripcion_web || '').replace(/"/g, '') + '">' + (d.descripcion_web || d.concepto_celular || '').substring(0, 40) + '</td>';
         html += '<td style="padding:0.4rem 0.5rem;text-align:center;"><span style="background:' + estadoBg + ';color:' + estadoColor + ';padding:0.15rem 0.4rem;border-radius:4px;font-size:0.72rem;font-weight:600;">' + estadoLabel + '</span></td>';
         html += '<td style="padding:0.4rem 0.5rem;font-size:0.72rem;">' + (facturasHtml || '—') + '</td>';
         html += '<td style="padding:0.4rem 0.5rem;text-align:center;">';
         if (d.estado === 'sin_conciliar') html += '<button onclick="concOpenModal(' + d.id + ')" style="background:var(--primary);color:white;border:none;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.72rem;cursor:pointer;">Conciliar</button>';
         else if (eC) html += '<button onclick="concUndoMatch(' + d.id + ')" style="background:var(--gray-200);color:var(--gray-600);border:none;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.72rem;cursor:pointer;">Deshacer</button>';
+        else if (eNA) html += '<button onclick="concRevertNoAplica(' + d.id + ')" style="background:var(--gray-200);color:var(--gray-600);border:none;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.72rem;cursor:pointer;">Revertir</button>';
         html += '</td></tr>';
     }
-    tbody.innerHTML = html || '<tr><td colspan="7" style="padding:2rem;text-align:center;color:var(--gray-400);">No hay depositos cargados</td></tr>';
+    tbody.innerHTML = html || '<tr><td colspan="8" style="padding:2rem;text-align:center;color:var(--gray-400);">No hay depositos cargados</td></tr>';
 }
 
 function concUpdateResumen() {
     const totalFact = concData.facturas.filter(f => f.estado_pago === 'pendiente').length;
+    // Single pass for deposit counts
+    let conciliados = 0, sinConc = 0, noAplica = 0;
+    concData.depositos.forEach(d => {
+        if (d.estado === 'conciliado') conciliados++;
+        else if (d.estado === 'sin_conciliar') sinConc++;
+        else if (d.estado === 'no_aplica') noAplica++;
+    });
     document.getElementById('concResFacturas').textContent = totalFact;
     document.getElementById('concResDepositos').textContent = concData.depositos.length;
-    document.getElementById('concResConciliados').textContent = concData.depositos.filter(d => d.estado === 'conciliado').length;
-    document.getElementById('concResSinConciliar').textContent = concData.depositos.filter(d => d.estado === 'sin_conciliar').length;
-    document.getElementById('concResAlertas').textContent = concData.depositos.filter(d => d.estado === 'no_aplica').length;
+    document.getElementById('concResConciliados').textContent = conciliados;
+    document.getElementById('concResSinConciliar').textContent = sinConc;
+    document.getElementById('concResAlertas').textContent = noAplica;
 }
 
 // =====================================================
-// MODAL: Manual matching
+// MODAL
 // =====================================================
 function concOpenModal(depositoId) {
     concModalDepositoId = depositoId;
     concModalSelected = new Set();
-    const dep = concData.depositos.find(d => d.id === depositoId);
+    const dep = concData.depositosById[depositoId];
     if (!dep) return;
     document.getElementById('concModalDepInfo').innerHTML = '<strong>' + (dep.nombre_depositante || 'Sin nombre') + '</strong> — $' + fmtN(+dep.monto, 2) + ' — ' + dep.fecha + '<br><span style="font-size:0.75rem;color:var(--gray-400);">Doc: ' + (dep.doc_numero || '-') + '</span>';
-
-    // Suggestions
     const pendientes = concData.facturas.filter(f => f.estado_pago === 'pendiente');
     document.getElementById('concModalSugerencias').innerHTML = concBuildSuggestions(dep, pendientes);
     concRenderModalFacturas();
@@ -493,10 +476,6 @@ function concBuildSuggestions(dep, facturas) {
     if (clientFacs.length >= 2) {
         const combo = concFindCombination(clientFacs.map(f => f.saldo), monto, tolerance, 5);
         if (combo) suggestions.push({ label: 'Combinacion (' + combo.length + ' facturas)', facturas: combo.map(i => clientFacs[i]), diff: Math.abs(combo.reduce((s, i) => s + clientFacs[i].saldo, 0) - monto) });
-    }
-    if (suggestions.length === 0) {
-        const combo = concFindCombination(facturas.map(f => f.saldo), monto, tolerance, 4);
-        if (combo) suggestions.push({ label: 'Combinacion posible', facturas: combo.map(i => facturas[i]), diff: Math.abs(combo.reduce((s, i) => s + facturas[i].saldo, 0) - monto) });
     }
     if (suggestions.length === 0) return '<div style="background:#fef3c7;padding:0.5rem;border-radius:6px;font-size:0.8rem;color:#92400e;">Sin sugerencias. Selecciona facturas manualmente.</div>';
     let html = '<div style="font-weight:600;font-size:0.8rem;color:var(--gray-600);margin-bottom:0.3rem;">Sugerencias</div>';
@@ -529,10 +508,10 @@ function concRenderModalFacturas() {
 function concToggleFactura(id) { concModalSelected.has(id) ? concModalSelected.delete(id) : concModalSelected.add(id); concRenderModalFacturas(); concUpdateModalTotal(); }
 
 function concUpdateModalTotal() {
-    const dep = concData.depositos.find(d => d.id === concModalDepositoId);
+    const dep = concData.depositosById[concModalDepositoId];
     if (!dep) return;
     let total = 0;
-    concModalSelected.forEach(fId => { const f = concData.facturas.find(f => f.id === fId); if (f) total += f.saldo; });
+    concModalSelected.forEach(fId => { const f = concData.facturasById[fId]; if (f) total += f.saldo; });
     document.getElementById('concModalTotal').textContent = fmtN(total, 2);
     const diff = total - (+dep.monto);
     const diffEl = document.getElementById('concModalDiff');
@@ -547,14 +526,13 @@ function concUpdateModalTotal() {
 
 async function concConfirmMatch() {
     if (!concModalDepositoId || concModalSelected.size === 0) return;
-    const dep = concData.depositos.find(d => d.id === concModalDepositoId);
+    const dep = concData.depositosById[concModalDepositoId];
     if (!dep) return;
-    const facturas = [];
-    concModalSelected.forEach(fId => { const f = concData.facturas.find(f => f.id === fId); if (f) facturas.push({ factura_id: f.id, monto: f.saldo }); });
-    concData.matches[dep.id] = facturas;
+    const matchedFacturas = [];
+    concModalSelected.forEach(fId => { const f = concData.facturasById[fId]; if (f) matchedFacturas.push({ factura_id: f.id, monto: f.saldo }); });
+    concData.matches[dep.id] = matchedFacturas;
     dep.estado = 'conciliado';
-    // Pass doc number and date for Contifico registration
-    await concSaveMatches(dep.doc_numero, dep.fecha);
+    await concSaveSpecificMatches(dep.id, matchedFacturas, dep.doc_numero, dep.fecha);
     concCloseModal();
     concUpdateResumen();
     concRenderDepositos();
@@ -562,7 +540,7 @@ async function concConfirmMatch() {
 
 async function concMarcarNoAplica() {
     if (!concModalDepositoId) return;
-    const dep = concData.depositos.find(d => d.id === concModalDepositoId);
+    const dep = concData.depositosById[concModalDepositoId];
     if (!dep) return;
     const nota = prompt('Nota (opcional):');
     dep.estado = 'no_aplica'; dep.nota = nota || '';
@@ -570,25 +548,36 @@ async function concMarcarNoAplica() {
     concCloseModal(); concUpdateResumen(); concRenderDepositos();
 }
 
+async function concRevertNoAplica(depositoId) {
+    const dep = concData.depositosById[depositoId];
+    if (!dep) return;
+    dep.estado = 'sin_conciliar'; dep.nota = '';
+    await db.from('depositos').update({ estado: 'sin_conciliar', nota: '' }).eq('id', dep.id);
+    concUpdateResumen(); concRenderDepositos();
+}
+
 async function concUndoMatch(depositoId) {
     if (!confirm('Deshacer conciliacion?')) return;
-    const dep = concData.depositos.find(d => d.id === depositoId);
+    const dep = concData.depositosById[depositoId];
     if (!dep) return;
     const matches = concData.matches[depositoId] || [];
-    for (const m of matches) {
-        await db.from('facturas').update({ estado_pago: 'pendiente', fecha_pago: null }).eq('id', m.factura_id);
-        const f = concData.facturas.find(f => f.id === m.factura_id);
+    // Concurrent restore of invoices
+    await Promise.all(matches.map(m => {
+        const f = concData.facturasById[m.factura_id];
         if (f) f.estado_pago = 'pendiente';
-    }
-    await db.from('conciliacion_matches').delete().eq('deposito_id', depositoId);
+        return db.from('facturas').update({ estado_pago: 'pendiente', fecha_pago: null }).eq('id', m.factura_id);
+    }));
+    await Promise.all([
+        db.from('conciliacion_matches').delete().eq('deposito_id', depositoId),
+        db.from('depositos').update({ estado: 'sin_conciliar' }).eq('id', dep.id)
+    ]);
     delete concData.matches[depositoId];
     dep.estado = 'sin_conciliar';
-    await db.from('depositos').update({ estado: 'sin_conciliar' }).eq('id', dep.id);
     concUpdateResumen(); concRenderDepositos();
 }
 
 // =====================================================
-// EXPORT report
+// EXPORT
 // =====================================================
 function concExportReport() {
     if (concData.depositos.length === 0) { alert('No hay datos'); return; }
@@ -596,8 +585,8 @@ function concExportReport() {
     const conciliados = concData.depositos.filter(d => d.estado === 'conciliado').map(d => {
         const ms = concData.matches[d.id] || [];
         return { 'Fecha': d.fecha, 'Depositante': d.nombre_depositante, 'Monto': +d.monto, 'Doc Banco': d.doc_numero,
-            'Facturas': ms.map(m => { const f = concData.facturas.find(f => f.id === m.factura_id); return f ? f.numero_factura : ''; }).join(', '),
-            'Cliente': ms.map(m => { const f = concData.facturas.find(f => f.id === m.factura_id); return f ? f.cliente : ''; }).filter((v, i, a) => a.indexOf(v) === i).join(', ')
+            'Facturas': ms.map(m => { const f = concData.facturasById[m.factura_id]; return f ? f.numero_factura : ''; }).join(', '),
+            'Cliente': ms.map(m => { const f = concData.facturasById[m.factura_id]; return f ? f.cliente : ''; }).filter((v, i, a) => a.indexOf(v) === i).join(', ')
         };
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(conciliados), 'Conciliados');
@@ -609,12 +598,10 @@ function concExportReport() {
 }
 
 // =====================================================
-// HELPERS
+// HELPERS (removed redundant wrappers)
 // =====================================================
 function concParseDate(val) { if (!val) return null; const m = String(val).match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); if (m) { let y = parseInt(m[3]); if (y < 100) y += 2000; return y + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0'); } return String(val); }
-function concParseDateWeb(val) { return concParseDate(val); }
 function concParseDateCelular(val) { if (!val) return null; const m = String(val).match(/(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return m[1] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[3]).padStart(2, '0'); return concParseDate(val); }
-function concParseDateContifico(val) { return concParseDate(val); }
 function concFormatDateContifico(isoDate) { if (!isoDate) return ''; const m = String(isoDate).match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1] : isoDate; }
 function concParseMontoEC(raw) { let s = String(raw).replace('$', '').trim(); if (s.startsWith('-')) return 0; s = s.replace(/\./g, '').replace(',', '.'); return parseFloat(s) || 0; }
 function concDetectTipoTx(desc) { if (!desc) return 'otro'; const d = desc.toUpperCase(); if (d.includes('INTERBANCARIA')) return 'interbancaria'; if (d.includes('TRANSFERENCIA') || d.includes('TRANSF.')) return 'transferencia'; if (d.includes('DEPOSITO') || d.includes('DEPÓSITO')) return 'deposito'; if (d.includes('CHEQUE')) return 'cheque'; return 'otro'; }
