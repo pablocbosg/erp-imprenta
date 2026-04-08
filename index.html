@@ -2300,6 +2300,7 @@
                                 <th style="width:80px;">Cant.</th>
                                 <th style="width:100px;">P. Unitario</th>
                                 <th style="width:100px;">Importe</th>
+                                <th style="width:90px;" class="no-print" title="Metodo de impresion (solo uso interno)">Metodo</th>
                                 <th style="width:80px;">Ref.</th>
                                 <th style="width:40px;" class="no-print"></th>
                             </tr></thead>
@@ -2673,6 +2674,7 @@
                 <button class="admin-tab-btn active" onclick="switchAdminTab('materiales')">Materiales</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('terminados')">Terminados</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('parametros')">Parametros</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('staff')">Equipo</button>
             </div>
 
             <!-- Materiales -->
@@ -2761,6 +2763,31 @@
                         <p class="text-sm text-muted">Estos valores se usan como base al crear una nueva cotizacion. Puedes modificarlos en cada cotizacion individual.</p>
                         <div class="separator"></div>
                         <button class="btn btn-primary" style="width:100%" onclick="saveParams(); alert('Parametros guardados')">Guardar Cambios</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Staff / Equipo -->
+            <div id="admin-staff" class="admin-content">
+                <div class="panel">
+                    <div class="panel-header">
+                        Equipo de trabajo
+                        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="addStaff()">+ Agregar</button>
+                    </div>
+                    <div class="panel-body" style="overflow-x:auto">
+                        <table class="data-table" id="staffTable">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Rol</th>
+                                    <th>Email</th>
+                                    <th>Activo</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="staffBody"></tbody>
+                        </table>
+                        <div id="staffEmpty" style="padding:1.5rem;text-align:center;color:var(--gray-400);font-size:0.9rem;display:none;">No hay personas registradas. Agrega la primera.</div>
                     </div>
                 </div>
             </div>
@@ -3742,6 +3769,7 @@
         document.querySelectorAll('.admin-tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById('admin-' + tab).classList.add('active');
         event.target.classList.add('active');
+        if (tab === 'staff') loadStaff();
     }
 
     // =====================================================
@@ -3783,6 +3811,58 @@
         if (data) appData.materiales.push({ id: data.id, nombre: data.nombre, categoria: data.categoria, gramaje: +data.gramaje, ancho: +data.ancho, alto: +data.alto, precio: +data.precio });
         renderMateriales();
         populateMaterialSelect();
+    }
+
+    // =====================================================
+    // ADMIN: Staff / Equipo
+    // =====================================================
+    let staffCache = [];
+
+    async function loadStaff() {
+        const { data } = await db.from('staff').select('*').order('activo', { ascending: false }).order('nombre');
+        staffCache = data || [];
+        renderStaff();
+    }
+
+    function renderStaff() {
+        const tbody = document.getElementById('staffBody');
+        const empty = document.getElementById('staffEmpty');
+        if (!staffCache.length) {
+            tbody.innerHTML = '';
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+        tbody.innerHTML = staffCache.map((s, i) => `<tr style="${s.activo ? '' : 'opacity:0.5;'}">
+            <td><input type="text" value="${s.nombre || ''}" onchange="updateStaff(${i},'nombre',this.value)"></td>
+            <td><input type="text" value="${s.rol || ''}" style="width:120px" onchange="updateStaff(${i},'rol',this.value)" placeholder="Diseñador, Prensista..."></td>
+            <td><input type="email" value="${s.email || ''}" onchange="updateStaff(${i},'email',this.value)"></td>
+            <td style="text-align:center;"><input type="checkbox" ${s.activo ? 'checked' : ''} onchange="updateStaff(${i},'activo',this.checked)"></td>
+            <td><button class="btn btn-danger btn-sm" onclick="deleteStaff(${i})">X</button></td>
+        </tr>`).join('');
+    }
+
+    async function updateStaff(i, field, val) {
+        staffCache[i][field] = val;
+        const s = staffCache[i];
+        await db.from('staff').update({ [field]: val }).eq('id', s.id);
+        if (field === 'activo') renderStaff();
+    }
+
+    async function deleteStaff(i) {
+        const s = staffCache[i];
+        if (!confirm('Eliminar a ' + (s.nombre || 'esta persona') + '?')) return;
+        await db.from('staff').delete().eq('id', s.id);
+        staffCache.splice(i, 1);
+        renderStaff();
+    }
+
+    async function addStaff() {
+        const { data } = await db.from('staff')
+            .insert({ nombre: 'Nueva persona', rol: '', email: '', activo: true })
+            .select().single();
+        if (data) staffCache.unshift(data);
+        renderStaff();
     }
 
     // =====================================================
@@ -6358,6 +6438,9 @@
         empty.style.display = 'none';
         body.innerHTML = items.map((item, i) => {
             const importe = (item.cantidad || 0) * (item.precio_unitario || 0);
+            const metodo = item.metodo_impresion || '';
+            const metodoBg = metodo === 'offset' ? '#ede9fe' : metodo === 'digital' ? '#dbeafe' : '#f3f4f6';
+            const metodoColor = metodo === 'offset' ? '#6d28d9' : metodo === 'digital' ? '#1e40af' : '#6b7280';
             return `<tr>
                 <td style="text-align:center;color:var(--gray-400);">${i + 1}</td>
                 <td><input type="text" placeholder="COD" value="${item.codigo || ''}" onchange="updateProformaItem(${i},'codigo',this.value)" style="width:80px;font-size:0.8rem;"></td>
@@ -6365,6 +6448,13 @@
                 <td><input type="number" min="0" value="${item.cantidad || 0}" onchange="updateProformaItem(${i},'cantidad',parseFloat(this.value)||0)"></td>
                 <td><input type="number" min="0" step="0.001" value="${(item.precio_unitario || 0).toFixed(3)}" onchange="updateProformaItem(${i},'precio_unitario',parseFloat(this.value)||0)"></td>
                 <td style="text-align:right;font-weight:600;">$${fmtN(importe, 2)}</td>
+                <td class="no-print">
+                    <select onchange="updateProformaItem(${i},'metodo_impresion',this.value||null)" style="width:100%;padding:0.3rem;font-size:0.78rem;font-weight:600;background:${metodoBg};color:${metodoColor};border:1px solid ${metodoColor};border-radius:5px;">
+                        <option value=""${!metodo ? ' selected' : ''}>—</option>
+                        <option value="offset"${metodo === 'offset' ? ' selected' : ''}>OFFSET</option>
+                        <option value="digital"${metodo === 'digital' ? ' selected' : ''}>DIGITAL</option>
+                    </select>
+                </td>
                 <td>${item.imagen_url
                     ? `<img src="${item.imagen_url}" class="item-img" onclick="cambiarImagenItem(${i})" title="Click para cambiar">`
                     : `<div class="item-img-placeholder" onclick="cambiarImagenItem(${i})" title="Subir imagen">+</div>`
@@ -6514,6 +6604,7 @@
             precio_unitario: precioUnit,
             iva_pct: itemIvaPct,
             imagen_url: null,
+            metodo_impresion: 'offset',
             datos_cotizacion: snapshot
         });
 
@@ -6671,6 +6762,7 @@
             precio_unitario: precioUnit,
             iva_pct: itemIvaPct,
             imagen_url: null,
+            metodo_impresion: 'digital',
             datos_cotizacion: snapshot
         });
 
@@ -6919,6 +7011,7 @@
                 cantidad: it.cantidad,
                 precio_unitario: it.precio_unitario,
                 imagen_url: it.imagen_url || null,
+                metodo_impresion: it.metodo_impresion || null,
                 datos_cotizacion: it.datos_cotizacion || null
             }));
 
