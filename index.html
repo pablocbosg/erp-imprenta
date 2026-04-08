@@ -6403,7 +6403,8 @@
         const cantidad = parseFloat(document.getElementById('cotCantidad').value) || 0;
 
         // Get the unit price (sin IVA) from cotizador results
-        const precioUnit = parseFloat(document.getElementById('cotPrecioUnit')?.textContent) || 0;
+        // fmtN formatea con coma decimal, parseFloat espera punto
+        const precioUnit = parseFloat((document.getElementById('cotPrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
 
         // Snapshot of all calculation data
         const snapshot = {
