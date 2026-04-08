@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "calculadora",
-      "runtimeExecutable": "ruby",
-      "runtimeArgs": ["-e", "require 'webrick'; WEBrick::HTTPServer.new(Port: 8080, DocumentRoot: '/tmp/calculadora').start"],
+      "name": "erp",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["http-server", "/Users/pablocobos/Desktop/calculadora de cortes", "-p", "8080", "-c-1"],
       "port": 8080
     }
   ]
