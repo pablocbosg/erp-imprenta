@@ -6307,7 +6307,7 @@
                 <td><input type="text" placeholder="COD" value="${item.codigo || ''}" onchange="updateProformaItem(${i},'codigo',this.value)" style="width:80px;font-size:0.8rem;"></td>
                 <td><textarea onchange="updateProformaItem(${i},'descripcion',this.value)">${item.descripcion || ''}</textarea></td>
                 <td><input type="number" min="0" value="${item.cantidad || 0}" onchange="updateProformaItem(${i},'cantidad',parseFloat(this.value)||0)"></td>
-                <td><input type="number" min="0" step="0.01" value="${item.precio_unitario || 0}" onchange="updateProformaItem(${i},'precio_unitario',parseFloat(this.value)||0)"></td>
+                <td><input type="number" min="0" step="0.001" value="${(item.precio_unitario || 0).toFixed(3)}" onchange="updateProformaItem(${i},'precio_unitario',parseFloat(this.value)||0)"></td>
                 <td style="text-align:right;font-weight:600;">$${fmtN(importe, 2)}</td>
                 <td>${item.imagen_url
                     ? `<img src="${item.imagen_url}" class="item-img" onclick="cambiarImagenItem(${i})" title="Click para cambiar">`
