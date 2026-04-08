@@ -472,8 +472,9 @@
                             </div>
                         </div>
                         <div class="form-group" style="margin-top:0.5rem;">
-                            <label>Margen de maquina por lado (cm)</label>
-                            <input type="number" id="cotMargenMaquina" step="0.1" min="0" value="1" oninput="cotCalc()">
+                            <label>Margen lateral/inferior (cm)</label>
+                            <input type="number" id="cotMargenMaquina" step="0.1" min="0" value="0.5" oninput="cotCalc()">
+                            <div class="text-sm text-muted" style="font-size:0.72rem;margin-top:0.15rem;">Pinza superior fija: 1 cm</div>
                         </div>
                         <div id="cotAreaUtil" class="text-sm text-muted mt-1"></div>
                         <div id="cotFormatosInfo" class="mt-1"></div>
@@ -728,8 +729,9 @@
                             </div>
                         </div>
                         <div class="form-group" style="margin-top:0.5rem;">
-                            <label>Margen de maquina por lado (cm)</label>
-                            <input type="number" id="pub1MargenMaquina" step="0.1" min="0" value="1" oninput="cotCalcPub()">
+                            <label>Margen lateral/inferior (cm)</label>
+                            <input type="number" id="pub1MargenMaquina" step="0.1" min="0" value="0.5" oninput="cotCalcPub()">
+                            <div class="text-sm text-muted" style="font-size:0.72rem;margin-top:0.15rem;">Pinza superior fija: 1 cm</div>
                         </div>
                         <div id="pub1AreaUtil" class="text-sm text-muted mt-1"></div>
                         <div id="pub1FormatosInfo" class="mt-1"></div>
@@ -907,8 +909,9 @@
                             </div>
                         </div>
                         <div class="form-group" style="margin-top:0.5rem;">
-                            <label>Margen de maquina por lado (cm)</label>
-                            <input type="number" id="pub2MargenMaquina" step="0.1" min="0" value="1" oninput="cotCalcPub()">
+                            <label>Margen lateral/inferior (cm)</label>
+                            <input type="number" id="pub2MargenMaquina" step="0.1" min="0" value="0.5" oninput="cotCalcPub()">
+                            <div class="text-sm text-muted" style="font-size:0.72rem;margin-top:0.15rem;">Pinza superior fija: 1 cm</div>
                         </div>
                         <div id="pub2AreaUtil" class="text-sm text-muted mt-1"></div>
                         <div id="pub2FormatosInfo" class="mt-1"></div>
@@ -1407,7 +1410,7 @@
                         </div>
                         <div class="form-group" style="margin-top:0.5rem;">
                             <label>Margen de maquina por lado (cm)</label>
-                            <input type="number" id="digMargenMaquina" step="0.1" min="0" value="0.3" oninput="digCalc()">
+                            <input type="number" id="digMargenMaquina" step="0.1" min="0" value="0.5" oninput="digCalc()">
                         </div>
                         <div id="digAreaUtil" class="text-sm text-muted mt-1"></div>
                         <div id="digClickInfo" style="margin-top:0.5rem;padding:0.4rem 0.6rem;background:#f3e8ff;border:1px solid #c084fc;border-radius:6px;font-size:0.8rem;color:#6b21a8;">
@@ -1624,7 +1627,7 @@
                         </div>
                         <div class="form-group" style="margin-top:0.5rem;">
                             <label>Margen de maquina por lado (cm)</label>
-                            <input type="number" id="digPub1MargenMaquina" step="0.1" min="0" value="0.3" oninput="digCalcPub()">
+                            <input type="number" id="digPub1MargenMaquina" step="0.1" min="0" value="0.5" oninput="digCalcPub()">
                         </div>
                         <div id="digPub1AreaUtil" class="text-sm text-muted mt-1"></div>
                     </div>
@@ -1767,7 +1770,7 @@
                         </div>
                         <div class="form-group" style="margin-top:0.5rem;">
                             <label>Margen de maquina por lado (cm)</label>
-                            <input type="number" id="digPub2MargenMaquina" step="0.1" min="0" value="0.3" oninput="digCalcPub()">
+                            <input type="number" id="digPub2MargenMaquina" step="0.1" min="0" value="0.5" oninput="digCalcPub()">
                         </div>
                         <div id="digPub2AreaUtil" class="text-sm text-muted mt-1"></div>
                     </div>
@@ -2938,9 +2941,11 @@
         reader.readAsArrayBuffer(file);
     }
 
-    function calcImpositionLayout(hojaW, hojaH, piezaW, piezaH, margenMaq, useMixed) {
+    function calcImpositionLayout(hojaW, hojaH, piezaW, piezaH, margenMaq, useMixed, marginTop) {
+        // marginTop: margen superior diferenciado (pinza). Si undefined, usa margenMaq (simetrico).
+        if (marginTop == null) marginTop = margenMaq;
         const usableW = hojaW - 2 * margenMaq;
-        const usableH = hojaH - 2 * margenMaq;
+        const usableH = hojaH - marginTop - margenMaq;
         const placements = [];
 
         if (usableW <= 0 || usableH <= 0 || piezaW <= 0 || piezaH <= 0) return placements;
@@ -2965,7 +2970,7 @@
                 for (let c = 0; c < layoutN.cols; c++) {
                     placements.push({
                         x: margenMaq + c * piezaW,
-                        y: margenMaq + r * piezaH,
+                        y: marginTop + r * piezaH,
                         w: piezaW, h: piezaH, rotated: false
                     });
                 }
@@ -2975,7 +2980,7 @@
                 for (let c = 0; c < layoutR.cols; c++) {
                     placements.push({
                         x: margenMaq + c * piezaH,
-                        y: margenMaq + r * piezaW,
+                        y: marginTop + r * piezaW,
                         w: piezaH, h: piezaW, rotated: true
                     });
                 }
@@ -2991,7 +2996,7 @@
                     for (let c = 0; c < zone.cols; c++) {
                         placements.push({
                             x: margenMaq + (zone.offsetX || 0) + c * zone.pw,
-                            y: margenMaq + (zone.offsetY || 0) + r * zone.ph,
+                            y: marginTop + (zone.offsetY || 0) + r * zone.ph,
                             w: zone.pw, h: zone.ph,
                             rotated: isRotated
                         });
@@ -3007,12 +3012,9 @@
                 if (p.x + p.w > maxX) maxX = p.x + p.w;
                 if (p.y + p.h > maxY) maxY = p.y + p.h;
             });
-            const offsetX = (hojaW - maxX) / 2 - placements[0].x + margenMaq > 0
-                ? (hojaW - (maxX - margenMaq + margenMaq)) / 2 - margenMaq
-                : 0;
-            // Simpler: total used width = maxX - margenMaq, center in usableW
+            // Total used width = maxX - margenMaq (left anchor), used height = maxY - marginTop
             const usedW = maxX - margenMaq;
-            const usedH = maxY - margenMaq;
+            const usedH = maxY - marginTop;
             const shiftX = (usableW - usedW) / 2;
             const shiftY = (usableH - usedH) / 2;
             placements.forEach(p => {
@@ -3111,10 +3113,11 @@
             const placasTR = document.getElementById('cotPlacasTR').value;
             const volteo = document.getElementById('cotVolteo').value;
             let placements;
+            const PINZA_TOP = 1;
             if (lados === 2 && placasTR === 'misma') {
                 // Tiro/retiro misma placa
                 const uW = hojaW - 2 * margenMaq;
-                const uH = hojaH - 2 * margenMaq;
+                const uH = hojaH - PINZA_TOP - margenMaq;
                 const nL = calcLayout(uW, uH, piezaW, piezaH, 0, 0);
                 const rL = calcLayout(uW, uH, piezaH, piezaW, 0, 0);
 
@@ -3137,7 +3140,7 @@
                 const totalPW = cols * pw;
                 const totalPH = rows * ph;
                 const offsetX = margenMaq + (uW - totalPW) / 2;
-                const offsetY = margenMaq + (uH - totalPH) / 2;
+                const offsetY = PINZA_TOP + (uH - totalPH) / 2;
                 placements = [];
                 for (let r = 0; r < rows; r++) {
                     for (let c = 0; c < cols; c++) {
@@ -3151,16 +3154,16 @@
                 }
             } else {
                 // 1 lado: usar layout con imposicion mixta, centrado
-                const tmpP = calcImpositionLayout(hojaW, hojaH, piezaW, piezaH, margenMaq, useMixed);
+                const tmpP = calcImpositionLayout(hojaW, hojaH, piezaW, piezaH, margenMaq, useMixed, PINZA_TOP);
                 if (tmpP.length > 0) {
                     const minX = Math.min(...tmpP.map(p => p.x));
                     const maxX = Math.max(...tmpP.map(p => p.x + p.w));
                     const minY = Math.min(...tmpP.map(p => p.y));
                     const maxY = Math.max(...tmpP.map(p => p.y + p.h));
                     const uW = hojaW - 2 * margenMaq;
-                    const uH = hojaH - 2 * margenMaq;
+                    const uH = hojaH - PINZA_TOP - margenMaq;
                     const shiftX = margenMaq + (uW - (maxX - minX)) / 2 - minX;
-                    const shiftY = margenMaq + (uH - (maxY - minY)) / 2 - minY;
+                    const shiftY = PINZA_TOP + (uH - (maxY - minY)) / 2 - minY;
                     placements = tmpP.map(p => ({ ...p, x: p.x + shiftX, y: p.y + shiftY }));
                 } else {
                     placements = tmpP;
@@ -4088,8 +4091,9 @@
 
         const piezaW = prodW + 2 * sangrado;
         const piezaH = prodH + 2 * sangrado;
+        const PINZA_TOP = 1;
         const hojaUtilW = hojaW - 2 * margenMaq;
-        const hojaUtilH = hojaH - 2 * margenMaq;
+        const hojaUtilH = hojaH - PINZA_TOP - margenMaq;
 
         const fmtPorPliego = (pliegoW > 0 && pliegoH > 0 && hojaW > 0 && hojaH > 0)
             ? bestCuts(pliegoW, pliegoH, hojaW, hojaH) : 0;
@@ -4299,8 +4303,7 @@
         if (pub1Info) pub1Info.innerHTML = '<span class="info-badge blue">' + port.fmtPorPliego + ' fmt/pliego</span> <span class="info-badge green">' + port.piezasPorHoja + ' portadas/hoja (' + fmtN(portPiezaAbiertaW, 1) + 'x' + fmtN(portPiezaAbiertaH, 1) + ' cm)</span>';
         // Area util portada
         const pub1Area = document.getElementById('pub1AreaUtil');
-        if (pub1Area && port.margenMaq > 0) pub1Area.textContent = 'Area util: ' + fmtN(port.hojaUtilW, 1) + ' x ' + fmtN(port.hojaUtilH, 1) + ' cm';
-        else if (pub1Area) pub1Area.textContent = '';
+        if (pub1Area) pub1Area.textContent = 'Area util: ' + fmtN(port.hojaUtilW, 1) + ' x ' + fmtN(port.hojaUtilH, 1) + ' cm (pinza 1 cm arriba + ' + fmtN(port.margenMaq, 1) + ' cm otros)';
 
         // === INTERIORES ===
         // Paginas individuales (no piezas abiertas). Tiro y retiro con placas separadas.
@@ -4317,8 +4320,9 @@
         const intHojaW = +document.getElementById('pub2HojaW').value || 0;
         const intHojaH = +document.getElementById('pub2HojaH').value || 0;
         const intMargenMaq = +document.getElementById('pub2MargenMaquina').value || 0;
+        const intPINZA_TOP = 1;
         const intHojaUtilW = intHojaW - 2 * intMargenMaq;
-        const intHojaUtilH = intHojaH - 2 * intMargenMaq;
+        const intHojaUtilH = intHojaH - intPINZA_TOP - intMargenMaq;
 
         const intPliegoW = +document.getElementById('pub2PliegoW').value || 0;
         const intPliegoH = +document.getElementById('pub2PliegoH').value || 0;
@@ -4420,8 +4424,7 @@
         const pub2Info = document.getElementById('pub2FormatosInfoMain');
         if (pub2Info) pub2Info.innerHTML = '<span class="info-badge" style="background:#ecfdf5;color:#059669;">' + paginasPorLado + ' pags/tiro (' + fmtN(intPiezaW, 1) + 'x' + fmtN(intPiezaH, 1) + ' cm c/u)</span> <span class="info-badge" style="background:#fef3c7;color:#92400e;">' + pliegosDiferentes + ' pliegos dif. x 2 = ' + intTotalJuegosPlacas + ' juegos placas</span>';
         const pub2Area = document.getElementById('pub2AreaUtil');
-        if (pub2Area && intMargenMaq > 0) pub2Area.textContent = 'Area util: ' + fmtN(intHojaUtilW, 1) + ' x ' + fmtN(intHojaUtilH, 1) + ' cm';
-        else if (pub2Area) pub2Area.textContent = '';
+        if (pub2Area) pub2Area.textContent = 'Area util: ' + fmtN(intHojaUtilW, 1) + ' x ' + fmtN(intHojaUtilH, 1) + ' cm (pinza 1 cm arriba + ' + fmtN(intMargenMaq, 1) + ' cm otros)';
 
         // === ENCUADERNACION ===
         const cantidad1 = port.cantidad;
@@ -4551,12 +4554,12 @@
         // === VISTAS PREVIAS ===
         // Portada: pieza en hoja maquina + hojas en pliego
         if (port.piezaW > 0 && port.piezaH > 0) {
-            cotDrawPreview('pub1PreviewHoja', port.hojaW, port.hojaH, port.piezaW, port.piezaH, port.margenMaq, false);
+            cotDrawPreview('pub1PreviewHoja', port.hojaW, port.hojaH, port.piezaW, port.piezaH, port.margenMaq, false, 1);
             cotDrawPreview('pub1PreviewPliego', port.pliegoW, port.pliegoH, port.hojaW, port.hojaH, 0, false);
         }
         // Interiores: paginas individuales en hoja maquina + hojas en pliego
         if (inte.piezaW > 0 && inte.piezaH > 0) {
-            cotDrawPreview('pub2PreviewHoja', inte.hojaW, inte.hojaH, inte.piezaW, inte.piezaH, inte.margenMaq, false);
+            cotDrawPreview('pub2PreviewHoja', inte.hojaW, inte.hojaH, inte.piezaW, inte.piezaH, inte.margenMaq, false, 1);
             cotDrawPreview('pub2PreviewPliego', inte.pliegoW, inte.pliegoH, inte.hojaW, inte.hojaH, 0, false);
         }
     }
@@ -5452,21 +5455,20 @@
         const ivaPct = +document.getElementById('cotIVA').value || 0;
 
         const margenMaq = +document.getElementById('cotMargenMaquina').value || 0;
+        const PINZA_TOP = 1; // cm, fija
 
         // Tamano de pieza con sangrado (sangrado por cada lado)
         const piezaW = prodW + 2 * sangrado;
         const piezaH = prodH + 2 * sangrado;
 
-        // Area util de la hoja (restar margenes de maquina por cada lado)
+        // Area util de la hoja: 1 cm arriba fijo (pinza) + margenMaq abajo + margenMaq cada lado
         const hojaUtilW = hojaW - 2 * margenMaq;
-        const hojaUtilH = hojaH - 2 * margenMaq;
+        const hojaUtilH = hojaH - PINZA_TOP - margenMaq;
 
         // Mostrar area util
         const areaUtilEl = document.getElementById('cotAreaUtil');
-        if (areaUtilEl && margenMaq > 0) {
-            areaUtilEl.textContent = 'Area util: ' + fmtN(hojaUtilW, 1) + ' x ' + fmtN(hojaUtilH, 1) + ' cm (descontando ' + fmtN(margenMaq, 1) + ' cm por lado)';
-        } else if (areaUtilEl) {
-            areaUtilEl.textContent = '';
+        if (areaUtilEl) {
+            areaUtilEl.textContent = 'Area util: ' + fmtN(hojaUtilW, 1) + ' x ' + fmtN(hojaUtilH, 1) + ' cm (pinza 1 cm arriba + ' + fmtN(margenMaq, 1) + ' cm en los otros lados)';
         }
 
         // 1. Formatos por pliego (hojas completas en el pliego, sin margen)
@@ -5855,16 +5857,18 @@
         const placasTRActual = document.getElementById('cotPlacasTR').value;
         const esMismaPlaca = lados === 2 && placasTRActual === 'misma';
         if (esMismaPlaca && piezaW > 0 && piezaH > 0) {
-            cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, 'tiroretiro');
+            cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, 'tiroretiro', PINZA_TOP);
         } else {
-            cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, false);
+            cotDrawPreview('cotPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, false, PINZA_TOP);
         }
         cotDrawPreview('cotPreviewPliego', pliegoW, pliegoH, hojaW, hojaH, 0, false);
     }
 
-    function cotDrawPreview(canvasId, containerW, containerH, pieceW, pieceH, margin, trMode) {
+    function cotDrawPreview(canvasId, containerW, containerH, pieceW, pieceH, margin, trMode, marginTop) {
         // trMode: false = normal, 'tiroretiro' = misma placa
+        // marginTop: margen superior diferenciado (pinza). Si undefined, usa margin (simetrico).
         margin = margin || 0;
+        if (marginTop == null) marginTop = margin;
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
         const dpr = window.devicePixelRatio || 1;
@@ -5899,27 +5903,28 @@
 
         // Draw margins if any
         const mPx = margin * scale;
-        if (margin > 0) {
+        const mTopPx = marginTop * scale;
+        if (margin > 0 || marginTop > 0) {
             ctx.fillStyle = '#fecaca';
-            ctx.fillRect(ox, oy, sW, mPx); // top
+            ctx.fillRect(ox, oy, sW, mTopPx); // top (pinza)
             ctx.fillRect(ox, oy + sH - mPx, sW, mPx); // bottom
-            ctx.fillRect(ox, oy + mPx, mPx, sH - 2 * mPx); // left
-            ctx.fillRect(ox + sW - mPx, oy + mPx, mPx, sH - 2 * mPx); // right
+            ctx.fillRect(ox, oy + mTopPx, mPx, sH - mTopPx - mPx); // left
+            ctx.fillRect(ox + sW - mPx, oy + mTopPx, mPx, sH - mTopPx - mPx); // right
             ctx.strokeStyle = '#f87171'; ctx.lineWidth = 0.5; ctx.setLineDash([3,3]);
-            ctx.strokeRect(ox + mPx, oy + mPx, sW - 2 * mPx, sH - 2 * mPx);
+            ctx.strokeRect(ox + mPx, oy + mTopPx, sW - 2 * mPx, sH - mTopPx - mPx);
             ctx.setLineDash([]);
         }
 
         // Use usable area and get full layout (including mixed)
         const usableW = containerW - 2 * margin;
-        const usableH = containerH - 2 * margin;
+        const usableH = containerH - marginTop - margin;
 
         // Generar placements
         let placements;
         if (trMode === 'tiroretiro') {
             placements = [];
             const uW = containerW - 2 * margin;
-            const uH = containerH - 2 * margin;
+            const uH = containerH - marginTop - margin;
             const volteo = document.getElementById('cotVolteo')?.value || 'horizontal';
             const nL = calcLayout(uW, uH, pieceW, pieceH, 0, 0);
             const rL = calcLayout(uW, uH, pieceH, pieceW, 0, 0);
@@ -5948,7 +5953,7 @@
             const totalPW = cols * pw;
             const totalPH = rows * ph;
             const offsetX = margin + (uW - totalPW) / 2;
-            const offsetY = margin + (uH - totalPH) / 2;
+            const offsetY = marginTop + (uH - totalPH) / 2;
             const halfCols = cols / 2;
             const halfRows = rows / 2;
             for (let r = 0; r < rows; r++) {
@@ -5964,7 +5969,7 @@
             }
         } else {
             // 1 lado: tambien centrar las piezas
-            const tmpPlacements = calcImpositionLayout(containerW, containerH, pieceW, pieceH, margin, true);
+            const tmpPlacements = calcImpositionLayout(containerW, containerH, pieceW, pieceH, margin, true, marginTop);
             if (tmpPlacements.length > 0) {
                 const minX = Math.min(...tmpPlacements.map(p => p.x));
                 const maxX = Math.max(...tmpPlacements.map(p => p.x + p.w));
@@ -5973,9 +5978,9 @@
                 const blockW = maxX - minX;
                 const blockH = maxY - minY;
                 const uW = containerW - 2 * margin;
-                const uH = containerH - 2 * margin;
+                const uH = containerH - marginTop - margin;
                 const shiftX = margin + (uW - blockW) / 2 - minX;
-                const shiftY = margin + (uH - blockH) / 2 - minY;
+                const shiftY = marginTop + (uH - blockH) / 2 - minY;
                 placements = tmpPlacements.map(p => ({ ...p, x: p.x + shiftX, y: p.y + shiftY }));
             } else {
                 placements = tmpPlacements;
