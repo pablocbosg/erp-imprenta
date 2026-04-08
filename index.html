@@ -321,7 +321,7 @@
             <button onclick="doLogout()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;">Cerrar Sesion</button>
         </div>
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('cotizador')">Cotizador</button>
+            <button class="tab-btn active" onclick="switchTab('cotizador')">Impresion Offset</button>
             <button class="tab-btn" onclick="switchTab('digital')">Imp. Digital</button>
             <button class="tab-btn" onclick="switchTab('proformas')">Proformas</button>
             <button class="tab-btn" onclick="switchTab('productos')">Productos</button>
@@ -4658,45 +4658,124 @@
     }
 
     function searchProductsDig(query) {
-        // Reuse offset product search logic for digital tab
+        const q = (query || '').trim().toLowerCase();
+        if (productosCache.length === 0) {
+            db.from('productos').select('*').order('categoria,nombre').then(({ data }) => {
+                productosCache = data || [];
+                renderDigProductDropdown(q);
+            });
+        } else {
+            renderDigProductDropdown(q);
+        }
+    }
+    function renderDigProductDropdown(q) {
         const dropdown = document.getElementById('digProductDropdown');
-        if (!query || query.length < 2) { dropdown.classList.remove('open'); return; }
-        const q = query.toLowerCase();
-        const matches = (appData.productos || []).filter(p => p.nombre.toLowerCase().includes(q)).slice(0, 8);
+        let matches = productosCache;
+        if (q.length > 0) {
+            matches = productosCache.filter(p =>
+                (p.nombre || '').toLowerCase().includes(q) ||
+                (p.categoria || '').toLowerCase().includes(q)
+            );
+        }
+        if (matches.length === 0 && q.length > 0) {
+            dropdown.innerHTML = '<div class="product-option" style="color:var(--gray-400);font-style:italic;justify-content:center;">Sin coincidencias en el catalogo</div>';
+            dropdown.classList.add('open');
+            return;
+        }
         if (matches.length === 0) { dropdown.classList.remove('open'); return; }
-        dropdown.innerHTML = matches.map(p => {
-            const dims = p.ancho && p.alto ? p.ancho + 'x' + p.alto + 'cm' : '';
-            return '<div class="product-item" onmousedown="selectProductDig(' + JSON.stringify(JSON.stringify(p)) + ')">' + p.nombre + (dims ? ' <span style=\'color:var(--gray-400);font-size:0.8rem\'>' + dims + '</span>' : '') + '</div>';
-        }).join('');
+        let html = '';
+        matches.forEach(p => {
+            const matName = getMaterialName(p.material_id);
+            const detail = p.ancho + 'x' + p.alto + ' cm | ' + (p.lados === 2 ? 'T/R' : '1 lado') + (matName !== '-' ? ' | ' + matName : '');
+            html += '<div class="product-option" onmousedown="selectProductDig(' + p.id + ')">'
+                + '<div><div class="prod-name">' + p.nombre + '</div><div class="prod-detail">' + detail + '</div></div>'
+                + '<span class="prod-badge">' + (p.categoria || '') + '</span>'
+                + '</div>';
+        });
+        dropdown.innerHTML = html;
         dropdown.classList.add('open');
     }
-    function selectProductDig(pJson) {
-        const p = JSON.parse(pJson);
+    function selectProductDig(id) {
+        document.getElementById('digProductDropdown').classList.remove('open');
+        const p = productosCache.find(prod => prod.id === id);
+        if (!p) return;
+
+        if (p.tipo === 'publicacion') {
+            // Switch to publication mode in digital
+            const tipoSel = document.getElementById('digTipoTrabajo');
+            if (tipoSel) { tipoSel.value = 'publicacion'; if (typeof digOnTipoTrabajoChange === 'function') digOnTipoTrabajoChange(); }
+            document.getElementById('digPub1Descripcion').value = p.nombre;
+            if (p.ancho) { document.getElementById('digPub1ProdW').value = p.ancho; document.getElementById('digPub2ProdW').value = p.ancho; }
+            if (p.alto) { document.getElementById('digPub1ProdH').value = p.alto; document.getElementById('digPub2ProdH').value = p.alto; }
+            if (p.paginas_interiores) document.getElementById('digPub2Paginas').value = p.paginas_interiores;
+            if (p.encuadernacion) document.getElementById('digPubEncuadernacion').value = p.encuadernacion;
+            digCalcPub();
+            return;
+        }
+
+        // Normal product
         document.getElementById('digDescripcion').value = p.nombre;
         if (p.ancho) document.getElementById('digProdW').value = p.ancho;
         if (p.alto) document.getElementById('digProdH').value = p.alto;
-        document.getElementById('digProductDropdown').classList.remove('open');
+        if (p.cantidad) document.getElementById('digCantidad').value = p.cantidad;
+        if (p.sangrado != null) document.getElementById('digSangrado').value = p.sangrado;
+        if (p.lados) document.getElementById('digLados').value = p.lados;
+        if (p.material_id) {
+            const matIdx = appData.materiales.findIndex(m => m.id === p.material_id);
+            if (matIdx >= 0) {
+                document.getElementById('digMaterial').value = matIdx;
+                digOnMaterialChange();
+            }
+        }
+        window._digMargenManual = false;
         digCalc();
     }
     function searchProductsDigPub(query) {
+        const q = (query || '').trim().toLowerCase();
+        if (productosCache.length === 0) {
+            db.from('productos').select('*').order('categoria,nombre').then(({ data }) => {
+                productosCache = data || [];
+                renderDigPubProductDropdown(q);
+            });
+        } else {
+            renderDigPubProductDropdown(q);
+        }
+    }
+    function renderDigPubProductDropdown(q) {
         const dropdown = document.getElementById('digPubProductDropdown');
-        if (!query || query.length < 2) { dropdown.classList.remove('open'); return; }
-        const q = query.toLowerCase();
-        const matches = (appData.productos || []).filter(p => p.nombre.toLowerCase().includes(q) && p.tipo === 'publicacion').slice(0, 8);
+        let matches = productosCache.filter(p => p.tipo === 'publicacion');
+        if (q.length > 0) {
+            matches = matches.filter(p =>
+                (p.nombre || '').toLowerCase().includes(q) ||
+                (p.categoria || '').toLowerCase().includes(q)
+            );
+        }
+        if (matches.length === 0 && q.length > 0) {
+            dropdown.innerHTML = '<div class="product-option" style="color:var(--gray-400);font-style:italic;justify-content:center;">Sin coincidencias en el catalogo</div>';
+            dropdown.classList.add('open');
+            return;
+        }
         if (matches.length === 0) { dropdown.classList.remove('open'); return; }
-        dropdown.innerHTML = matches.map(p => {
-            return '<div class="product-item" onmousedown="selectProductDigPub(' + JSON.stringify(JSON.stringify(p)) + ')">' + p.nombre + '</div>';
-        }).join('');
+        let html = '';
+        matches.forEach(p => {
+            const dims = p.ancho && p.alto ? p.ancho + 'x' + p.alto + ' cm' : '';
+            html += '<div class="product-option" onmousedown="selectProductDigPub(' + p.id + ')">'
+                + '<div><div class="prod-name">' + p.nombre + '</div><div class="prod-detail">' + dims + '</div></div>'
+                + '<span class="prod-badge">' + (p.categoria || 'publicacion') + '</span>'
+                + '</div>';
+        });
+        dropdown.innerHTML = html;
         dropdown.classList.add('open');
     }
-    function selectProductDigPub(pJson) {
-        const p = JSON.parse(pJson);
+    function selectProductDigPub(id) {
+        document.getElementById('digPubProductDropdown').classList.remove('open');
+        const p = productosCache.find(prod => prod.id === id);
+        if (!p) return;
         document.getElementById('digPub1Descripcion').value = p.nombre;
         if (p.ancho) { document.getElementById('digPub1ProdW').value = p.ancho; document.getElementById('digPub2ProdW').value = p.ancho; }
         if (p.alto) { document.getElementById('digPub1ProdH').value = p.alto; document.getElementById('digPub2ProdH').value = p.alto; }
         if (p.paginas_interiores) document.getElementById('digPub2Paginas').value = p.paginas_interiores;
         if (p.encuadernacion) document.getElementById('digPubEncuadernacion').value = p.encuadernacion;
-        document.getElementById('digPubProductDropdown').classList.remove('open');
         digCalcPub();
     }
 
