@@ -4870,9 +4870,9 @@
         // Hojas netas
         const hojasNetas = piezasPorHoja > 0 ? Math.ceil(cantidad / piezasPorHoja) : 0;
 
-        // Merma digital: max(1, 8% de hojas netas)
+        // Merma digital: max(1, 8% de hojas netas). Si no cabe la pieza, merma = 0.
         const merma8pct = Math.ceil(hojasNetas * 0.08);
-        const mermaTotal = Math.max(1, merma8pct);
+        const mermaTotal = piezasPorHoja > 0 ? Math.max(1, merma8pct) : 0;
         const hojasTotales = hojasNetas + mermaTotal;
 
         // Pliegos necesarios
@@ -4883,7 +4883,7 @@
         const arranqueCosto = DIG_ARRANQUE[formato] || 0.50;
         const clicksTotales = hojasTotales * lados;
         const costoClicks = clicksTotales * clickCosto;
-        const costoArranque = arranqueCosto; // fijo, se reparte en el precio
+        const costoArranque = piezasPorHoja > 0 ? arranqueCosto : 0;
 
         // Material
         const costoMaterial = pliegosNec * precioPliego;
@@ -5028,7 +5028,13 @@
 
         // Info badges
         const infoEl = document.getElementById('digFormatosInfoMain');
-        if (infoEl) infoEl.innerHTML = '<span class="info-badge blue">' + fmtPorPliego + ' fmt/pliego</span> <span class="info-badge green">' + piezasPorHoja + ' pzas/hoja</span> <span class="info-badge" style="background:#f3e8ff;color:#6b21a8;">' + clicksTotales + ' clicks (' + lados + ' lado' + (lados > 1 ? 's' : '') + ')</span>';
+        if (infoEl) {
+            if (piezasPorHoja === 0 && prodW > 0 && prodH > 0) {
+                infoEl.innerHTML = '<span class="info-badge" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;font-weight:700;">⚠ La pieza ' + fmtN(prodW, 1) + 'x' + fmtN(prodH, 1) + ' cm no cabe en la hoja ' + fmtN(hojaW, 1) + 'x' + fmtN(hojaH, 1) + ' cm. No se puede imprimir en digital.</span>';
+            } else {
+                infoEl.innerHTML = '<span class="info-badge blue">' + fmtPorPliego + ' fmt/pliego</span> <span class="info-badge green">' + piezasPorHoja + ' pzas/hoja</span> <span class="info-badge" style="background:#f3e8ff;color:#6b21a8;">' + clicksTotales + ' clicks (' + lados + ' lado' + (lados > 1 ? 's' : '') + ')</span>';
+            }
+        }
 
         // Update cost breakdown
         document.getElementById('digCostClicksQty').textContent = clicksTotales;
@@ -6771,12 +6777,14 @@
         }
         window._digMargenManual = false;
         digCalc();
+        const digPiezasHoja = +(document.getElementById('digResPiezasHoja')?.textContent || '0');
         const digitalResult = {
             costo: _cmpReadNum('digSubtotalCosto'),
             margen: document.getElementById('digMargenPct').textContent,
             utilidad: _cmpReadNum('digUtilidadNeta'),
             unit: _cmpReadNum('digPrecioUnit'),
-            total: _cmpReadNum('digPrecioFinal')
+            total: _cmpReadNum('digPrecioFinal'),
+            noCabe: digPiezasHoja === 0
         };
 
         // Si el comparador vino desde offset, restaurar digital a su estado previo
@@ -6806,13 +6814,26 @@
         document.getElementById('cmpDigitalUnit').textContent = '$' + fmtN(digitalResult.unit, 3);
         document.getElementById('cmpDigitalTotal').textContent = '$' + fmtN(digitalResult.total, 2);
 
+        // Si digital no cabe, sobrescribir los valores del display con "-"
+        if (digitalResult.noCabe) {
+            document.getElementById('cmpDigitalCosto').textContent = '-';
+            document.getElementById('cmpDigitalUtilidad').textContent = '-';
+            document.getElementById('cmpDigitalUnit').textContent = '-';
+            document.getElementById('cmpDigitalTotal').innerHTML = '<span style="font-size:0.9rem;color:#991b1b;">No cabe en hoja digital</span>';
+        }
+
         // Resaltar el ganador (menor precio)
         const offCard = document.getElementById('cmpOffsetCard');
         const digCard = document.getElementById('cmpDigitalCard');
         const reco = document.getElementById('comparadorRecomendacion');
         offCard.style.border = '2px solid #e5e7eb';
         digCard.style.border = '2px solid #e5e7eb';
-        if (offsetResult.total > 0 && digitalResult.total > 0) {
+        if (digitalResult.noCabe && offsetResult.total > 0) {
+            offCard.style.border = '2px solid #7c3aed';
+            reco.style.background = '#fef3c7';
+            reco.style.color = '#92400e';
+            reco.innerHTML = '<strong>La pieza no cabe en hoja digital. Solo se puede hacer en offset.</strong>';
+        } else if (offsetResult.total > 0 && digitalResult.total > 0 && !digitalResult.noCabe) {
             const diff = Math.abs(offsetResult.total - digitalResult.total);
             const pct = (diff / Math.max(offsetResult.total, digitalResult.total)) * 100;
             if (offsetResult.total < digitalResult.total) {
@@ -6838,16 +6859,18 @@
 
         // Desactivar botones si no hay proforma activa
         const hasProf = !!proformaActiva;
-        document.getElementById('cmpOffsetBtn').disabled = !hasProf;
-        document.getElementById('cmpDigitalBtn').disabled = !hasProf;
-        document.getElementById('cmpOffsetBtn').style.opacity = hasProf ? '1' : '0.5';
-        document.getElementById('cmpDigitalBtn').style.opacity = hasProf ? '1' : '0.5';
+        const digBtn = document.getElementById('cmpDigitalBtn');
+        const offBtn = document.getElementById('cmpOffsetBtn');
+        offBtn.disabled = !hasProf;
+        digBtn.disabled = !hasProf || digitalResult.noCabe;
+        offBtn.style.opacity = hasProf ? '1' : '0.5';
+        digBtn.style.opacity = (hasProf && !digitalResult.noCabe) ? '1' : '0.5';
         if (!hasProf) {
-            document.getElementById('cmpOffsetBtn').textContent = 'Sin proforma activa';
-            document.getElementById('cmpDigitalBtn').textContent = 'Sin proforma activa';
+            offBtn.textContent = 'Sin proforma activa';
+            digBtn.textContent = 'Sin proforma activa';
         } else {
-            document.getElementById('cmpOffsetBtn').textContent = 'Usar Offset en proforma #' + proformaActiva.numero;
-            document.getElementById('cmpDigitalBtn').textContent = 'Usar Digital en proforma #' + proformaActiva.numero;
+            offBtn.textContent = 'Usar Offset en proforma #' + proformaActiva.numero;
+            digBtn.textContent = digitalResult.noCabe ? 'No cabe en digital' : 'Usar Digital en proforma #' + proformaActiva.numero;
         }
 
         document.getElementById('comparadorModal').style.display = 'flex';
