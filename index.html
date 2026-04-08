@@ -4525,12 +4525,13 @@
     };
     const DIG_ARRANQUE = { '33x23': 0.50, '48x33': 1.00 };
     const DIG_FORMATO = { '33x23': { w: 33, h: 23 }, '48x33': { w: 48.2, h: 33 } };
+    // Markup sobre costo por rango de cantidad (equivalente al margen previo sobre venta)
     const DIG_MARGEN = [
-        { min: 1, max: 10, pct: 60 },
-        { min: 11, max: 50, pct: 45 },
-        { min: 51, max: 150, pct: 35 },
-        { min: 151, max: 250, pct: 25 },
-        { min: 251, max: Infinity, pct: 20 }
+        { min: 1, max: 10, pct: 150 },
+        { min: 11, max: 50, pct: 82 },
+        { min: 51, max: 150, pct: 54 },
+        { min: 151, max: 250, pct: 33 },
+        { min: 251, max: Infinity, pct: 25 }
     ];
     const DIG_PLOTTER = {
         '33x23': { adhesivo: 0.50, papel: 1.00 },
@@ -4544,7 +4545,7 @@
         for (const r of DIG_MARGEN) {
             if (cantidad >= r.min && cantidad <= r.max) return r.pct;
         }
-        return 20;
+        return 25;
     }
 
     function digGetClickCosto(maquina, formato) {
