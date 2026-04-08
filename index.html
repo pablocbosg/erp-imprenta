@@ -6467,7 +6467,8 @@
         if (!proformaActiva) return;
 
         // Capture current cotizador data
-        const descripcion = document.getElementById('cotDescripcion').value.trim() || 'Producto sin descripcion';
+        const userText = document.getElementById('cotDescripcion').value.trim();
+        const descripcion = buildDescripcionProforma(userText, 'cot');
         const cantidad = parseFloat(document.getElementById('cotCantidad').value) || 0;
 
         // Get the unit price (sin IVA) from cotizador results
@@ -6513,9 +6514,127 @@
         renderProformaItems();
     }
 
+    // =====================================================
+    // Autoexpansion de descripcion para proforma
+    // =====================================================
+    function _detectarFormatoA(w, h) {
+        const formatos = [
+            { n: 'A3', w: 29.7, h: 42 },
+            { n: 'A4', w: 21, h: 29.7 },
+            { n: 'A5', w: 14.8, h: 21 },
+            { n: 'A6', w: 10.5, h: 14.8 },
+            { n: 'A7', w: 7.4, h: 10.5 },
+            { n: 'Oficio', w: 21.6, h: 33 },
+            { n: 'Carta', w: 21.6, h: 27.9 },
+        ];
+        const tol = 0.4;
+        for (const f of formatos) {
+            if ((Math.abs(w - f.w) <= tol && Math.abs(h - f.h) <= tol) ||
+                (Math.abs(w - f.h) <= tol && Math.abs(h - f.w) <= tol)) {
+                return f.n;
+            }
+        }
+        return null;
+    }
+    function _describirColores(colores, lados) {
+        const c = +colores || 1;
+        const l = +lados || 1;
+        if (c === 4) {
+            return l === 2 ? 'Full color 4/4 (tiro y retiro)' : 'Full color 4/0 (1 lado)';
+        }
+        if (c === 1) {
+            return l === 2 ? '1 tinta (tiro y retiro)' : '1 tinta (1 lado)';
+        }
+        return c + ' tintas ' + (l === 2 ? c + '/' + c + ' (tiro y retiro)' : c + '/0 (1 lado)');
+    }
+    function _obtenerMaterial(idx) {
+        if (idx === '' || idx == null) return null;
+        const m = appData.materiales && appData.materiales[+idx];
+        if (!m) return null;
+        return m.nombre + (m.gramaje ? ' ' + m.gramaje + ' g' : '');
+    }
+    function _describirTerminadosCot() {
+        const partes = [];
+        if (document.getElementById('cotPlastificado')?.checked) {
+            const tipo = document.getElementById('cotPlastificadoTipo').value === 'mate' ? 'mate' : 'brillante';
+            const caras = +document.getElementById('cotPlastificadoCaras').value || 1;
+            partes.push('Plastificado ' + tipo + ' ' + caras + ' cara' + (caras > 1 ? 's' : ''));
+        }
+        if (document.getElementById('cotBarnizUV')?.checked) {
+            const caras = +document.getElementById('cotBarnizUVCaras').value || 1;
+            partes.push('Barniz UV brillante ' + caras + ' cara' + (caras > 1 ? 's' : ''));
+        }
+        if (document.getElementById('cotUVSelectivo')?.checked) {
+            const caras = +document.getElementById('cotUVSelectivoCaras').value || 1;
+            partes.push('UV selectivo ' + caras + ' lado' + (caras > 1 ? 's' : ''));
+        }
+        if (document.getElementById('cotEnsanduchado')?.checked) partes.push('Ensanduchado (doble cartulina)');
+        if (document.getElementById('cotTroquelado')?.checked) partes.push('Troquelado');
+        if (document.getElementById('cotGuillotina')?.checked) partes.push('Corte en guillotina');
+        return partes;
+    }
+    function _describirTerminadosDig() {
+        const partes = [];
+        if (document.getElementById('digPlastificado')?.checked) {
+            const tipo = document.getElementById('digPlastificadoTipo').value === 'mate' ? 'mate' : 'brillante';
+            const caras = +document.getElementById('digPlastificadoCaras').value || 1;
+            partes.push('Plastificado ' + tipo + ' ' + caras + ' cara' + (caras > 1 ? 's' : ''));
+        }
+        if (document.getElementById('digBarnizUV')?.checked) {
+            const caras = +document.getElementById('digBarnizUVCaras').value || 1;
+            partes.push('Barniz UV brillante ' + caras + ' cara' + (caras > 1 ? 's' : ''));
+        }
+        if (document.getElementById('digUVSelectivo')?.checked) {
+            const caras = +document.getElementById('digUVSelectivoCaras').value || 1;
+            partes.push('UV selectivo ' + caras + ' lado' + (caras > 1 ? 's' : ''));
+        }
+        if (document.getElementById('digTroquelPlotter')?.checked) partes.push('Troquelado en plotter');
+        if (document.getElementById('digGuillotina')?.checked) partes.push('Corte en guillotina');
+        return partes;
+    }
+    function buildDescripcionProforma(userText, src) {
+        const pref = src === 'dig' ? 'dig' : 'cot';
+        const w = parseFloat(document.getElementById(pref + 'ProdW').value) || 0;
+        const h = parseFloat(document.getElementById(pref + 'ProdH').value) || 0;
+        const lados = document.getElementById(pref + 'Lados').value;
+        const matIdx = document.getElementById(pref === 'dig' ? 'digMaterial' : 'cotMaterial').value;
+        const matNombre = _obtenerMaterial(matIdx);
+
+        // Formato
+        const formatoA = _detectarFormatoA(w, h);
+        const dimStr = fmtN(Math.min(w, h), 1) + 'x' + fmtN(Math.max(w, h), 1) + ' cm';
+        const formato = formatoA ? (formatoA + ' ' + dimStr) : dimStr;
+
+        // Colores / impresion
+        let coloresStr;
+        if (src === 'dig') {
+            const maq = document.getElementById('digMaquina').value;
+            if (maq === 'd95') {
+                coloresStr = lados === '2' ? 'Blanco y negro (tiro y retiro)' : 'Blanco y negro (1 lado)';
+            } else {
+                coloresStr = lados === '2' ? 'Full color 4/4 (tiro y retiro)' : 'Full color 4/0 (1 lado)';
+            }
+        } else {
+            const colores = document.getElementById('cotColores').value;
+            coloresStr = _describirColores(colores, lados);
+        }
+
+        // Terminados
+        const terminados = src === 'dig' ? _describirTerminadosDig() : _describirTerminadosCot();
+
+        // Construir descripcion
+        const partes = [formato, 'Impreso ' + coloresStr];
+        if (matNombre) partes.push(matNombre);
+        terminados.forEach(t => partes.push(t));
+
+        const base = (userText || '').trim() || 'Producto';
+        return base + ' - ' + partes.join(' | ');
+    }
+
     function addItemToProformaDig() {
         if (!proformaActiva) return;
-        const descripcion = document.getElementById('digDescripcion').value.trim() || 'Producto sin descripcion';
+        const userText = document.getElementById('digDescripcion').value.trim();
+        const descripcion = buildDescripcionProforma(userText, 'dig');
         const cantidad = parseFloat(document.getElementById('digCantidad').value) || 0;
         const precioUnit = parseFloat((document.getElementById('digPrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
         const itemIvaPct = parseFloat(document.getElementById('digIVA').value) || 0;
