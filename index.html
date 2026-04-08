@@ -4407,13 +4407,18 @@
         const subtotalCosto = port.subtotal + inte.subtotal + encuadSubtotal;
         const margenPct = +document.getElementById('pubMargen').value || 0;
         const ivaPct = +document.getElementById('pubIVA').value || 0;
-        const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
+        // Markup sobre costo: precio = costo * (1 + margen/100)
+        const precioSinIVABruto = subtotalCosto * (1 + margenPct / 100);
         const descuentoPct = +document.getElementById('pubDescuento').value || 0;
-        const descuentoMonto = precioSinIVA * (descuentoPct / 100);
-        const precioConDesc = precioSinIVA - descuentoMonto;
+        const precioConDescBruto = precioSinIVABruto * (1 - descuentoPct / 100);
+        const precioUnitBruto = cantidad1 > 0 ? precioConDescBruto / cantidad1 : 0;
+        // Redondear unitario a 3 decimales y recalcular para que todo cuadre
+        const precioUnit = Math.round(precioUnitBruto * 1000) / 1000;
+        const precioConDesc = precioUnit * cantidad1;
+        const precioSinIVA = descuentoPct > 0 && descuentoPct < 100 ? precioConDesc / (1 - descuentoPct / 100) : precioConDesc;
+        const descuentoMonto = precioSinIVA - precioConDesc;
         const montoIVA = precioConDesc * (ivaPct / 100);
         const precioFinal = precioConDesc + montoIVA;
-        const precioUnit = cantidad1 > 0 ? precioConDesc / cantidad1 : 0;
 
         // === UPDATE DOM - Desglose de costos ===
         // Portada
@@ -4491,12 +4496,12 @@
         document.getElementById('pubDescuentoPct').textContent = descuentoPct;
         document.getElementById('pubDescuentoMonto').textContent = fmtN(descuentoMonto, 2);
         document.getElementById('pubDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
-        document.getElementById('pubPrecioUnit').textContent = fmtN(precioUnit, 4);
+        document.getElementById('pubPrecioUnit').textContent = fmtN(precioUnit, 3);
         document.getElementById('pubIVAPct').textContent = ivaPct;
         document.getElementById('pubMontoIVA').textContent = fmtN(montoIVA, 2);
         document.getElementById('pubPrecioFinal').textContent = fmtN(precioFinal, 2);
         document.getElementById('pubPrecioFinalBig').textContent = fmtN(precioFinal, 2);
-        document.getElementById('pubPrecioUnitBig').textContent = fmtN(precioUnit, 4);
+        document.getElementById('pubPrecioUnitBig').textContent = fmtN(precioUnit, 3);
 
         // === VISTAS PREVIAS ===
         // Portada: pieza en hoja maquina + hojas en pliego
@@ -4954,13 +4959,18 @@
 
         const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina + costoTroquelServicio + costoTroquel + costoEnsandPegado + costoPlotter;
         const subtotalCosto = costoClicks + costoArranque + costoMaterial + costoTerminados + costoEnsandMaterial;
-        const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
+        // Markup sobre costo: precio = costo * (1 + margen/100)
+        const precioSinIVABruto = subtotalCosto * (1 + margenPct / 100);
         const descuentoPct = +document.getElementById('digDescuento').value || 0;
-        const descuentoMonto = precioSinIVA * (descuentoPct / 100);
-        const precioConDesc = precioSinIVA - descuentoMonto;
+        const precioConDescBruto = precioSinIVABruto * (1 - descuentoPct / 100);
+        const precioUnitBruto = cantidad > 0 ? precioConDescBruto / cantidad : 0;
+        // Redondear unitario a 3 decimales y recalcular para que todo cuadre
+        const precioUnit = Math.round(precioUnitBruto * 1000) / 1000;
+        const precioConDesc = precioUnit * cantidad;
+        const precioSinIVA = descuentoPct > 0 && descuentoPct < 100 ? precioConDesc / (1 - descuentoPct / 100) : precioConDesc;
+        const descuentoMonto = precioSinIVA - precioConDesc;
         const montoIVA = precioConDesc * (ivaPct / 100);
         const precioFinal = precioConDesc + montoIVA;
-        const precioUnit = cantidad > 0 ? precioConDesc / cantidad : 0;
 
         // Update production results
         document.getElementById('digResFmtPliego').textContent = fmtPorPliego;
@@ -5014,12 +5024,12 @@
         document.getElementById('digDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
         document.getElementById('digSubtotalConDesc').textContent = fmtN(precioConDesc, 2);
         document.getElementById('digSubtotalConDescRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
-        document.getElementById('digPrecioUnit').textContent = fmtN(precioUnit, 4);
+        document.getElementById('digPrecioUnit').textContent = fmtN(precioUnit, 3);
         document.getElementById('digIVAPct').textContent = ivaPct;
         document.getElementById('digMontoIVA').textContent = fmtN(montoIVA, 2);
         document.getElementById('digPrecioFinal').textContent = fmtN(precioFinal, 2);
         document.getElementById('digPrecioFinalBig').textContent = fmtN(precioFinal, 2);
-        document.getElementById('digPrecioUnitBig').textContent = fmtN(precioUnit, 4);
+        document.getElementById('digPrecioUnitBig').textContent = fmtN(precioUnit, 3);
 
         // Draw previews
         cotDrawPreview('digPreviewHoja', hojaW, hojaH, piezaW, piezaH, margenMaq, false);
@@ -5210,13 +5220,18 @@
         if (!window._digPubMargenManual) document.getElementById('digPubMargen').value = margenSugerido;
         const margenPct = +document.getElementById('digPubMargen').value || 0;
         const ivaPct = +document.getElementById('digPubIVA').value || 0;
-        const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
+        // Markup sobre costo: precio = costo * (1 + margen/100)
+        const precioSinIVABruto = subtotalCosto * (1 + margenPct / 100);
         const descuentoPct = +document.getElementById('digPubDescuento').value || 0;
-        const descuentoMonto = precioSinIVA * (descuentoPct / 100);
-        const precioConDesc = precioSinIVA - descuentoMonto;
+        const precioConDescBruto = precioSinIVABruto * (1 - descuentoPct / 100);
+        const precioUnitBruto = p1Cantidad > 0 ? precioConDescBruto / p1Cantidad : 0;
+        // Redondear unitario a 3 decimales y recalcular para que todo cuadre
+        const precioUnit = Math.round(precioUnitBruto * 1000) / 1000;
+        const precioConDesc = precioUnit * p1Cantidad;
+        const precioSinIVA = descuentoPct > 0 && descuentoPct < 100 ? precioConDesc / (1 - descuentoPct / 100) : precioConDesc;
+        const descuentoMonto = precioSinIVA - precioConDesc;
         const montoIVA = precioConDesc * (ivaPct / 100);
         const precioFinal = precioConDesc + montoIVA;
-        const precioUnit = p1Cantidad > 0 ? precioConDesc / p1Cantidad : 0;
 
         // ---- UPDATE DOM ----
         // Portada
@@ -5298,12 +5313,12 @@
         document.getElementById('digPubDescuentoPct').textContent = descuentoPct;
         document.getElementById('digPubDescuentoMonto').textContent = fmtN(descuentoMonto, 2);
         document.getElementById('digPubDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
-        document.getElementById('digPubPrecioUnit').textContent = fmtN(precioUnit, 4);
+        document.getElementById('digPubPrecioUnit').textContent = fmtN(precioUnit, 3);
         document.getElementById('digPubIVAPct').textContent = ivaPct;
         document.getElementById('digPubMontoIVA').textContent = fmtN(montoIVA, 2);
         document.getElementById('digPubPrecioFinal').textContent = fmtN(precioFinal, 2);
         document.getElementById('digPubPrecioFinalBig').textContent = fmtN(precioFinal, 2);
-        document.getElementById('digPubPrecioUnitBig').textContent = fmtN(precioUnit, 4);
+        document.getElementById('digPubPrecioUnitBig').textContent = fmtN(precioUnit, 3);
     }
 
     function cotOnFormatoChange() {
@@ -5689,13 +5704,18 @@
         const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina + costoTroquelServicio + costoTroquel + costoEnsandPegado;
 
         const subtotalCosto = costoMaterial + costoPlacasTotal + costoImpresion + costoTerminados + costoEnsandMaterial + costoEnsandImpresion;
-        const precioSinIVA = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
+        // Markup sobre costo: precio = costo * (1 + margen/100)
+        const precioSinIVABruto = subtotalCosto * (1 + margenPct / 100);
         const descuentoPct = +document.getElementById('cotDescuento').value || 0;
-        const descuentoMonto = precioSinIVA * (descuentoPct / 100);
-        const precioConDesc = precioSinIVA - descuentoMonto;
+        const precioConDescBruto = precioSinIVABruto * (1 - descuentoPct / 100);
+        const precioUnitBruto = cantidad > 0 ? precioConDescBruto / cantidad : 0;
+        // Redondear unitario a 3 decimales y recalcular para que todo cuadre
+        const precioUnit = Math.round(precioUnitBruto * 1000) / 1000;
+        const precioConDesc = precioUnit * cantidad;
+        const precioSinIVA = descuentoPct > 0 && descuentoPct < 100 ? precioConDesc / (1 - descuentoPct / 100) : precioConDesc;
+        const descuentoMonto = precioSinIVA - precioConDesc;
         const montoIVA = precioConDesc * (ivaPct / 100);
         const precioFinal = precioConDesc + montoIVA;
-        const precioUnit = cantidad > 0 ? precioConDesc / cantidad : 0;
 
         // Update cost breakdown
         document.getElementById('cotCostMatQty').textContent = pliegosNec;
@@ -5772,12 +5792,12 @@
         document.getElementById('cotDescuentoRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
         document.getElementById('cotSubtotalConDesc').textContent = fmtN(precioConDesc, 2);
         document.getElementById('cotSubtotalConDescRow').style.display = descuentoPct > 0 ? 'flex' : 'none';
-        document.getElementById('cotPrecioUnit').textContent = fmtN(precioUnit, 4);
+        document.getElementById('cotPrecioUnit').textContent = fmtN(precioUnit, 3);
         document.getElementById('cotIVAPct').textContent = ivaPct;
         document.getElementById('cotMontoIVA').textContent = fmtN(montoIVA, 2);
         document.getElementById('cotPrecioFinal').textContent = fmtN(precioFinal, 2);
         document.getElementById('cotPrecioFinalBig').textContent = fmtN(precioFinal, 2);
-        document.getElementById('cotPrecioUnitBig').textContent = fmtN(precioUnit, 4);
+        document.getElementById('cotPrecioUnitBig').textContent = fmtN(precioUnit, 3);
 
         // Draw previews (releer placasTR porque pudo cambiar automaticamente)
         const placasTRActual = document.getElementById('cotPlacasTR').value;
