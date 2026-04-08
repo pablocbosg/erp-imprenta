@@ -325,6 +325,7 @@
             <button class="tab-btn active" onclick="switchTab('cotizador')">Impresion Offset</button>
             <button class="tab-btn" onclick="switchTab('digital')">Imp. Digital</button>
             <button class="tab-btn" onclick="switchTab('proformas')">Proformas</button>
+            <button class="tab-btn" onclick="switchTab('ordenes')">Ordenes</button>
             <button class="tab-btn" onclick="switchTab('productos')">Productos</button>
             <button class="tab-btn" onclick="switchTab('clientes')">Clientes</button>
             <button class="tab-btn" onclick="switchTab('conciliacion')">Conciliacion</button>
@@ -2255,6 +2256,7 @@
                         <button class="btn btn-sm" style="background:#dc3545;color:#fff;" onclick="descargarProformaPDF()">PDF</button>
                         <button class="btn btn-sm" style="background:#25D366;color:#fff;" onclick="enviarProformaWhatsApp()">💬</button>
                         <button class="btn btn-sm" style="background:#0078D4;color:#fff;" onclick="enviarProformaEmail()">✉</button>
+                        <button id="btnCrearOrden" class="btn btn-sm" style="background:#059669;color:#fff;display:none;" onclick="crearOrdenProduccion()">▶ Crear Orden de Produccion</button>
                     </div>
                 </div>
 
@@ -2663,6 +2665,78 @@
                         <div class="legend-item"><div class="legend-color" style="background:#e5e7eb"></div> Desperdicio</div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TAB: ORDENES DE PRODUCCION ==================== -->
+    <div id="tab-ordenes" class="tab-content">
+        <div id="ordenesLista">
+            <div class="panel" style="margin-bottom:1rem;">
+                <div class="panel-header">
+                    Ordenes de Produccion
+                    <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
+                        <select id="ordenesFiltroEstado" onchange="cargarOrdenes()" style="padding:0.35rem 0.6rem;font-size:0.85rem;border-radius:6px;border:1px solid var(--gray-300);">
+                            <option value="">Todos los estados</option>
+                            <option value="nueva">Nueva</option>
+                            <option value="en_proceso">En proceso</option>
+                            <option value="finalizada">Finalizada</option>
+                            <option value="entregada">Entregada</option>
+                            <option value="cancelada">Cancelada</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="panel-body" style="padding:0;overflow-x:auto;">
+                    <table class="data-table" style="width:100%;">
+                        <thead><tr>
+                            <th style="width:70px;">#</th>
+                            <th>Cliente</th>
+                            <th style="width:120px;">Proforma</th>
+                            <th style="width:110px;">Creada</th>
+                            <th style="width:110px;">Entrega</th>
+                            <th style="width:130px;">Estado</th>
+                            <th style="width:120px;">Progreso</th>
+                        </tr></thead>
+                        <tbody id="ordenesBody"></tbody>
+                    </table>
+                    <div id="ordenesEmpty" style="padding:2rem;text-align:center;color:var(--gray-400);">No hay ordenes. Aprueba una proforma y crea la orden desde ahi.</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="ordenEditor" style="display:none;">
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+                <button class="btn" style="border:1px solid var(--gray-300);padding:0.4rem 0.7rem;" onclick="cerrarOrdenEditor()">← Volver</button>
+                <h2 style="margin:0;">Orden #<span id="ordenEditorNum"></span></h2>
+                <select id="ordenEditorEstado" onchange="cambiarEstadoOrden()" style="padding:0.3rem 0.6rem;font-size:0.85rem;border-radius:12px;font-weight:600;">
+                    <option value="nueva">Nueva</option>
+                    <option value="en_proceso">En proceso</option>
+                    <option value="finalizada">Finalizada</option>
+                    <option value="entregada">Entregada</option>
+                    <option value="cancelada">Cancelada</option>
+                </select>
+                <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
+                    <label style="font-size:0.8rem;color:var(--gray-500);">Fecha entrega:</label>
+                    <input type="date" id="ordenEditorFechaEntrega" onchange="guardarOrdenCampo('fecha_entrega', this.value || null)" style="padding:0.3rem;font-size:0.85rem;">
+                </div>
+            </div>
+
+            <div class="panel" style="margin-bottom:1rem;">
+                <div class="panel-header">Resumen</div>
+                <div class="panel-body">
+                    <div id="ordenResumenCliente" style="font-size:0.9rem;margin-bottom:0.5rem;"></div>
+                    <div id="ordenResumenProforma" style="font-size:0.85rem;color:var(--gray-500);"></div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-bottom:1rem;">
+                <div class="panel-header">Materiales a utilizar</div>
+                <div class="panel-body" id="ordenMateriales" style="font-size:0.85rem;"></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">Workflow por item</div>
+                <div class="panel-body" id="ordenTareas" style="padding:0.5rem;"></div>
             </div>
         </div>
     </div>
@@ -3760,6 +3834,7 @@
         if (tab === 'digital') { digPopulateMaterials(); digCalc(); updateAddToProformaBtn(); }
         if (tab === 'conciliacion') { concInit(); }
         if (tab === 'proformas') cargarProformas();
+        if (tab === 'ordenes') cargarOrdenes();
         if (tab === 'productos') cargarProductos();
         if (tab === 'clientes') cargarClientesTab();
     }
@@ -6357,6 +6432,7 @@
         document.getElementById('printProformaNum').textContent = prof.numero;
         document.getElementById('printProformaFecha').textContent = new Date(prof.fecha).toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
         document.getElementById('editorEstado').value = prof.estado || 'borrador';
+        actualizarBotonCrearOrden();
         document.getElementById('profIVA').value = prof.iva_porcentaje || 15;
         document.getElementById('profTiempoEntrega').value = prof.tiempo_entrega || '';
         document.getElementById('profFormaPago').value = prof.forma_pago || '';
@@ -7030,10 +7106,338 @@
     async function cambiarEstadoProforma() {
         if (!proformaActiva) return;
         const estado = document.getElementById('editorEstado').value;
+        proformaActiva.estado = estado;
         await db.from('proformas').update({ estado }).eq('id', proformaActiva.id);
+        actualizarBotonCrearOrden();
     }
 
-    function cerrarEditor() {
+    function actualizarBotonCrearOrden() {
+        const btn = document.getElementById('btnCrearOrden');
+        if (!btn) return;
+        btn.style.display = (proformaActiva && proformaActiva.estado === 'aprobada') ? 'inline-block' : 'none';
+    }
+
+    // =====================================================
+    // ORDENES DE PRODUCCION - Workflows por metodo
+    // =====================================================
+    const WORKFLOW_OFFSET = [
+        'Diseno', 'Envio al cliente', 'Aprobacion', 'Prueba de color',
+        'Preprensa (placas)', 'Impresion', 'Terminados', 'Empaquetado',
+        'Facturacion', 'Entrega', 'Pago', 'Postventa'
+    ];
+    const WORKFLOW_DIGITAL = [
+        'Diseno', 'Envio al cliente', 'Aprobacion', 'Prueba de color',
+        'Impresion', 'Terminados', 'Empaquetado',
+        'Facturacion', 'Entrega', 'Pago', 'Postventa'
+    ];
+
+    async function crearOrdenProduccion() {
+        if (!proformaActiva) return;
+        if (proformaActiva.estado !== 'aprobada') {
+            alert('La proforma debe estar aprobada para crear una orden.');
+            return;
+        }
+
+        // Verificar que todos los items tengan metodo_impresion
+        const itemsSinMetodo = proformaActiva.items.filter(it => !it.metodo_impresion);
+        if (itemsSinMetodo.length > 0) {
+            alert('Todos los items deben tener un metodo de impresion (Offset o Digital) antes de crear la orden. Hay ' + itemsSinMetodo.length + ' items sin metodo.');
+            return;
+        }
+        if (proformaActiva.items.length === 0) {
+            alert('La proforma no tiene items.');
+            return;
+        }
+
+        // Guardar la proforma antes (para persistir cualquier cambio pendiente)
+        await guardarProforma();
+
+        // Verificar si ya existe una orden para esta proforma
+        const { data: existente } = await db.from('ordenes_produccion')
+            .select('id, numero').eq('proforma_id', proformaActiva.id).maybeSingle();
+        if (existente) {
+            if (!confirm('Ya existe la orden #' + existente.numero + ' para esta proforma. Crear otra de todas formas?')) return;
+        }
+
+        // Siguiente numero de orden
+        const { data: maxRow } = await db.from('ordenes_produccion')
+            .select('numero').order('numero', { ascending: false }).limit(1).maybeSingle();
+        const nextNum = (maxRow?.numero || 0) + 1;
+
+        // Crear orden cabecera
+        const { data: orden, error: ordenErr } = await db.from('ordenes_produccion').insert({
+            numero: nextNum,
+            proforma_id: proformaActiva.id,
+            cliente_id: proformaActiva.cliente_id || null,
+            estado: 'nueva',
+            notas: null
+        }).select().single();
+
+        if (ordenErr) {
+            alert('Error creando la orden: ' + ordenErr.message);
+            return;
+        }
+
+        // Crear tareas para cada item segun su metodo
+        const tareasToInsert = [];
+        // Reobtener items con IDs frescos (guardarProforma hizo delete+insert)
+        const { data: itemsFrescos } = await db.from('proforma_items')
+            .select('id, orden, descripcion, metodo_impresion')
+            .eq('proforma_id', proformaActiva.id)
+            .order('orden');
+
+        (itemsFrescos || []).forEach(item => {
+            const workflow = item.metodo_impresion === 'offset' ? WORKFLOW_OFFSET : WORKFLOW_DIGITAL;
+            workflow.forEach((paso, idx) => {
+                tareasToInsert.push({
+                    orden_id: orden.id,
+                    proforma_item_id: item.id,
+                    paso: paso,
+                    orden_seq: idx,
+                    estado: 'pendiente'
+                });
+            });
+        });
+
+        if (tareasToInsert.length > 0) {
+            const { error: tareasErr } = await db.from('orden_tareas').insert(tareasToInsert);
+            if (tareasErr) {
+                alert('Orden creada pero fallo al crear tareas: ' + tareasErr.message);
+                return;
+            }
+        }
+
+        alert('Orden de Produccion #' + nextNum + ' creada con ' + tareasToInsert.length + ' tareas. Abriendo tab Ordenes de Produccion...');
+        cerrarEditor();
+        switchTab('ordenes');
+        setTimeout(() => abrirOrden(orden.id), 500);
+    }
+
+    // =====================================================
+    // TAB: ORDENES DE PRODUCCION
+    // =====================================================
+    let ordenActiva = null;
+    let ordenesCache = [];
+
+    const PASO_ESTADO_COLORS = {
+        pendiente:  { bg: '#f3f4f6', color: '#4b5563', border: '#d1d5db' },
+        en_proceso: { bg: '#fef3c7', color: '#92400e', border: '#fbbf24' },
+        bloqueado:  { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
+        completado: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
+        saltado:    { bg: '#e5e7eb', color: '#6b7280', border: '#9ca3af' }
+    };
+    const ORDEN_ESTADO_COLORS = {
+        nueva:       { bg: '#dbeafe', color: '#1e40af' },
+        en_proceso:  { bg: '#fef3c7', color: '#92400e' },
+        finalizada:  { bg: '#d1fae5', color: '#065f46' },
+        entregada:   { bg: '#ccfbf1', color: '#115e59' },
+        cancelada:   { bg: '#fee2e2', color: '#991b1b' }
+    };
+
+    async function cargarOrdenes() {
+        // Ocultar editor, mostrar lista
+        document.getElementById('ordenEditor').style.display = 'none';
+        document.getElementById('ordenesLista').style.display = 'block';
+
+        const filtroEstado = document.getElementById('ordenesFiltroEstado')?.value || '';
+        let q = db.from('ordenes_produccion').select('*, clientes(nombre, empresa), proformas(numero)').order('id', { ascending: false });
+        if (filtroEstado) q = q.eq('estado', filtroEstado);
+        const { data } = await q;
+        ordenesCache = data || [];
+
+        const body = document.getElementById('ordenesBody');
+        const empty = document.getElementById('ordenesEmpty');
+        if (!ordenesCache.length) { body.innerHTML = ''; empty.style.display = 'block'; return; }
+        empty.style.display = 'none';
+
+        // Contar progreso por orden (tareas completadas / total)
+        const ordenIds = ordenesCache.map(o => o.id);
+        const { data: tareas } = await db.from('orden_tareas').select('orden_id, estado').in('orden_id', ordenIds);
+        const progreso = {};
+        (tareas || []).forEach(t => {
+            if (!progreso[t.orden_id]) progreso[t.orden_id] = { total: 0, done: 0 };
+            progreso[t.orden_id].total++;
+            if (t.estado === 'completado' || t.estado === 'saltado') progreso[t.orden_id].done++;
+        });
+
+        body.innerHTML = ordenesCache.map(o => {
+            const p = progreso[o.id] || { total: 0, done: 0 };
+            const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
+            const estCol = ORDEN_ESTADO_COLORS[o.estado] || ORDEN_ESTADO_COLORS.nueva;
+            const cliente = o.clientes ? (o.clientes.nombre + (o.clientes.empresa ? ' <span style="color:var(--gray-400);font-size:0.8rem;">(' + o.clientes.empresa + ')</span>' : '')) : '-';
+            return `<tr onclick="abrirOrden(${o.id})" style="cursor:pointer;">
+                <td><strong>${o.numero || '-'}</strong></td>
+                <td>${cliente}</td>
+                <td>${o.proformas?.numero ? '#' + o.proformas.numero : '-'}</td>
+                <td>${o.created_at ? new Date(o.created_at).toLocaleDateString('es-EC') : '-'}</td>
+                <td>${o.fecha_entrega ? new Date(o.fecha_entrega).toLocaleDateString('es-EC') : '-'}</td>
+                <td><span style="background:${estCol.bg};color:${estCol.color};padding:0.2rem 0.5rem;border-radius:10px;font-size:0.78rem;font-weight:600;">${(o.estado || '').replace('_', ' ')}</span></td>
+                <td>
+                    <div style="background:#e5e7eb;border-radius:10px;height:8px;overflow:hidden;">
+                        <div style="background:${pct === 100 ? '#059669' : '#2563eb'};height:100%;width:${pct}%;"></div>
+                    </div>
+                    <div style="font-size:0.72rem;color:var(--gray-500);margin-top:0.15rem;">${p.done}/${p.total}</div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function abrirOrden(id) {
+        // Load order + tasks + proforma items
+        const { data: orden } = await db.from('ordenes_produccion')
+            .select('*, clientes(nombre, empresa, telefono), proformas(numero)')
+            .eq('id', id).single();
+        if (!orden) { alert('Orden no encontrada'); return; }
+
+        const { data: tareas } = await db.from('orden_tareas')
+            .select('*, staff(nombre)')
+            .eq('orden_id', id)
+            .order('proforma_item_id')
+            .order('orden_seq');
+
+        const itemIds = [...new Set((tareas || []).map(t => t.proforma_item_id).filter(Boolean))];
+        const { data: items } = itemIds.length > 0
+            ? await db.from('proforma_items').select('*').in('id', itemIds)
+            : { data: [] };
+
+        ordenActiva = { ...orden, tareas: tareas || [], items: items || [] };
+
+        // Ensure staff cache is loaded for assignee dropdowns
+        if (staffCache.length === 0) await loadStaff();
+
+        // Switch to editor view
+        document.getElementById('ordenesLista').style.display = 'none';
+        document.getElementById('ordenEditor').style.display = 'block';
+
+        document.getElementById('ordenEditorNum').textContent = orden.numero || orden.id;
+        document.getElementById('ordenEditorEstado').value = orden.estado || 'nueva';
+        document.getElementById('ordenEditorFechaEntrega').value = orden.fecha_entrega || '';
+
+        // Resumen
+        const cli = orden.clientes;
+        document.getElementById('ordenResumenCliente').innerHTML = cli
+            ? '<strong>' + (cli.nombre || '') + '</strong>' + (cli.empresa ? ' — ' + cli.empresa : '') + (cli.telefono ? ' — ' + cli.telefono : '')
+            : '<span style="color:var(--gray-400);">Sin cliente</span>';
+        document.getElementById('ordenResumenProforma').textContent = orden.proformas?.numero
+            ? 'Desde proforma #' + orden.proformas.numero
+            : '';
+
+        // Materiales (agregado desde snapshots)
+        renderOrdenMateriales();
+        renderOrdenTareas();
+    }
+
+    function renderOrdenMateriales() {
+        const cont = document.getElementById('ordenMateriales');
+        if (!ordenActiva) { cont.innerHTML = ''; return; }
+        const agregado = {};
+        (ordenActiva.items || []).forEach(it => {
+            const snap = it.datos_cotizacion || {};
+            const matIdxRaw = snap.material ?? snap.materialSel;
+            const matIdx = matIdxRaw != null && matIdxRaw !== '' ? +matIdxRaw : null;
+            const mat = matIdx != null ? appData.materiales[matIdx] : null;
+            const matLabel = mat ? (mat.nombre + ' ' + (mat.gramaje || 0) + ' g') : (snap.material_nombre || 'Material sin especificar');
+            const pliegos = snap.pliegosNec || snap.pliegos || 0;
+            const key = matLabel;
+            if (!agregado[key]) agregado[key] = { cant: 0, metodo: new Set(), items: [] };
+            agregado[key].cant += +pliegos || 0;
+            agregado[key].metodo.add(it.metodo_impresion || '-');
+            agregado[key].items.push((it.descripcion || '').split(' - ')[0]);
+        });
+        const filas = Object.entries(agregado);
+        if (filas.length === 0) {
+            cont.innerHTML = '<span style="color:var(--gray-400);">Sin datos de materiales en los items</span>';
+            return;
+        }
+        cont.innerHTML = '<ul style="margin:0;padding-left:1.2rem;">' + filas.map(([mat, info]) =>
+            '<li><strong>' + mat + '</strong>' + (info.cant > 0 ? ' — ' + info.cant + ' pliegos' : '') +
+            ' <span style="color:var(--gray-400);">(' + [...info.metodo].join(', ') + ')</span></li>'
+        ).join('') + '</ul>';
+    }
+
+    function renderOrdenTareas() {
+        const cont = document.getElementById('ordenTareas');
+        if (!ordenActiva) { cont.innerHTML = ''; return; }
+
+        // Group tasks by proforma_item_id
+        const byItem = new Map();
+        (ordenActiva.tareas || []).forEach(t => {
+            const k = t.proforma_item_id || 'general';
+            if (!byItem.has(k)) byItem.set(k, []);
+            byItem.get(k).push(t);
+        });
+
+        const itemsById = new Map((ordenActiva.items || []).map(i => [i.id, i]));
+        const staffOpts = staffCache.filter(s => s.activo).map(s =>
+            '<option value="' + s.id + '">' + s.nombre + (s.rol ? ' (' + s.rol + ')' : '') + '</option>'
+        ).join('');
+
+        let html = '';
+        byItem.forEach((tareas, itemId) => {
+            const item = itemsById.get(itemId);
+            const itemLabel = item
+                ? ((item.descripcion || '').split(' - ')[0] + ' — ' + item.cantidad + ' uds — ' + (item.metodo_impresion || '').toUpperCase())
+                : 'General';
+            html += '<div style="margin-bottom:1.5rem;">';
+            html += '<div style="font-weight:700;color:#111827;margin-bottom:0.5rem;padding:0.5rem 0.75rem;background:#f3f4f6;border-radius:6px;">' + itemLabel + '</div>';
+            html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.5rem;">';
+            tareas.forEach(t => {
+                const c = PASO_ESTADO_COLORS[t.estado] || PASO_ESTADO_COLORS.pendiente;
+                const fechaInicio = t.fecha_inicio ? new Date(t.fecha_inicio).toLocaleDateString('es-EC') : '';
+                const fechaFin = t.fecha_fin ? new Date(t.fecha_fin).toLocaleDateString('es-EC') : '';
+                html += '<div style="background:' + c.bg + ';border:2px solid ' + c.border + ';border-radius:8px;padding:0.6rem;">'
+                    + '<div style="font-weight:700;color:' + c.color + ';font-size:0.88rem;margin-bottom:0.4rem;">' + (t.orden_seq + 1) + '. ' + t.paso + '</div>'
+                    + '<select onchange="updateOrdenTarea(' + t.id + ',\'estado\',this.value)" style="width:100%;padding:0.25rem;font-size:0.78rem;margin-bottom:0.35rem;border:1px solid ' + c.border + ';border-radius:4px;background:white;">'
+                    + ['pendiente','en_proceso','bloqueado','completado','saltado'].map(e => '<option value="' + e + '"' + (t.estado === e ? ' selected' : '') + '>' + e.replace('_', ' ') + '</option>').join('')
+                    + '</select>'
+                    + '<select onchange="updateOrdenTarea(' + t.id + ',\'asignado_a\',this.value||null)" style="width:100%;padding:0.25rem;font-size:0.78rem;margin-bottom:0.35rem;border:1px solid ' + c.border + ';border-radius:4px;background:white;">'
+                    + '<option value="">— asignar —</option>'
+                    + staffOpts.replace('value="' + t.asignado_a + '"', 'value="' + t.asignado_a + '" selected')
+                    + '</select>'
+                    + '<input type="date" value="' + (t.fecha_estimada || '') + '" onchange="updateOrdenTarea(' + t.id + ',\'fecha_estimada\',this.value||null)" title="Fecha estimada" style="width:100%;padding:0.2rem;font-size:0.75rem;margin-bottom:0.3rem;border:1px solid ' + c.border + ';border-radius:4px;">'
+                    + (fechaInicio || fechaFin ? '<div style="font-size:0.7rem;color:' + c.color + ';margin-bottom:0.25rem;">' + (fechaInicio ? '▶ ' + fechaInicio : '') + (fechaFin ? ' ✓ ' + fechaFin : '') + '</div>' : '')
+                    + '<textarea placeholder="Notas..." onchange="updateOrdenTarea(' + t.id + ',\'notas\',this.value)" style="width:100%;padding:0.25rem;font-size:0.75rem;min-height:30px;border:1px solid ' + c.border + ';border-radius:4px;background:white;resize:vertical;">' + (t.notas || '') + '</textarea>'
+                    + '</div>';
+            });
+            html += '</div></div>';
+        });
+        cont.innerHTML = html || '<span style="color:var(--gray-400);">Sin tareas</span>';
+    }
+
+    async function updateOrdenTarea(tareaId, field, value) {
+        if (!ordenActiva) return;
+        const tarea = ordenActiva.tareas.find(t => t.id === tareaId);
+        if (!tarea) return;
+        const updates = { [field]: value };
+        // Auto-stamp fecha_inicio/fecha_fin cuando cambia el estado
+        if (field === 'estado') {
+            if (value === 'en_proceso' && !tarea.fecha_inicio) updates.fecha_inicio = new Date().toISOString();
+            if (value === 'completado' && !tarea.fecha_fin) updates.fecha_fin = new Date().toISOString();
+        }
+        await db.from('orden_tareas').update(updates).eq('id', tareaId);
+        Object.assign(tarea, updates);
+        renderOrdenTareas();
+    }
+
+    async function cambiarEstadoOrden() {
+        if (!ordenActiva) return;
+        const estado = document.getElementById('ordenEditorEstado').value;
+        ordenActiva.estado = estado;
+        await db.from('ordenes_produccion').update({ estado }).eq('id', ordenActiva.id);
+    }
+
+    async function guardarOrdenCampo(field, value) {
+        if (!ordenActiva) return;
+        ordenActiva[field] = value;
+        await db.from('ordenes_produccion').update({ [field]: value }).eq('id', ordenActiva.id);
+    }
+
+    function cerrarOrdenEditor() {
+        ordenActiva = null;
+        document.getElementById('ordenEditor').style.display = 'none';
+        document.getElementById('ordenesLista').style.display = 'block';
+        cargarOrdenes();
+    }
         document.getElementById('proformaEditor').classList.remove('active');
         document.getElementById('proformasLista').style.display = 'block';
         proformaActiva = null;
