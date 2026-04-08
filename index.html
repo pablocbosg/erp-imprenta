@@ -1197,7 +1197,8 @@
                             </div>
                         </div>
                         <button class="btn btn-primary mt-2 no-print" style="width:100%" onclick="window.print()">Imprimir Proforma</button>
-                        <button id="btnAddToProforma" class="btn-add-proforma no-print" onclick="addItemToProforma()">+ Agregar a Proforma #<span id="proformaActivaNum"></span></button>
+                        <button class="btn no-print" style="width:100%;margin-top:0.5rem;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;border:none;padding:0.6rem 1rem;border-radius:7px;font-weight:600;cursor:pointer;" onclick="abrirComparador('offset')">⇄ Comparar con Digital</button>
+                        <button id="btnAddToProforma" class="btn-add-proforma no-print" onclick="addItemToProforma()">+ Agregar a Proforma #<span class="proforma-activa-num">1</span></button>
                     </div>
                 </div>
                 </div><!-- /mainNormal -->
@@ -2020,6 +2021,8 @@
                             </div>
                         </div>
                         <button class="btn btn-primary mt-2 no-print" style="width:100%" onclick="window.print()">Imprimir Proforma</button>
+                        <button class="btn no-print" style="width:100%;margin-top:0.5rem;background:linear-gradient(135deg,#0369a1,#075985);color:white;border:none;padding:0.6rem 1rem;border-radius:7px;font-weight:600;cursor:pointer;" onclick="abrirComparador('digital')">⇄ Comparar con Offset</button>
+                        <button class="btn-add-proforma no-print" onclick="addItemToProformaDig()">+ Agregar a Proforma #<span class="proforma-activa-num">1</span></button>
                     </div>
                 </div>
                 </div><!-- /digMainNormal -->
@@ -2761,6 +2764,48 @@
         </div>
     </div>
     </div><!-- /appContainer -->
+
+    <!-- ==================== MODAL COMPARADOR OFFSET vs DIGITAL ==================== -->
+    <div id="comparadorModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+        <div style="background:white;border-radius:12px;max-width:720px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+            <div style="padding:1rem 1.5rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="margin:0;color:#111827;">⇄ Comparador Offset vs Digital</h3>
+                <button onclick="cerrarComparador()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#6b7280;">×</button>
+            </div>
+            <div style="padding:1rem 1.5rem;">
+                <div id="comparadorResumen" style="font-size:0.85rem;color:#6b7280;margin-bottom:1rem;"></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                    <!-- OFFSET -->
+                    <div id="cmpOffsetCard" style="border:2px solid #e5e7eb;border-radius:10px;padding:1rem;background:#fafbff;">
+                        <div style="font-weight:700;color:#7c3aed;font-size:0.95rem;margin-bottom:0.5rem;">Impresion Offset</div>
+                        <div style="font-size:0.75rem;color:#9ca3af;">Costo produccion</div>
+                        <div id="cmpOffsetCosto" style="font-size:1rem;color:#374151;margin-bottom:0.4rem;">$0,00</div>
+                        <div style="font-size:0.75rem;color:#9ca3af;">Utilidad (<span id="cmpOffsetMargen">0</span>%)</div>
+                        <div id="cmpOffsetUtilidad" style="font-size:1rem;color:#059669;margin-bottom:0.4rem;">$0,00</div>
+                        <div style="font-size:0.75rem;color:#9ca3af;">Precio unitario (sin IVA)</div>
+                        <div id="cmpOffsetUnit" style="font-size:1.1rem;font-weight:600;color:#111827;margin-bottom:0.4rem;">$0,000</div>
+                        <div style="font-size:0.75rem;color:#9ca3af;">Total con IVA</div>
+                        <div id="cmpOffsetTotal" style="font-size:1.5rem;font-weight:700;color:#7c3aed;margin-bottom:0.75rem;">$0,00</div>
+                        <button id="cmpOffsetBtn" onclick="usarComparadorResult('offset')" style="width:100%;background:#7c3aed;color:white;border:none;padding:0.6rem;border-radius:6px;font-weight:600;cursor:pointer;">Usar Offset</button>
+                    </div>
+                    <!-- DIGITAL -->
+                    <div id="cmpDigitalCard" style="border:2px solid #e5e7eb;border-radius:10px;padding:1rem;background:#f0f9ff;">
+                        <div style="font-weight:700;color:#0369a1;font-size:0.95rem;margin-bottom:0.5rem;">Impresion Digital</div>
+                        <div style="font-size:0.75rem;color:#9ca3af;">Costo produccion</div>
+                        <div id="cmpDigitalCosto" style="font-size:1rem;color:#374151;margin-bottom:0.4rem;">$0,00</div>
+                        <div style="font-size:0.75rem;color:#9ca3af;">Utilidad (<span id="cmpDigitalMargen">0</span>%)</div>
+                        <div id="cmpDigitalUtilidad" style="font-size:1rem;color:#059669;margin-bottom:0.4rem;">$0,00</div>
+                        <div style="font-size:0.75rem;color:#9ca3af;">Precio unitario (sin IVA)</div>
+                        <div id="cmpDigitalUnit" style="font-size:1.1rem;font-weight:600;color:#111827;margin-bottom:0.4rem;">$0,000</div>
+                        <div style="font-size:0.75rem;color:#9ca3af;">Total con IVA</div>
+                        <div id="cmpDigitalTotal" style="font-size:1.5rem;font-weight:700;color:#0369a1;margin-bottom:0.75rem;">$0,00</div>
+                        <button id="cmpDigitalBtn" onclick="usarComparadorResult('digital')" style="width:100%;background:#0369a1;color:white;border:none;padding:0.6rem;border-radius:6px;font-weight:600;cursor:pointer;">Usar Digital</button>
+                    </div>
+                </div>
+                <div id="comparadorRecomendacion" style="margin-top:1rem;padding:0.75rem;border-radius:8px;font-size:0.9rem;text-align:center;"></div>
+            </div>
+        </div>
+    </div>
 
     <script>
     // =====================================================
@@ -3682,7 +3727,7 @@
         });
         if (tab === 'calculadora') calcCalc();
         if (tab === 'cotizador') { cotCalc(); updateAddToProformaBtn(); }
-        if (tab === 'digital') { digPopulateMaterials(); digCalc(); }
+        if (tab === 'digital') { digPopulateMaterials(); digCalc(); updateAddToProformaBtn(); }
         if (tab === 'conciliacion') { concInit(); }
         if (tab === 'proformas') cargarProformas();
         if (tab === 'productos') cargarProductos();
@@ -6406,13 +6451,15 @@
     }
 
     function updateAddToProformaBtn() {
-        const btn = document.getElementById('btnAddToProforma');
-        const numSpan = document.getElementById('proformaActivaNum');
-        if (proformaActiva) {
-            btn.classList.add('visible');
-            numSpan.textContent = proformaActiva.numero;
-        } else {
-            btn.classList.remove('visible');
+        const hasActive = !!proformaActiva;
+        document.querySelectorAll('.btn-add-proforma').forEach(btn => {
+            if (hasActive) btn.classList.add('visible');
+            else btn.classList.remove('visible');
+        });
+        if (hasActive) {
+            document.querySelectorAll('.proforma-activa-num').forEach(el => {
+                el.textContent = proformaActiva.numero;
+            });
         }
     }
 
@@ -6432,7 +6479,7 @@
             producto: { w: document.getElementById('cotProdW').value, h: document.getElementById('cotProdH').value },
             sangrado: document.getElementById('cotSangrado').value,
             lados: document.getElementById('cotLados').value,
-            material: document.getElementById('cotMaterialSelect')?.value,
+            material: document.getElementById('cotMaterial')?.value,
             pliego: { w: document.getElementById('cotPliegoW').value, h: document.getElementById('cotPliegoH').value, precio: document.getElementById('cotPrecioPliego').value },
             hoja: { w: document.getElementById('cotHojaW').value, h: document.getElementById('cotHojaH').value },
             colores: document.getElementById('cotColores').value,
@@ -6464,6 +6511,239 @@
         document.getElementById('tab-proformas').classList.add('active');
         document.querySelectorAll('.tab-btn').forEach(b => { if (b.textContent.toLowerCase().includes('proformas')) b.classList.add('active'); });
         renderProformaItems();
+    }
+
+    function addItemToProformaDig() {
+        if (!proformaActiva) return;
+        const descripcion = document.getElementById('digDescripcion').value.trim() || 'Producto sin descripcion';
+        const cantidad = parseFloat(document.getElementById('digCantidad').value) || 0;
+        const precioUnit = parseFloat((document.getElementById('digPrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
+        const itemIvaPct = parseFloat(document.getElementById('digIVA').value) || 0;
+
+        const snapshot = {
+            tipo: 'digital',
+            producto: { w: document.getElementById('digProdW').value, h: document.getElementById('digProdH').value },
+            sangrado: document.getElementById('digSangrado').value,
+            lados: document.getElementById('digLados').value,
+            maquina: document.getElementById('digMaquina').value,
+            formato: document.getElementById('digFormato').value,
+            cantidad: cantidad,
+            margen: document.getElementById('digMargen').value,
+            iva: document.getElementById('digIVA').value,
+            costoTotal: document.getElementById('digSubtotalCosto')?.textContent,
+            precioFinal: document.getElementById('digPrecioFinal')?.textContent,
+        };
+
+        proformaActiva.items.push({
+            orden: proformaActiva.items.length + 1,
+            descripcion: descripcion,
+            cantidad: cantidad,
+            precio_unitario: precioUnit,
+            iva_pct: itemIvaPct,
+            imagen_url: null,
+            datos_cotizacion: snapshot
+        });
+
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-proformas').classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(b => { if (b.textContent.toLowerCase().includes('proformas')) b.classList.add('active'); });
+        renderProformaItems();
+    }
+
+    // =====================================================
+    // COMPARADOR OFFSET vs DIGITAL
+    // =====================================================
+    function _cmpReadNum(id) {
+        return parseFloat((document.getElementById(id)?.textContent || '0').replace(',', '.')) || 0;
+    }
+    function _cmpSnapshotDig() {
+        return {
+            digDescripcion: document.getElementById('digDescripcion').value,
+            digCantidad: document.getElementById('digCantidad').value,
+            digProdW: document.getElementById('digProdW').value,
+            digProdH: document.getElementById('digProdH').value,
+            digSangrado: document.getElementById('digSangrado').value,
+            digLados: document.getElementById('digLados').value,
+            digMaterial: document.getElementById('digMaterial').value,
+        };
+    }
+    function _cmpSnapshotCot() {
+        return {
+            cotDescripcion: document.getElementById('cotDescripcion').value,
+            cotCantidad: document.getElementById('cotCantidad').value,
+            cotProdW: document.getElementById('cotProdW').value,
+            cotProdH: document.getElementById('cotProdH').value,
+            cotSangrado: document.getElementById('cotSangrado').value,
+            cotLados: document.getElementById('cotLados').value,
+            cotMaterial: document.getElementById('cotMaterial')?.value,
+        };
+    }
+    function _cmpRestore(snap) {
+        Object.keys(snap).forEach(k => {
+            const el = document.getElementById(k);
+            if (el != null) el.value = snap[k];
+        });
+    }
+    function abrirComparador(from) {
+        // Leer datos comunes desde el tab "from"
+        let common;
+        if (from === 'offset') {
+            common = {
+                descripcion: document.getElementById('cotDescripcion').value,
+                cantidad: document.getElementById('cotCantidad').value,
+                w: document.getElementById('cotProdW').value,
+                h: document.getElementById('cotProdH').value,
+                sangrado: document.getElementById('cotSangrado').value,
+                lados: document.getElementById('cotLados').value,
+                materialSel: document.getElementById('cotMaterial')?.value,
+            };
+        } else {
+            common = {
+                descripcion: document.getElementById('digDescripcion').value,
+                cantidad: document.getElementById('digCantidad').value,
+                w: document.getElementById('digProdW').value,
+                h: document.getElementById('digProdH').value,
+                sangrado: document.getElementById('digSangrado').value,
+                lados: document.getElementById('digLados').value,
+                materialSel: document.getElementById('digMaterial').value,
+            };
+        }
+
+        // Asegurar que ambos tabs estan calculados con estos datos comunes
+        // 1) OFFSET
+        const snapCot = _cmpSnapshotCot();
+        document.getElementById('cotDescripcion').value = common.descripcion;
+        document.getElementById('cotCantidad').value = common.cantidad;
+        document.getElementById('cotProdW').value = common.w;
+        document.getElementById('cotProdH').value = common.h;
+        document.getElementById('cotSangrado').value = common.sangrado;
+        document.getElementById('cotLados').value = common.lados;
+        if (common.materialSel != null && common.materialSel !== '') {
+            const cotMatSel = document.getElementById('cotMaterial');
+            if (cotMatSel) {
+                cotMatSel.value = common.materialSel;
+                if (typeof cotOnMaterialChange === 'function') cotOnMaterialChange();
+            }
+        }
+        cotCalc();
+        const offsetResult = {
+            costo: _cmpReadNum('cotSubtotalCosto'),
+            margen: document.getElementById('cotMargenPct').textContent,
+            utilidad: _cmpReadNum('cotUtilidadNeta'),
+            unit: _cmpReadNum('cotPrecioUnit'),
+            total: _cmpReadNum('cotPrecioFinal')
+        };
+
+        // 2) DIGITAL
+        const snapDig = _cmpSnapshotDig();
+        document.getElementById('digDescripcion').value = common.descripcion;
+        document.getElementById('digCantidad').value = common.cantidad;
+        document.getElementById('digProdW').value = common.w;
+        document.getElementById('digProdH').value = common.h;
+        document.getElementById('digSangrado').value = common.sangrado;
+        document.getElementById('digLados').value = common.lados;
+        if (common.materialSel != null && common.materialSel !== '') {
+            const digMatSel = document.getElementById('digMaterial');
+            if (digMatSel) {
+                digMatSel.value = common.materialSel;
+                if (typeof digOnMaterialChange === 'function') digOnMaterialChange();
+            }
+        }
+        window._digMargenManual = false;
+        digCalc();
+        const digitalResult = {
+            costo: _cmpReadNum('digSubtotalCosto'),
+            margen: document.getElementById('digMargenPct').textContent,
+            utilidad: _cmpReadNum('digUtilidadNeta'),
+            unit: _cmpReadNum('digPrecioUnit'),
+            total: _cmpReadNum('digPrecioFinal')
+        };
+
+        // Si el comparador vino desde offset, restaurar digital a su estado previo
+        // Si vino desde digital, restaurar offset a su estado previo
+        if (from === 'offset') {
+            _cmpRestore(snapDig);
+            if (typeof digOnMaterialChange === 'function') digOnMaterialChange();
+            digCalc();
+        } else {
+            _cmpRestore(snapCot);
+            if (typeof cotOnMaterialChange === 'function') cotOnMaterialChange();
+            cotCalc();
+        }
+
+        // Pintar modal
+        document.getElementById('comparadorResumen').textContent =
+            (common.descripcion || 'Producto') + ' | ' + common.cantidad + ' uds | ' +
+            common.w + 'x' + common.h + ' cm | ' + (common.lados === '2' ? 'T/R' : '1 lado');
+        document.getElementById('cmpOffsetCosto').textContent = '$' + fmtN(offsetResult.costo, 2);
+        document.getElementById('cmpOffsetMargen').textContent = offsetResult.margen;
+        document.getElementById('cmpOffsetUtilidad').textContent = '$' + fmtN(offsetResult.utilidad, 2);
+        document.getElementById('cmpOffsetUnit').textContent = '$' + fmtN(offsetResult.unit, 3);
+        document.getElementById('cmpOffsetTotal').textContent = '$' + fmtN(offsetResult.total, 2);
+        document.getElementById('cmpDigitalCosto').textContent = '$' + fmtN(digitalResult.costo, 2);
+        document.getElementById('cmpDigitalMargen').textContent = digitalResult.margen;
+        document.getElementById('cmpDigitalUtilidad').textContent = '$' + fmtN(digitalResult.utilidad, 2);
+        document.getElementById('cmpDigitalUnit').textContent = '$' + fmtN(digitalResult.unit, 3);
+        document.getElementById('cmpDigitalTotal').textContent = '$' + fmtN(digitalResult.total, 2);
+
+        // Resaltar el ganador (menor precio)
+        const offCard = document.getElementById('cmpOffsetCard');
+        const digCard = document.getElementById('cmpDigitalCard');
+        const reco = document.getElementById('comparadorRecomendacion');
+        offCard.style.border = '2px solid #e5e7eb';
+        digCard.style.border = '2px solid #e5e7eb';
+        if (offsetResult.total > 0 && digitalResult.total > 0) {
+            const diff = Math.abs(offsetResult.total - digitalResult.total);
+            const pct = (diff / Math.max(offsetResult.total, digitalResult.total)) * 100;
+            if (offsetResult.total < digitalResult.total) {
+                offCard.style.border = '2px solid #7c3aed';
+                reco.style.background = '#f5f3ff';
+                reco.style.color = '#6d28d9';
+                reco.innerHTML = '<strong>Offset es $' + fmtN(diff, 2) + ' mas barato (' + pct.toFixed(1).replace('.', ',') + '%)</strong>';
+            } else if (digitalResult.total < offsetResult.total) {
+                digCard.style.border = '2px solid #0369a1';
+                reco.style.background = '#f0f9ff';
+                reco.style.color = '#075985';
+                reco.innerHTML = '<strong>Digital es $' + fmtN(diff, 2) + ' mas barato (' + pct.toFixed(1).replace('.', ',') + '%)</strong>';
+            } else {
+                reco.style.background = '#f9fafb';
+                reco.style.color = '#6b7280';
+                reco.textContent = 'Ambos cuestan lo mismo';
+            }
+        } else {
+            reco.style.background = '#fef3c7';
+            reco.style.color = '#92400e';
+            reco.textContent = 'Falta informacion en uno de los dos cotizadores';
+        }
+
+        // Desactivar botones si no hay proforma activa
+        const hasProf = !!proformaActiva;
+        document.getElementById('cmpOffsetBtn').disabled = !hasProf;
+        document.getElementById('cmpDigitalBtn').disabled = !hasProf;
+        document.getElementById('cmpOffsetBtn').style.opacity = hasProf ? '1' : '0.5';
+        document.getElementById('cmpDigitalBtn').style.opacity = hasProf ? '1' : '0.5';
+        if (!hasProf) {
+            document.getElementById('cmpOffsetBtn').textContent = 'Sin proforma activa';
+            document.getElementById('cmpDigitalBtn').textContent = 'Sin proforma activa';
+        } else {
+            document.getElementById('cmpOffsetBtn').textContent = 'Usar Offset en proforma #' + proformaActiva.numero;
+            document.getElementById('cmpDigitalBtn').textContent = 'Usar Digital en proforma #' + proformaActiva.numero;
+        }
+
+        document.getElementById('comparadorModal').style.display = 'flex';
+    }
+    function cerrarComparador() {
+        document.getElementById('comparadorModal').style.display = 'none';
+    }
+    function usarComparadorResult(tipo) {
+        if (!proformaActiva) return;
+        if (tipo === 'offset') {
+            addItemToProforma();
+        } else {
+            addItemToProformaDig();
+        }
+        cerrarComparador();
     }
 
     async function guardarProforma() {
