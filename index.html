@@ -7092,20 +7092,17 @@
             reco.textContent = 'Falta informacion en uno de los dos cotizadores';
         }
 
-        // Desactivar botones si no hay proforma activa
         const hasProf = !!proformaActiva;
         const digBtn = document.getElementById('cmpDigitalBtn');
         const offBtn = document.getElementById('cmpOffsetBtn');
-        offBtn.disabled = !hasProf;
-        digBtn.disabled = !hasProf || digitalResult.noCabe;
-        offBtn.style.opacity = hasProf ? '1' : '0.5';
-        digBtn.style.opacity = (hasProf && !digitalResult.noCabe) ? '1' : '0.5';
-        if (!hasProf) {
-            offBtn.textContent = 'Sin proforma activa';
-            digBtn.textContent = 'Sin proforma activa';
-        } else {
+        digBtn.disabled = digitalResult.noCabe;
+        digBtn.style.opacity = digitalResult.noCabe ? '0.5' : '1';
+        if (hasProf) {
             offBtn.textContent = 'Usar Offset en proforma #' + proformaActiva.numero;
             digBtn.textContent = digitalResult.noCabe ? 'No cabe en digital' : 'Usar Digital en proforma #' + proformaActiva.numero;
+        } else {
+            offBtn.textContent = 'Usar Offset — Crear Proforma';
+            digBtn.textContent = digitalResult.noCabe ? 'No cabe en digital' : 'Usar Digital — Crear Proforma';
         }
 
         document.getElementById('comparadorModal').style.display = 'flex';
@@ -7113,12 +7110,12 @@
     function cerrarComparador() {
         document.getElementById('comparadorModal').style.display = 'none';
     }
-    function usarComparadorResult(tipo) {
-        if (!proformaActiva) return;
-        if (tipo === 'offset') {
-            addItemToProforma();
+    async function usarComparadorResult(tipo) {
+        if (!proformaActiva) {
+            await crearProformaDesdeCalc(tipo);
         } else {
-            addItemToProformaDig();
+            if (tipo === 'offset') addItemToProforma();
+            else addItemToProformaDig();
         }
         cerrarComparador();
     }
