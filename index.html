@@ -6648,6 +6648,8 @@
             producto: { w: document.getElementById('cotProdW').value, h: document.getElementById('cotProdH').value },
             sangrado: document.getElementById('cotSangrado').value,
             lados: document.getElementById('cotLados').value,
+            margenMaq: document.getElementById('cotMargenMaquina').value,
+            placasTR: document.getElementById('cotPlacasTR')?.value || 'diferente',
             material: matIdx,
             material_nombre: matObj ? matObj.nombre : '',
             material_gramaje: matObj ? matObj.gramaje : '',
@@ -7491,10 +7493,41 @@
                 html += '<div style="margin-top:0.3rem;"><strong>Terminados:</strong> ' + termList + '</div>';
             }
 
+            // Imposicion canvases
+            html += '<div style="margin-top:0.75rem;font-weight:600;font-size:0.82rem;color:var(--gray-500);text-transform:uppercase;">Vista Previa de Imposicion</div>';
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.35rem;">';
+            html += '<div><div style="font-size:0.7rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:0.25rem;">Piezas en hoja maquina</div>';
+            html += '<canvas id="opPreviewHoja_' + idx + '" style="width:100%;border:1px solid var(--gray-200);border-radius:6px;background:var(--gray-50);"></canvas></div>';
+            html += '<div><div style="font-size:0.7rem;font-weight:600;color:var(--gray-500);text-transform:uppercase;margin-bottom:0.25rem;">Hojas en pliego de material</div>';
+            html += '<canvas id="opPreviewPliego_' + idx + '" style="width:100%;border:1px solid var(--gray-200);border-radius:6px;background:var(--gray-50);"></canvas></div>';
+            html += '</div>';
+
             html += '</div></div>';
         });
 
         cont.innerHTML = html;
+
+        // Draw imposition previews after DOM is ready
+        setTimeout(() => {
+            items.forEach((item, idx) => {
+                const s = item.datos_cotizacion || {};
+                const hojaW = +(s.hoja?.w || 0), hojaH = +(s.hoja?.h || 0);
+                const sangrado = +(s.sangrado || 0);
+                const piezaW = +(s.producto?.w || 0) + sangrado * 2;
+                const piezaH = +(s.producto?.h || 0) + sangrado * 2;
+                const pliegoW = +(s.pliego?.w || 0), pliegoH = +(s.pliego?.h || 0);
+                const margenMaq = +(s.margenMaq || 0.5);
+                const lados = +(s.lados || 1);
+                const esMismaPlaca = lados === 2 && s.placasTR === 'misma';
+
+                if (hojaW > 0 && hojaH > 0 && piezaW > 0 && piezaH > 0) {
+                    cotDrawPreview('opPreviewHoja_' + idx, hojaW, hojaH, piezaW, piezaH, margenMaq, esMismaPlaca ? 'tiroretiro' : false, 1);
+                }
+                if (pliegoW > 0 && pliegoH > 0 && hojaW > 0 && hojaH > 0) {
+                    cotDrawPreview('opPreviewPliego_' + idx, pliegoW, pliegoH, hojaW, hojaH, 0, false);
+                }
+            });
+        }, 50);
     }
 
     async function updateOrdenTarea(tareaId, field, value) {
