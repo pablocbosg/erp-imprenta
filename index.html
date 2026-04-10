@@ -6663,8 +6663,15 @@
             mermaTotal: +(document.getElementById('cotResMermaInfo')?.textContent || 0),
             hojasTotales: +(document.getElementById('cotResHojasTotales')?.textContent || 0),
             pliegosNec: +(document.getElementById('cotResPliegosNec')?.textContent || 0),
-            totalPlacas: +(document.getElementById('cotCostoPlacasVal')?.textContent?.match(/\d+\s*placas/)?.[0] || 0),
             terminados: _describirTerminadosCot(),
+            terminadosDetalle: {
+                plastificado: document.getElementById('cotPlastificadoInfo')?.style.display !== 'none' ? document.getElementById('cotPlastificadoInfo')?.textContent : null,
+                barnizUV: document.getElementById('cotBarnizUVInfo')?.style.display !== 'none' ? document.getElementById('cotBarnizUVInfo')?.textContent : null,
+                uvSelectivo: document.getElementById('cotUVSelectivoInfo')?.style.display !== 'none' ? document.getElementById('cotUVSelectivoInfo')?.textContent : null,
+                guillotina: document.getElementById('cotGuillotinaInfo')?.style.display !== 'none' ? document.getElementById('cotGuillotinaInfo')?.textContent : null,
+                ensanduchado: document.getElementById('cotEnsanduchado')?.checked || false,
+                troquelado: document.getElementById('cotTroqueladoInfo')?.style.display !== 'none' ? document.getElementById('cotTroqueladoInfo')?.textContent : null
+            },
             // Costs
             costoMaterial: document.getElementById('cotCostoMaterialVal')?.textContent,
             costoPlacas: document.getElementById('cotCostoPlacasVal')?.textContent,
@@ -6844,6 +6851,13 @@
             hojasTotales: +(document.getElementById('digResHojasTotales')?.textContent || 0),
             pliegosNec: +(document.getElementById('digResPliegosNec')?.textContent || 0),
             terminados: _describirTerminadosDig(),
+            terminadosDetalle: {
+                plastificado: document.getElementById('digPlastificadoInfo')?.style.display !== 'none' ? document.getElementById('digPlastificadoInfo')?.textContent : null,
+                barnizUV: document.getElementById('digBarnizUVInfo')?.style.display !== 'none' ? document.getElementById('digBarnizUVInfo')?.textContent : null,
+                uvSelectivo: document.getElementById('digUVSelectivoInfo')?.style.display !== 'none' ? document.getElementById('digUVSelectivoInfo')?.textContent : null,
+                guillotina: document.getElementById('digGuillotinaInfo')?.style.display !== 'none' ? document.getElementById('digGuillotinaInfo')?.textContent : null,
+                troquelPlotter: document.getElementById('digTroquelPlotterInfo')?.style.display !== 'none' ? document.getElementById('digTroquelPlotterInfo')?.textContent : null
+            },
             // Costs
             costoTotal: document.getElementById('digSubtotalCosto')?.textContent,
             precioFinal: document.getElementById('digPrecioFinal')?.textContent,
@@ -7412,96 +7426,6 @@
         ).join('') + '</ul>';
     }
 
-    function _svgCortesPliego(s, svgId) {
-        // Draws SVG of how pieces fit on the machine sheet
-        const hojaW = +(s.hoja?.w || 0), hojaH = +(s.hoja?.h || 0);
-        const sangrado = +(s.sangrado || 0);
-        const prodW = +(s.producto?.w || 0), prodH = +(s.producto?.h || 0);
-        const piezaW = prodW + sangrado * 2, piezaH = prodH + sangrado * 2;
-        if (!hojaW || !hojaH || !piezaW || !piezaH) return '<div style="color:var(--gray-400);font-size:0.8rem;">Sin datos de hoja para grafico</div>';
-
-        // Calculate layout using existing functions
-        const nL = calcLayout(hojaW, hojaH, piezaW, piezaH, 0, 0);
-        const rL = calcLayout(hojaW, hojaH, piezaH, piezaW, 0, 0);
-        const mL1 = calcMixedLayout(hojaW, hojaH, piezaW, piezaH, 0, 0);
-        const mL2 = calcMixedLayout(hojaW, hojaH, piezaH, piezaW, 0, 0);
-
-        // Find best layout
-        let best = nL.total >= rL.total ? { ...nL, pw: piezaW, ph: piezaH, type: 'simple' } : { ...rL, pw: piezaH, ph: piezaW, type: 'simple' };
-        if (mL1 && mL1.total > best.total) best = { ...mL1, type: 'mixed' };
-        if (mL2 && mL2.total > best.total) best = { ...mL2, type: 'mixed' };
-
-        const svgW = 320, svgH = Math.round(svgW * (hojaH / hojaW));
-        const scale = svgW / hojaW;
-        const colors = ['#dbeafe', '#e0e7ff', '#fce7f3', '#d1fae5', '#fef3c7', '#ede9fe'];
-
-        let rects = '';
-        if (best.type === 'mixed' && best.zones) {
-            let idx = 0;
-            best.zones.forEach((z, zi) => {
-                const ox = z.offsetX || 0, oy = z.offsetY || 0;
-                for (let r = 0; r < z.rows; r++) {
-                    for (let c = 0; c < z.cols; c++) {
-                        const x = (ox + c * z.pw) * scale;
-                        const y = (oy + r * z.ph) * scale;
-                        rects += '<rect x="' + x + '" y="' + y + '" width="' + (z.pw * scale) + '" height="' + (z.ph * scale) + '" fill="' + colors[zi % colors.length] + '" stroke="#6366f1" stroke-width="1"/>';
-                        rects += '<text x="' + (x + z.pw * scale / 2) + '" y="' + (y + z.ph * scale / 2 + 4) + '" text-anchor="middle" font-size="10" fill="#4338ca">' + (++idx) + '</text>';
-                    }
-                }
-            });
-        } else {
-            let idx = 0;
-            for (let r = 0; r < best.rows; r++) {
-                for (let c = 0; c < best.cols; c++) {
-                    const x = c * best.pw * scale;
-                    const y = r * best.ph * scale;
-                    rects += '<rect x="' + x + '" y="' + y + '" width="' + (best.pw * scale) + '" height="' + (best.ph * scale) + '" fill="' + colors[0] + '" stroke="#6366f1" stroke-width="1"/>';
-                    rects += '<text x="' + (x + best.pw * scale / 2) + '" y="' + (y + best.ph * scale / 2 + 4) + '" text-anchor="middle" font-size="10" fill="#4338ca">' + (++idx) + '</text>';
-                }
-            }
-        }
-
-        return '<div style="text-align:center;">'
-            + '<div style="font-weight:600;font-size:0.8rem;margin-bottom:0.3rem;color:#4338ca;">Cortes en hoja maquina (' + hojaW + ' x ' + hojaH + ' cm)</div>'
-            + '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="border:2px solid #6366f1;border-radius:4px;background:#fff;">'
-            + '<rect x="0" y="0" width="' + svgW + '" height="' + svgH + '" fill="#f8fafc" />'
-            + rects
-            + '</svg>'
-            + '<div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;">' + (best.type === 'mixed' ? best.total : best.total) + ' piezas/hoja | Pieza: ' + fmtN(piezaW, 1) + ' x ' + fmtN(piezaH, 1) + ' cm (con sangrado)</div>'
-            + '</div>';
-    }
-
-    function _svgImposicion(s) {
-        // Draws imposition diagram: how the final piece looks on the sheet (tiro and retiro)
-        const prodW = +(s.producto?.w || 0), prodH = +(s.producto?.h || 0);
-        const sangrado = +(s.sangrado || 0);
-        const lados = +(s.lados || 1);
-        if (!prodW || !prodH) return '';
-
-        const piezaW = prodW + sangrado * 2, piezaH = prodH + sangrado * 2;
-        const svgW = 200, svgH = Math.round(svgW * (piezaH / piezaW));
-        const scale = svgW / piezaW;
-        const sS = sangrado * scale;
-
-        function drawSide(label) {
-            return '<div style="text-align:center;">'
-                + '<div style="font-weight:600;font-size:0.78rem;margin-bottom:0.2rem;color:#059669;">' + label + '</div>'
-                + '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="border:1px solid #6ee7b7;border-radius:4px;background:#fff;">'
-                + '<rect x="0" y="0" width="' + svgW + '" height="' + svgH + '" fill="#fef2f2" stroke="#fca5a5" stroke-width="1" stroke-dasharray="4,2"/>'
-                + '<rect x="' + sS + '" y="' + sS + '" width="' + (prodW * scale) + '" height="' + (prodH * scale) + '" fill="#d1fae5" stroke="#059669" stroke-width="1.5"/>'
-                + '<text x="' + (svgW / 2) + '" y="' + (svgH / 2 + 4) + '" text-anchor="middle" font-size="11" font-weight="600" fill="#065f46">' + label + '</text>'
-                + '<text x="' + (svgW / 2) + '" y="' + (svgH / 2 + 18) + '" text-anchor="middle" font-size="9" fill="#6b7280">' + prodW + ' x ' + prodH + ' cm</text>'
-                + (sangrado > 0 ? '<text x="3" y="12" font-size="8" fill="#ef4444">sangrado ' + sangrado + '</text>' : '')
-                + '</svg></div>';
-        }
-
-        let html = '<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">';
-        html += drawSide('TIRO');
-        if (lados === 2) html += drawSide('RETIRO');
-        html += '</div>';
-        return html;
-    }
-
     function renderOrdenTareas() {
         const cont = document.getElementById('ordenTareas');
         if (!ordenActiva) { cont.innerHTML = ''; return; }
@@ -7514,44 +7438,58 @@
             const s = item.datos_cotizacion || {};
             const itemLabel = (item.descripcion || '').split(' - ')[0] + ' — ' + item.cantidad + ' uds — ' + (item.metodo_impresion || '').toUpperCase();
 
-            html += '<div style="margin-bottom:2rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">';
+            html += '<div style="margin-bottom:1.5rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">';
+            html += '<div style="font-weight:700;color:#111827;padding:0.5rem 0.75rem;background:#f3f4f6;border-bottom:1px solid #e5e7eb;font-size:0.9rem;">' + (idx + 1) + '. ' + itemLabel + '</div>';
+            html += '<div style="padding:0.75rem;font-size:0.85rem;">';
 
-            // Header
-            html += '<div style="font-weight:700;color:#111827;padding:0.6rem 0.75rem;background:#f3f4f6;border-bottom:1px solid #e5e7eb;font-size:0.9rem;">' + (idx + 1) + '. ' + itemLabel + '</div>';
-
-            html += '<div style="padding:0.75rem;">';
-
-            // Ficha tecnica
+            // Datos de produccion (como en el cotizador)
             const pW = s.producto?.w || '-', pH = s.producto?.h || '-';
+            const sangrado = s.sangrado || '0';
+            const lados = s.lados || '1';
+            const matNom = s.material_nombre || 'Sin material';
+            const matGr = s.material_gramaje ? (' ' + s.material_gramaje + 'g') : '';
             const plW = s.pliego?.w || '-', plH = s.pliego?.h || '-';
             const hW = s.hoja?.w || '-', hH = s.hoja?.h || '-';
-            const matNom = s.material_nombre || 'Sin material';
-            const matGr = s.material_gramaje ? (s.material_gramaje + 'g') : '';
-            const lados = s.lados || '1';
-            const terminados = (s.terminados && s.terminados.length > 0) ? s.terminados.join(', ') : 'Ninguno';
 
-            html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.6rem 0.75rem;margin-bottom:0.75rem;font-size:0.82rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.3rem 1rem;">';
-            html += '<div><strong>Pieza:</strong> ' + pW + ' x ' + pH + ' cm</div>';
-            html += '<div><strong>Lados:</strong> ' + lados + '</div>';
-            html += '<div><strong>Material:</strong> ' + matNom + ' ' + matGr + '</div>';
-            html += '<div><strong>Pliego:</strong> ' + plW + ' x ' + plH + ' cm</div>';
-            html += '<div><strong>Hoja maq:</strong> ' + hW + ' x ' + hH + ' cm</div>';
-            if (s.fmtPorPliego) html += '<div><strong>Fmt/pliego:</strong> ' + s.fmtPorPliego + '</div>';
-            if (s.piezasPorHoja) html += '<div><strong>Piezas/hoja:</strong> ' + s.piezasPorHoja + '</div>';
-            if (s.hojasNetas) html += '<div><strong>Hojas netas:</strong> ' + s.hojasNetas + '</div>';
-            if (s.mermaTotal != null) html += '<div><strong>Merma:</strong> ' + s.mermaTotal + ' hojas</div>';
-            if (s.hojasTotales) html += '<div><strong>Total hojas:</strong> ' + s.hojasTotales + '</div>';
-            if (s.pliegosNec) html += '<div><strong>Pliegos:</strong> ' + s.pliegosNec + '</div>';
-            if (s.tipo === 'offset' && s.colores) html += '<div><strong>Colores:</strong> ' + s.colores + '</div>';
-            if (s.tipo === 'digital' && s.maquina) html += '<div><strong>Maquina:</strong> ' + s.maquina + '</div>';
-            html += '<div style="grid-column:1/-1;"><strong>Terminados:</strong> ' + terminados + '</div>';
-            html += '</div>';
+            html += '<table style="width:100%;border-collapse:collapse;margin-bottom:0.5rem;font-size:0.83rem;">';
+            html += '<tr style="background:#f9fafb;"><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;width:140px;">Pieza</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + pW + ' x ' + pH + ' cm (sangrado ' + sangrado + ')</td>';
+            html += '<td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;width:140px;">Lados</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + lados + '</td></tr>';
+            html += '<tr><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Material</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + matNom + matGr + '</td>';
+            html += '<td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Pliego</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + plW + ' x ' + plH + ' cm</td></tr>';
+            html += '<tr style="background:#f9fafb;"><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Hoja maquina</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + hW + ' x ' + hH + ' cm</td>';
+            html += '<td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Piezas/hoja</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + (s.piezasPorHoja || '-') + '</td></tr>';
+            html += '<tr><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Hojas netas</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + (s.hojasNetas || '-') + '</td>';
+            html += '<td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Merma</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + (s.mermaTotal != null ? s.mermaTotal + ' hojas' : '-') + '</td></tr>';
+            html += '<tr style="background:#f9fafb;"><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Total hojas</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:700;">' + (s.hojasTotales || '-') + '</td>';
+            html += '<td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Pliegos</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:700;">' + (s.pliegosNec || '-') + '</td></tr>';
+            if (s.tipo === 'offset' && s.colores) {
+                html += '<tr><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Colores</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + s.colores + '</td>';
+                html += '<td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Fmt/pliego</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + (s.fmtPorPliego || '-') + '</td></tr>';
+            }
+            if (s.tipo === 'digital' && s.maquina) {
+                html += '<tr><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Maquina</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + s.maquina + '</td>';
+                html += '<td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;font-weight:600;">Formato</td><td style="padding:0.3rem 0.5rem;border:1px solid #e5e7eb;">' + (s.formato || '-') + '</td></tr>';
+            }
+            html += '</table>';
 
-            // Graficos: cortes + imposicion lado a lado
-            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start;">';
-            html += '<div>' + _svgCortesPliego(s, 'cortes_' + idx) + '</div>';
-            html += '<div>' + _svgImposicion(s) + '</div>';
-            html += '</div>';
+            // Terminados (como en el cotizador)
+            const td = s.terminadosDetalle || {};
+            const tieneTerminados = td.plastificado || td.barnizUV || td.uvSelectivo || td.guillotina || td.ensanduchado || td.troquelado || td.troquelPlotter;
+            if (tieneTerminados) {
+                html += '<div style="margin-top:0.5rem;"><strong>TERMINADOS</strong></div>';
+                html += '<div style="margin-top:0.3rem;font-size:0.82rem;">';
+                if (td.plastificado) html += '<div style="padding:0.2rem 0;border-bottom:1px solid #f3f4f6;">✔ <strong>Plastificado</strong> — ' + td.plastificado + '</div>';
+                if (td.barnizUV) html += '<div style="padding:0.2rem 0;border-bottom:1px solid #f3f4f6;">✔ <strong>Barniz UV</strong> — ' + td.barnizUV + '</div>';
+                if (td.uvSelectivo) html += '<div style="padding:0.2rem 0;border-bottom:1px solid #f3f4f6;">✔ <strong>UV Selectivo</strong> — ' + td.uvSelectivo + '</div>';
+                if (td.guillotina) html += '<div style="padding:0.2rem 0;border-bottom:1px solid #f3f4f6;">✔ <strong>Corte guillotina</strong> — ' + td.guillotina + '</div>';
+                if (td.ensanduchado) html += '<div style="padding:0.2rem 0;border-bottom:1px solid #f3f4f6;">✔ <strong>Ensanduchado</strong> (doble cartulina)</div>';
+                if (td.troquelado) html += '<div style="padding:0.2rem 0;border-bottom:1px solid #f3f4f6;">✔ <strong>Troquelado</strong> — ' + td.troquelado + '</div>';
+                if (td.troquelPlotter) html += '<div style="padding:0.2rem 0;border-bottom:1px solid #f3f4f6;">✔ <strong>Troquel plotter</strong> — ' + td.troquelPlotter + '</div>';
+                html += '</div>';
+            } else {
+                const termList = (s.terminados && s.terminados.length > 0) ? s.terminados.join(', ') : 'Ninguno';
+                html += '<div style="margin-top:0.3rem;"><strong>Terminados:</strong> ' + termList + '</div>';
+            }
 
             html += '</div></div>';
         });
