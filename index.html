@@ -2303,7 +2303,7 @@
                                 <th style="width:80px;">Cant.</th>
                                 <th style="width:100px;">P. Unitario</th>
                                 <th style="width:100px;">Importe</th>
-                                <th style="width:90px;" class="no-print" title="Metodo de impresion (solo uso interno)">Metodo</th>
+                                <!-- metodo_impresion se asigna automaticamente desde cotizador -->
                                 <th style="width:80px;">Ref.</th>
                                 <th style="width:40px;" class="no-print"></th>
                             </tr></thead>
@@ -2736,8 +2736,8 @@
             </div>
 
             <div class="panel">
-                <div class="panel-header">Workflow por item</div>
-                <div class="panel-body" id="ordenTareas" style="padding:0.5rem;"></div>
+                <div class="panel-header">Produccion por item</div>
+                <div class="panel-body" id="ordenTareas" style="padding:0.75rem;"></div>
             </div>
         </div>
     </div>
@@ -4731,11 +4731,7 @@
     const DIG_FORMATO = { '33x23': { w: 33, h: 23 }, '48x33': { w: 48.2, h: 33 } };
     // Markup sobre costo por rango de cantidad (equivalente al margen previo sobre venta)
     const DIG_MARGEN = [
-        { min: 1, max: 10, pct: 150 },
-        { min: 11, max: 50, pct: 82 },
-        { min: 51, max: 150, pct: 54 },
-        { min: 151, max: 250, pct: 33 },
-        { min: 251, max: Infinity, pct: 25 }
+        { min: 1, max: Infinity, pct: 35 }
     ];
     const DIG_PLOTTER = {
         '33x23': { adhesivo: 0.50, papel: 1.00 },
@@ -6515,9 +6511,6 @@
         empty.style.display = 'none';
         body.innerHTML = items.map((item, i) => {
             const importe = (item.cantidad || 0) * (item.precio_unitario || 0);
-            const metodo = item.metodo_impresion || '';
-            const metodoBg = metodo === 'offset' ? '#ede9fe' : metodo === 'digital' ? '#dbeafe' : '#f3f4f6';
-            const metodoColor = metodo === 'offset' ? '#6d28d9' : metodo === 'digital' ? '#1e40af' : '#6b7280';
             return `<tr>
                 <td style="text-align:center;color:var(--gray-400);">${i + 1}</td>
                 <td><input type="text" placeholder="COD" value="${item.codigo || ''}" onchange="updateProformaItem(${i},'codigo',this.value)" style="width:80px;font-size:0.8rem;"></td>
@@ -6525,13 +6518,7 @@
                 <td><input type="number" min="0" value="${item.cantidad || 0}" onchange="updateProformaItem(${i},'cantidad',parseFloat(this.value)||0)"></td>
                 <td><input type="number" min="0" step="0.001" value="${(item.precio_unitario || 0).toFixed(3)}" onchange="updateProformaItem(${i},'precio_unitario',parseFloat(this.value)||0)"></td>
                 <td style="text-align:right;font-weight:600;">$${fmtN(importe, 2)}</td>
-                <td class="no-print">
-                    <select onchange="updateProformaItem(${i},'metodo_impresion',this.value||null)" style="width:100%;padding:0.3rem;font-size:0.78rem;font-weight:600;background:${metodoBg};color:${metodoColor};border:1px solid ${metodoColor};border-radius:5px;">
-                        <option value=""${!metodo ? ' selected' : ''}>—</option>
-                        <option value="offset"${metodo === 'offset' ? ' selected' : ''}>OFFSET</option>
-                        <option value="digital"${metodo === 'digital' ? ' selected' : ''}>DIGITAL</option>
-                    </select>
-                </td>
+                <!-- metodo_impresion se asigna automaticamente -->
                 <td>${item.imagen_url
                     ? `<img src="${item.imagen_url}" class="item-img" onclick="cambiarImagenItem(${i})" title="Click para cambiar">`
                     : `<div class="item-img-placeholder" onclick="cambiarImagenItem(${i})" title="Subir imagen">+</div>`
@@ -7213,12 +7200,7 @@
             return;
         }
 
-        // Verificar que todos los items tengan metodo_impresion
-        const itemsSinMetodo = proformaActiva.items.filter(it => !it.metodo_impresion);
-        if (itemsSinMetodo.length > 0) {
-            alert('Todos los items deben tener un metodo de impresion (Offset o Digital) antes de crear la orden. Hay ' + itemsSinMetodo.length + ' items sin metodo.');
-            return;
-        }
+        // metodo_impresion se asigna automaticamente desde cotizador
         if (proformaActiva.items.length === 0) {
             alert('La proforma no tiene items.');
             return;
@@ -7430,80 +7412,151 @@
         ).join('') + '</ul>';
     }
 
+    function _svgCortesPliego(s, svgId) {
+        // Draws SVG of how pieces fit on the machine sheet
+        const hojaW = +(s.hoja?.w || 0), hojaH = +(s.hoja?.h || 0);
+        const sangrado = +(s.sangrado || 0);
+        const prodW = +(s.producto?.w || 0), prodH = +(s.producto?.h || 0);
+        const piezaW = prodW + sangrado * 2, piezaH = prodH + sangrado * 2;
+        if (!hojaW || !hojaH || !piezaW || !piezaH) return '<div style="color:var(--gray-400);font-size:0.8rem;">Sin datos de hoja para grafico</div>';
+
+        // Calculate layout using existing functions
+        const nL = calcLayout(hojaW, hojaH, piezaW, piezaH, 0, 0);
+        const rL = calcLayout(hojaW, hojaH, piezaH, piezaW, 0, 0);
+        const mL1 = calcMixedLayout(hojaW, hojaH, piezaW, piezaH, 0, 0);
+        const mL2 = calcMixedLayout(hojaW, hojaH, piezaH, piezaW, 0, 0);
+
+        // Find best layout
+        let best = nL.total >= rL.total ? { ...nL, pw: piezaW, ph: piezaH, type: 'simple' } : { ...rL, pw: piezaH, ph: piezaW, type: 'simple' };
+        if (mL1 && mL1.total > best.total) best = { ...mL1, type: 'mixed' };
+        if (mL2 && mL2.total > best.total) best = { ...mL2, type: 'mixed' };
+
+        const svgW = 320, svgH = Math.round(svgW * (hojaH / hojaW));
+        const scale = svgW / hojaW;
+        const colors = ['#dbeafe', '#e0e7ff', '#fce7f3', '#d1fae5', '#fef3c7', '#ede9fe'];
+
+        let rects = '';
+        if (best.type === 'mixed' && best.zones) {
+            let idx = 0;
+            best.zones.forEach((z, zi) => {
+                const ox = z.offsetX || 0, oy = z.offsetY || 0;
+                for (let r = 0; r < z.rows; r++) {
+                    for (let c = 0; c < z.cols; c++) {
+                        const x = (ox + c * z.pw) * scale;
+                        const y = (oy + r * z.ph) * scale;
+                        rects += '<rect x="' + x + '" y="' + y + '" width="' + (z.pw * scale) + '" height="' + (z.ph * scale) + '" fill="' + colors[zi % colors.length] + '" stroke="#6366f1" stroke-width="1"/>';
+                        rects += '<text x="' + (x + z.pw * scale / 2) + '" y="' + (y + z.ph * scale / 2 + 4) + '" text-anchor="middle" font-size="10" fill="#4338ca">' + (++idx) + '</text>';
+                    }
+                }
+            });
+        } else {
+            let idx = 0;
+            for (let r = 0; r < best.rows; r++) {
+                for (let c = 0; c < best.cols; c++) {
+                    const x = c * best.pw * scale;
+                    const y = r * best.ph * scale;
+                    rects += '<rect x="' + x + '" y="' + y + '" width="' + (best.pw * scale) + '" height="' + (best.ph * scale) + '" fill="' + colors[0] + '" stroke="#6366f1" stroke-width="1"/>';
+                    rects += '<text x="' + (x + best.pw * scale / 2) + '" y="' + (y + best.ph * scale / 2 + 4) + '" text-anchor="middle" font-size="10" fill="#4338ca">' + (++idx) + '</text>';
+                }
+            }
+        }
+
+        return '<div style="text-align:center;">'
+            + '<div style="font-weight:600;font-size:0.8rem;margin-bottom:0.3rem;color:#4338ca;">Cortes en hoja maquina (' + hojaW + ' x ' + hojaH + ' cm)</div>'
+            + '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="border:2px solid #6366f1;border-radius:4px;background:#fff;">'
+            + '<rect x="0" y="0" width="' + svgW + '" height="' + svgH + '" fill="#f8fafc" />'
+            + rects
+            + '</svg>'
+            + '<div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.2rem;">' + (best.type === 'mixed' ? best.total : best.total) + ' piezas/hoja | Pieza: ' + fmtN(piezaW, 1) + ' x ' + fmtN(piezaH, 1) + ' cm (con sangrado)</div>'
+            + '</div>';
+    }
+
+    function _svgImposicion(s) {
+        // Draws imposition diagram: how the final piece looks on the sheet (tiro and retiro)
+        const prodW = +(s.producto?.w || 0), prodH = +(s.producto?.h || 0);
+        const sangrado = +(s.sangrado || 0);
+        const lados = +(s.lados || 1);
+        if (!prodW || !prodH) return '';
+
+        const piezaW = prodW + sangrado * 2, piezaH = prodH + sangrado * 2;
+        const svgW = 200, svgH = Math.round(svgW * (piezaH / piezaW));
+        const scale = svgW / piezaW;
+        const sS = sangrado * scale;
+
+        function drawSide(label) {
+            return '<div style="text-align:center;">'
+                + '<div style="font-weight:600;font-size:0.78rem;margin-bottom:0.2rem;color:#059669;">' + label + '</div>'
+                + '<svg width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="border:1px solid #6ee7b7;border-radius:4px;background:#fff;">'
+                + '<rect x="0" y="0" width="' + svgW + '" height="' + svgH + '" fill="#fef2f2" stroke="#fca5a5" stroke-width="1" stroke-dasharray="4,2"/>'
+                + '<rect x="' + sS + '" y="' + sS + '" width="' + (prodW * scale) + '" height="' + (prodH * scale) + '" fill="#d1fae5" stroke="#059669" stroke-width="1.5"/>'
+                + '<text x="' + (svgW / 2) + '" y="' + (svgH / 2 + 4) + '" text-anchor="middle" font-size="11" font-weight="600" fill="#065f46">' + label + '</text>'
+                + '<text x="' + (svgW / 2) + '" y="' + (svgH / 2 + 18) + '" text-anchor="middle" font-size="9" fill="#6b7280">' + prodW + ' x ' + prodH + ' cm</text>'
+                + (sangrado > 0 ? '<text x="3" y="12" font-size="8" fill="#ef4444">sangrado ' + sangrado + '</text>' : '')
+                + '</svg></div>';
+        }
+
+        let html = '<div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">';
+        html += drawSide('TIRO');
+        if (lados === 2) html += drawSide('RETIRO');
+        html += '</div>';
+        return html;
+    }
+
     function renderOrdenTareas() {
         const cont = document.getElementById('ordenTareas');
         if (!ordenActiva) { cont.innerHTML = ''; return; }
 
-        // Group tasks by proforma_item_id
-        const byItem = new Map();
-        (ordenActiva.tareas || []).forEach(t => {
-            const k = t.proforma_item_id || 'general';
-            if (!byItem.has(k)) byItem.set(k, []);
-            byItem.get(k).push(t);
-        });
-
-        const itemsById = new Map((ordenActiva.items || []).map(i => [i.id, i]));
-        const staffOpts = staffCache.filter(s => s.activo).map(s =>
-            '<option value="' + s.id + '">' + s.nombre + (s.rol ? ' (' + s.rol + ')' : '') + '</option>'
-        ).join('');
+        const items = ordenActiva.items || [];
+        if (!items.length) { cont.innerHTML = '<span style="color:var(--gray-400);">Sin items de produccion</span>'; return; }
 
         let html = '';
-        byItem.forEach((tareas, itemId) => {
-            const item = itemsById.get(itemId);
-            const itemLabel = item
-                ? ((item.descripcion || '').split(' - ')[0] + ' — ' + item.cantidad + ' uds — ' + (item.metodo_impresion || '').toUpperCase())
-                : 'General';
-            html += '<div style="margin-bottom:1.5rem;">';
-            html += '<div style="font-weight:700;color:#111827;margin-bottom:0.5rem;padding:0.5rem 0.75rem;background:#f3f4f6;border-radius:6px;">' + itemLabel + '</div>';
-            // Ficha tecnica de produccion
-            if (item && item.datos_cotizacion) {
-                const s = item.datos_cotizacion;
-                const pW = s.producto?.w || '-'; const pH = s.producto?.h || '-';
-                const plW = s.pliego?.w || '-'; const plH = s.pliego?.h || '-';
-                const hW = s.hoja?.w || '-'; const hH = s.hoja?.h || '-';
-                const matNom = s.material_nombre || 'Sin material';
-                const matGr = s.material_gramaje ? (s.material_gramaje + 'g') : '';
-                const lados = s.lados || '1';
-                const terminados = (s.terminados && s.terminados.length > 0) ? s.terminados.join(', ') : 'Ninguno';
-                html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.6rem 0.75rem;margin-bottom:0.5rem;font-size:0.8rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.3rem 1rem;">';
-                html += '<div><strong>Pieza:</strong> ' + pW + ' x ' + pH + ' cm</div>';
-                html += '<div><strong>Lados:</strong> ' + lados + '</div>';
-                html += '<div><strong>Material:</strong> ' + matNom + ' ' + matGr + '</div>';
-                html += '<div><strong>Pliego:</strong> ' + plW + ' x ' + plH + ' cm</div>';
-                html += '<div><strong>Hoja maq:</strong> ' + hW + ' x ' + hH + ' cm</div>';
-                if (s.fmtPorPliego) html += '<div><strong>Fmt/pliego:</strong> ' + s.fmtPorPliego + '</div>';
-                if (s.piezasPorHoja) html += '<div><strong>Piezas/hoja:</strong> ' + s.piezasPorHoja + '</div>';
-                if (s.hojasNetas) html += '<div><strong>Hojas netas:</strong> ' + s.hojasNetas + '</div>';
-                if (s.mermaTotal != null) html += '<div><strong>Merma:</strong> ' + s.mermaTotal + ' hojas</div>';
-                if (s.hojasTotales) html += '<div><strong>Total hojas:</strong> ' + s.hojasTotales + '</div>';
-                if (s.pliegosNec) html += '<div><strong>Pliegos:</strong> ' + s.pliegosNec + '</div>';
-                if (s.tipo === 'offset' && s.colores) html += '<div><strong>Colores:</strong> ' + s.colores + '</div>';
-                if (s.tipo === 'digital' && s.maquina) html += '<div><strong>Maquina:</strong> ' + s.maquina + '</div>';
-                html += '<div style="grid-column:1/-1;"><strong>Terminados:</strong> ' + terminados + '</div>';
-                html += '</div>';
-            }
-            html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.5rem;">';
-            tareas.forEach(t => {
-                const c = PASO_ESTADO_COLORS[t.estado] || PASO_ESTADO_COLORS.pendiente;
-                const fechaInicio = t.fecha_inicio ? new Date(t.fecha_inicio).toLocaleDateString('es-EC') : '';
-                const fechaFin = t.fecha_fin ? new Date(t.fecha_fin).toLocaleDateString('es-EC') : '';
-                html += '<div style="background:' + c.bg + ';border:2px solid ' + c.border + ';border-radius:8px;padding:0.6rem;">'
-                    + '<div style="font-weight:700;color:' + c.color + ';font-size:0.88rem;margin-bottom:0.4rem;">' + (t.orden_seq + 1) + '. ' + t.paso + '</div>'
-                    + '<select onchange="updateOrdenTarea(' + t.id + ',\'estado\',this.value)" style="width:100%;padding:0.25rem;font-size:0.78rem;margin-bottom:0.35rem;border:1px solid ' + c.border + ';border-radius:4px;background:white;">'
-                    + ['pendiente','en_proceso','bloqueado','completado','saltado'].map(e => '<option value="' + e + '"' + (t.estado === e ? ' selected' : '') + '>' + e.replace('_', ' ') + '</option>').join('')
-                    + '</select>'
-                    + '<select onchange="updateOrdenTarea(' + t.id + ',\'asignado_a\',this.value||null)" style="width:100%;padding:0.25rem;font-size:0.78rem;margin-bottom:0.35rem;border:1px solid ' + c.border + ';border-radius:4px;background:white;">'
-                    + '<option value="">— asignar —</option>'
-                    + staffOpts.replace('value="' + t.asignado_a + '"', 'value="' + t.asignado_a + '" selected')
-                    + '</select>'
-                    + '<input type="date" value="' + (t.fecha_estimada || '') + '" onchange="updateOrdenTarea(' + t.id + ',\'fecha_estimada\',this.value||null)" title="Fecha estimada" style="width:100%;padding:0.2rem;font-size:0.75rem;margin-bottom:0.3rem;border:1px solid ' + c.border + ';border-radius:4px;">'
-                    + (fechaInicio || fechaFin ? '<div style="font-size:0.7rem;color:' + c.color + ';margin-bottom:0.25rem;">' + (fechaInicio ? '▶ ' + fechaInicio : '') + (fechaFin ? ' ✓ ' + fechaFin : '') + '</div>' : '')
-                    + '<textarea placeholder="Notas..." onchange="updateOrdenTarea(' + t.id + ',\'notas\',this.value)" style="width:100%;padding:0.25rem;font-size:0.75rem;min-height:30px;border:1px solid ' + c.border + ';border-radius:4px;background:white;resize:vertical;">' + (t.notas || '') + '</textarea>'
-                    + '</div>';
-            });
+        items.forEach((item, idx) => {
+            const s = item.datos_cotizacion || {};
+            const itemLabel = (item.descripcion || '').split(' - ')[0] + ' — ' + item.cantidad + ' uds — ' + (item.metodo_impresion || '').toUpperCase();
+
+            html += '<div style="margin-bottom:2rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">';
+
+            // Header
+            html += '<div style="font-weight:700;color:#111827;padding:0.6rem 0.75rem;background:#f3f4f6;border-bottom:1px solid #e5e7eb;font-size:0.9rem;">' + (idx + 1) + '. ' + itemLabel + '</div>';
+
+            html += '<div style="padding:0.75rem;">';
+
+            // Ficha tecnica
+            const pW = s.producto?.w || '-', pH = s.producto?.h || '-';
+            const plW = s.pliego?.w || '-', plH = s.pliego?.h || '-';
+            const hW = s.hoja?.w || '-', hH = s.hoja?.h || '-';
+            const matNom = s.material_nombre || 'Sin material';
+            const matGr = s.material_gramaje ? (s.material_gramaje + 'g') : '';
+            const lados = s.lados || '1';
+            const terminados = (s.terminados && s.terminados.length > 0) ? s.terminados.join(', ') : 'Ninguno';
+
+            html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.6rem 0.75rem;margin-bottom:0.75rem;font-size:0.82rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.3rem 1rem;">';
+            html += '<div><strong>Pieza:</strong> ' + pW + ' x ' + pH + ' cm</div>';
+            html += '<div><strong>Lados:</strong> ' + lados + '</div>';
+            html += '<div><strong>Material:</strong> ' + matNom + ' ' + matGr + '</div>';
+            html += '<div><strong>Pliego:</strong> ' + plW + ' x ' + plH + ' cm</div>';
+            html += '<div><strong>Hoja maq:</strong> ' + hW + ' x ' + hH + ' cm</div>';
+            if (s.fmtPorPliego) html += '<div><strong>Fmt/pliego:</strong> ' + s.fmtPorPliego + '</div>';
+            if (s.piezasPorHoja) html += '<div><strong>Piezas/hoja:</strong> ' + s.piezasPorHoja + '</div>';
+            if (s.hojasNetas) html += '<div><strong>Hojas netas:</strong> ' + s.hojasNetas + '</div>';
+            if (s.mermaTotal != null) html += '<div><strong>Merma:</strong> ' + s.mermaTotal + ' hojas</div>';
+            if (s.hojasTotales) html += '<div><strong>Total hojas:</strong> ' + s.hojasTotales + '</div>';
+            if (s.pliegosNec) html += '<div><strong>Pliegos:</strong> ' + s.pliegosNec + '</div>';
+            if (s.tipo === 'offset' && s.colores) html += '<div><strong>Colores:</strong> ' + s.colores + '</div>';
+            if (s.tipo === 'digital' && s.maquina) html += '<div><strong>Maquina:</strong> ' + s.maquina + '</div>';
+            html += '<div style="grid-column:1/-1;"><strong>Terminados:</strong> ' + terminados + '</div>';
+            html += '</div>';
+
+            // Graficos: cortes + imposicion lado a lado
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start;">';
+            html += '<div>' + _svgCortesPliego(s, 'cortes_' + idx) + '</div>';
+            html += '<div>' + _svgImposicion(s) + '</div>';
+            html += '</div>';
+
             html += '</div></div>';
         });
-        cont.innerHTML = html || '<span style="color:var(--gray-400);">Sin tareas</span>';
+
+        cont.innerHTML = html;
     }
 
     async function updateOrdenTarea(tareaId, field, value) {
