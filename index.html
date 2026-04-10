@@ -1200,7 +1200,7 @@
                                 <div class="label">Unitario sin IVA</div>
                             </div>
                         </div>
-                        <button class="btn btn-primary mt-2 no-print" style="width:100%" onclick="window.print()">Imprimir Proforma</button>
+                        <button id="btnCrearProformaOff" class="btn no-print" style="width:100%;margin-top:0.5rem;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;padding:0.6rem 1rem;border-radius:7px;font-weight:600;cursor:pointer;" onclick="crearProformaDesdeCalc('offset')">+ Crear Proforma</button>
                         <button class="btn no-print" style="width:100%;margin-top:0.5rem;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:white;border:none;padding:0.6rem 1rem;border-radius:7px;font-weight:600;cursor:pointer;" onclick="abrirComparador('offset')">⇄ Comparar con Digital</button>
                         <button id="btnAddToProforma" class="btn-add-proforma no-print" onclick="addItemToProforma()">+ Agregar a Proforma #<span class="proforma-activa-num">1</span></button>
                     </div>
@@ -2024,7 +2024,7 @@
                                 <div class="label">Unitario sin IVA</div>
                             </div>
                         </div>
-                        <button class="btn btn-primary mt-2 no-print" style="width:100%" onclick="window.print()">Imprimir Proforma</button>
+                        <button id="btnCrearProformaDig" class="btn no-print" style="width:100%;margin-top:0.5rem;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;padding:0.6rem 1rem;border-radius:7px;font-weight:600;cursor:pointer;" onclick="crearProformaDesdeCalc('digital')">+ Crear Proforma</button>
                         <button class="btn no-print" style="width:100%;margin-top:0.5rem;background:linear-gradient(135deg,#0369a1,#075985);color:white;border:none;padding:0.6rem 1rem;border-radius:7px;font-weight:600;cursor:pointer;" onclick="abrirComparador('digital')">⇄ Comparar con Offset</button>
                         <button class="btn-add-proforma no-print" onclick="addItemToProformaDig()">+ Agregar a Proforma #<span class="proforma-activa-num">1</span></button>
                     </div>
@@ -6621,10 +6621,38 @@
             if (hasActive) btn.classList.add('visible');
             else btn.classList.remove('visible');
         });
+        // Mostrar/ocultar boton "Crear Proforma" (inverso al de agregar)
+        ['btnCrearProformaOff', 'btnCrearProformaDig'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = hasActive ? 'none' : 'block';
+        });
         if (hasActive) {
             document.querySelectorAll('.proforma-activa-num').forEach(el => {
                 el.textContent = proformaActiva.numero;
             });
+        }
+    }
+
+    async function crearProformaDesdeCalc(metodo) {
+        // Crear nueva proforma y agregar el item actual
+        const { data: maxRow } = await db.from('proformas').select('numero').order('numero', { ascending: false }).limit(1);
+        const nextNum = (maxRow && maxRow.length > 0) ? maxRow[0].numero + 1 : 6001;
+
+        const { data, error } = await db.from('proformas').insert({
+            numero: nextNum,
+            estado: 'borrador'
+        }).select().single();
+
+        if (error) { alert('Error creando proforma: ' + error.message); return; }
+
+        // Activar la proforma y agregar el item
+        proformaActiva = { ...data, items: [] };
+        updateAddToProformaBtn();
+
+        if (metodo === 'offset') {
+            addItemToProforma();
+        } else {
+            addItemToProformaDig();
         }
     }
 
