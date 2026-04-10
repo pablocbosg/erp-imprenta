@@ -4611,8 +4611,8 @@
         const subtotalCosto = port.subtotal + inte.subtotal + encuadSubtotal;
         const margenPct = +document.getElementById('pubMargen').value || 0;
         const ivaPct = +document.getElementById('pubIVA').value || 0;
-        // Markup sobre costo: precio = costo * (1 + margen/100)
-        const precioSinIVABruto = subtotalCosto * (1 + margenPct / 100);
+        // Margen sobre venta: precio = costo / (1 - margen/100)
+        const precioSinIVABruto = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
         const descuentoPct = +document.getElementById('pubDescuento').value || 0;
         const precioConDescBruto = precioSinIVABruto * (1 - descuentoPct / 100);
         const precioUnitBruto = cantidad1 > 0 ? precioConDescBruto / cantidad1 : 0;
@@ -5160,8 +5160,8 @@
 
         const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina + costoTroquelServicio + costoTroquel + costoEnsandPegado + costoPlotter;
         const subtotalCosto = costoClicks + costoArranque + costoMaterial + costoTerminados + costoEnsandMaterial;
-        // Markup sobre costo: precio = costo * (1 + margen/100)
-        const precioSinIVABruto = subtotalCosto * (1 + margenPct / 100);
+        // Margen sobre venta: precio = costo / (1 - margen/100)
+        const precioSinIVABruto = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
         const descuentoPct = +document.getElementById('digDescuento').value || 0;
         const precioConDescBruto = precioSinIVABruto * (1 - descuentoPct / 100);
         const precioUnitBruto = cantidad > 0 ? precioConDescBruto / cantidad : 0;
@@ -5427,8 +5427,8 @@
         if (!window._digPubMargenManual) document.getElementById('digPubMargen').value = margenSugerido;
         const margenPct = +document.getElementById('digPubMargen').value || 0;
         const ivaPct = +document.getElementById('digPubIVA').value || 0;
-        // Markup sobre costo: precio = costo * (1 + margen/100)
-        const precioSinIVABruto = subtotalCosto * (1 + margenPct / 100);
+        // Margen sobre venta: precio = costo / (1 - margen/100)
+        const precioSinIVABruto = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
         const descuentoPct = +document.getElementById('digPubDescuento').value || 0;
         const precioConDescBruto = precioSinIVABruto * (1 - descuentoPct / 100);
         const precioUnitBruto = p1Cantidad > 0 ? precioConDescBruto / p1Cantidad : 0;
@@ -5910,8 +5910,8 @@
         const costoTerminados = terminados + costoPlastificado + costoBarnizUV + costoUVSelectivo + costoGuillotina + costoTroquelServicio + costoTroquel + costoEnsandPegado;
 
         const subtotalCosto = costoMaterial + costoPlacasTotal + costoImpresion + costoTerminados + costoEnsandMaterial + costoEnsandImpresion;
-        // Markup sobre costo: precio = costo * (1 + margen/100)
-        const precioSinIVABruto = subtotalCosto * (1 + margenPct / 100);
+        // Margen sobre venta: precio = costo / (1 - margen/100)
+        const precioSinIVABruto = margenPct < 100 ? subtotalCosto / (1 - margenPct / 100) : subtotalCosto;
         const descuentoPct = +document.getElementById('cotDescuento').value || 0;
         const precioConDescBruto = precioSinIVABruto * (1 - descuentoPct / 100);
         const precioUnitBruto = cantidad > 0 ? precioConDescBruto / cantidad : 0;
