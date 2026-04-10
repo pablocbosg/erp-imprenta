@@ -2220,7 +2220,7 @@
                 <div class="panel">
                     <table class="proformas-list-table">
                         <thead><tr>
-                            <th>#</th><th>Cliente</th><th>Fecha</th><th>Items</th><th>Total</th><th>Estado</th>
+                            <th>#</th><th>Cliente</th><th>Fecha</th><th>Items</th><th>Total</th><th>Estado</th><th>Creado por</th>
                         </tr></thead>
                         <tbody id="proformasListBody"></tbody>
                     </table>
@@ -2961,9 +2961,14 @@
         document.getElementById('cotIVA').value = p.iva;
     }
 
+    let currentUser = null; // { id, email, nombre }
+
     async function showApp() {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('appContainer').style.display = 'block';
+        // Cargar usuario actual
+        const { data: { user } } = await db.auth.getUser();
+        if (user) currentUser = { id: user.id, email: user.email, nombre: user.user_metadata?.nombre || user.email };
         await loadDataFromDB();
         renderAdmin();
         populateMaterialSelect();
@@ -6378,6 +6383,7 @@
                 <td id="profListItems${p.id}">-</td>
                 <td id="profListTotal${p.id}">-</td>
                 <td><span class="estado-badge ${estadoClass}">${p.estado || 'borrador'}</span></td>
+                <td style="font-size:0.8rem;color:var(--gray-500);">${p.created_by_name || '-'}</td>
             </tr>`;
         }).join('');
         // Load items count & totals
@@ -6401,7 +6407,9 @@
 
         const { data, error } = await db.from('proformas').insert({
             numero: nextNum,
-            estado: 'borrador'
+            estado: 'borrador',
+            created_by: currentUser?.id || null,
+            created_by_name: currentUser?.nombre || null
         }).select().single();
 
         if (error) { alert('Error: ' + error.message); return; }
@@ -6723,7 +6731,7 @@
 
         // 2 query: insertar proforma
         const { data: prof, error } = await db.from('proformas').insert({
-            numero: nextNum, estado: 'borrador'
+            numero: nextNum, estado: 'borrador', created_by: currentUser?.id || null
         }).select().single();
         if (error) { alert('Error: ' + error.message); return; }
 
@@ -7185,7 +7193,9 @@
             estado: 'borrador',
             iva_porcentaje: proformaActiva.iva_porcentaje || 15,
             tiempo_entrega: proformaActiva.tiempo_entrega || null,
-            forma_pago: proformaActiva.forma_pago || null
+            forma_pago: proformaActiva.forma_pago || null,
+            created_by: currentUser?.id || null,
+            created_by_name: currentUser?.nombre || null
         }).select().single();
 
         if (profErr) { alert('Error duplicando: ' + profErr.message); return; }
