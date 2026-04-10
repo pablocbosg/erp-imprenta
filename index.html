@@ -6633,32 +6633,11 @@
         }
     }
 
-    async function crearProformaDesdeCalc(metodo) {
-        // Crear nueva proforma
-        const { data: maxRow } = await db.from('proformas').select('numero').order('numero', { ascending: false }).limit(1);
-        const nextNum = (maxRow && maxRow.length > 0) ? maxRow[0].numero + 1 : 6001;
-
-        const { data, error } = await db.from('proformas').insert({
-            numero: nextNum,
-            estado: 'borrador'
-        }).select().single();
-
-        if (error) { alert('Error creando proforma: ' + error.message); return; }
-
-        proformaActiva = { ...data, items: [] };
-
-        // Capturar item segun metodo
-        let descripcion, cantidad, precioUnit, itemIvaPct, snapshot;
+    function _captureSnapshot(metodo) {
         if (metodo === 'offset') {
-            const userText = document.getElementById('cotDescripcion').value.trim();
-            descripcion = buildDescripcionProforma(userText, 'cot');
-            cantidad = parseFloat(document.getElementById('cotCantidad').value) || 0;
-            precioUnit = parseFloat((document.getElementById('cotPrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
-            itemIvaPct = parseFloat(document.getElementById('cotIVA').value) || 0;
-            // Reutilizar snapshot del addItemToProforma sin el switch de tab
             const matIdx = document.getElementById('cotMaterial')?.value;
             const matObj = matIdx !== '' ? appData.materiales[+matIdx] : null;
-            snapshot = {
+            return {
                 tipo: 'offset',
                 producto: { w: document.getElementById('cotProdW').value, h: document.getElementById('cotProdH').value },
                 sangrado: document.getElementById('cotSangrado').value,
@@ -6692,14 +6671,9 @@
                 precioFinal: document.getElementById('cotPrecioFinal')?.textContent
             };
         } else {
-            const userText = document.getElementById('digDescripcion').value.trim();
-            descripcion = buildDescripcionProforma(userText, 'dig');
-            cantidad = parseFloat(document.getElementById('digCantidad').value) || 0;
-            precioUnit = parseFloat((document.getElementById('digPrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
-            itemIvaPct = parseFloat(document.getElementById('digIVA').value) || 0;
             const digMatIdx = document.getElementById('digMaterial')?.value;
             const digMatObj = digMatIdx !== '' ? appData.materiales[+digMatIdx] : null;
-            snapshot = {
+            return {
                 tipo: 'digital',
                 producto: { w: document.getElementById('digProdW').value, h: document.getElementById('digProdH').value },
                 sangrado: document.getElementById('digSangrado').value,
@@ -6709,7 +6683,8 @@
                 material: digMatIdx, material_nombre: digMatObj ? digMatObj.nombre : '', material_gramaje: digMatObj ? digMatObj.gramaje : '',
                 pliego: { w: document.getElementById('digPliegoW')?.value, h: document.getElementById('digPliegoH')?.value, precio: document.getElementById('digPrecioPliego')?.value },
                 hoja: { w: document.getElementById('digHojaW')?.value, h: document.getElementById('digHojaH')?.value },
-                cantidad: cantidad, margen: document.getElementById('digMargen').value, iva: document.getElementById('digIVA').value,
+                cantidad: parseFloat(document.getElementById('digCantidad').value) || 0,
+                margen: document.getElementById('digMargen').value, iva: document.getElementById('digIVA').value,
                 fmtPorPliego: +(document.getElementById('digResFmtPliego')?.textContent || 0),
                 piezasPorHoja: +(document.getElementById('digResPiezasHoja')?.textContent || 0),
                 hojasNetas: +(document.getElementById('digResHojasNetas')?.textContent || 0),
@@ -6728,97 +6703,79 @@
                 precioFinal: document.getElementById('digPrecioFinal')?.textContent
             };
         }
+    }
 
-        // Insertar item en DB directamente
-        const itemData = {
-            proforma_id: data.id,
-            orden: 1,
-            descripcion: descripcion,
-            cantidad: cantidad,
-            precio_unitario: precioUnit,
-            metodo_impresion: metodo,
-            datos_cotizacion: snapshot
+    async function crearProformaDesdeCalc(metodo) {
+        // Capturar datos ANTES de cualquier await (sincrono, instantaneo)
+        const pref = metodo === 'offset' ? 'cot' : 'dig';
+        const userText = document.getElementById(pref + 'Descripcion').value.trim();
+        const descripcion = buildDescripcionProforma(userText, pref);
+        const cantidad = parseFloat(document.getElementById(pref + 'Cantidad').value) || 0;
+        const precioUnit = parseFloat((document.getElementById(pref + 'PrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
+        const itemIvaPct = parseFloat(document.getElementById(pref + 'IVA').value) || 0;
+        const snapshot = _captureSnapshot(metodo);
+
+        // 1 query: crear proforma + obtener numero en paralelo
+        const [{ data: maxRow }, _] = await Promise.all([
+            db.from('proformas').select('numero').order('numero', { ascending: false }).limit(1),
+        ]);
+        const nextNum = (maxRow && maxRow.length > 0) ? maxRow[0].numero + 1 : 6001;
+
+        // 2 query: insertar proforma
+        const { data: prof, error } = await db.from('proformas').insert({
+            numero: nextNum, estado: 'borrador'
+        }).select().single();
+        if (error) { alert('Error: ' + error.message); return; }
+
+        // 3 query: insertar item
+        await db.from('proforma_items').insert({
+            proforma_id: prof.id, orden: 1, descripcion, cantidad,
+            precio_unitario: precioUnit, metodo_impresion: metodo, datos_cotizacion: snapshot
+        });
+
+        // Abrir proforma sin re-leer de DB (ya tenemos los datos)
+        proformaActiva = {
+            ...prof, items: [{ orden: 1, descripcion, cantidad, precio_unitario: precioUnit,
+                iva_pct: itemIvaPct, metodo_impresion: metodo, datos_cotizacion: snapshot, imagen_url: null }]
         };
-        const { error: itemErr } = await db.from('proforma_items').insert(itemData);
-        if (itemErr) { alert('Proforma creada pero error al agregar item: ' + itemErr.message); return; }
-
-        // Abrir la proforma recien creada
         switchTab('proformas');
-        await abrirProforma(data.id);
+        document.getElementById('proformasLista').style.display = 'none';
+        document.getElementById('proformaEditor').classList.add('active');
+        document.getElementById('editorProformaNum').textContent = prof.numero;
+        document.getElementById('printProformaNum').textContent = prof.numero;
+        document.getElementById('printProformaFecha').textContent = new Date(prof.fecha).toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('editorEstado').value = 'borrador';
+        actualizarBotonCrearOrden();
+        document.getElementById('profIVA').value = 15;
+        document.getElementById('profTiempoEntrega').value = '';
+        document.getElementById('profFormaPago').value = '';
+        document.getElementById('profClienteNombre').textContent = '';
+        document.getElementById('profClienteEmpresa').textContent = '';
+        document.getElementById('profClienteRUC').textContent = '';
+        document.getElementById('profClienteEmail').textContent = '';
+        document.getElementById('profClienteTelefono').textContent = '';
+        document.getElementById('profClienteDireccion').textContent = '';
+        updateAddToProformaBtn();
+        renderProformaItems();
     }
 
     function addItemToProforma() {
         if (!proformaActiva) return;
-
-        // Capture current cotizador data
         const userText = document.getElementById('cotDescripcion').value.trim();
         const descripcion = buildDescripcionProforma(userText, 'cot');
         const cantidad = parseFloat(document.getElementById('cotCantidad').value) || 0;
-
-        // Get the unit price (sin IVA) from cotizador results
-        // fmtN formatea con coma decimal, parseFloat espera punto
         const precioUnit = parseFloat((document.getElementById('cotPrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
-
-        // Snapshot of all calculation data + production data
-        const matIdx = document.getElementById('cotMaterial')?.value;
-        const matObj = matIdx !== '' ? appData.materiales[+matIdx] : null;
-        const snapshot = {
-            tipo: 'offset',
-            producto: { w: document.getElementById('cotProdW').value, h: document.getElementById('cotProdH').value },
-            sangrado: document.getElementById('cotSangrado').value,
-            lados: document.getElementById('cotLados').value,
-            margenMaq: document.getElementById('cotMargenMaquina').value,
-            placasTR: document.getElementById('cotPlacasTR')?.value || 'diferente',
-            material: matIdx,
-            material_nombre: matObj ? matObj.nombre : '',
-            material_gramaje: matObj ? matObj.gramaje : '',
-            pliego: { w: document.getElementById('cotPliegoW').value, h: document.getElementById('cotPliegoH').value, precio: document.getElementById('cotPrecioPliego').value },
-            hoja: { w: document.getElementById('cotHojaW').value, h: document.getElementById('cotHojaH').value },
-            colores: document.getElementById('cotColores').value,
-            margen: document.getElementById('cotMargen').value,
-            iva: document.getElementById('cotIVA').value,
-            // Production data
-            fmtPorPliego: +(document.getElementById('cotResFmtPliego')?.textContent || 0),
-            piezasPorHoja: +(document.getElementById('cotResPiezasHoja')?.textContent || 0),
-            hojasNetas: +(document.getElementById('cotResHojasNetas')?.textContent || 0),
-            mermaTotal: +(document.getElementById('cotResMermaInfo')?.textContent || 0),
-            hojasTotales: +(document.getElementById('cotResHojasTotales')?.textContent || 0),
-            pliegosNec: +(document.getElementById('cotResPliegosNec')?.textContent || 0),
-            terminados: _describirTerminadosCot(),
-            terminadosDetalle: {
-                plastificado: document.getElementById('cotPlastificadoInfo')?.style.display !== 'none' ? document.getElementById('cotPlastificadoInfo')?.textContent : null,
-                barnizUV: document.getElementById('cotBarnizUVInfo')?.style.display !== 'none' ? document.getElementById('cotBarnizUVInfo')?.textContent : null,
-                uvSelectivo: document.getElementById('cotUVSelectivoInfo')?.style.display !== 'none' ? document.getElementById('cotUVSelectivoInfo')?.textContent : null,
-                guillotina: document.getElementById('cotGuillotinaInfo')?.style.display !== 'none' ? document.getElementById('cotGuillotinaInfo')?.textContent : null,
-                ensanduchado: document.getElementById('cotEnsanduchado')?.checked || false,
-                troquelado: document.getElementById('cotTroqueladoInfo')?.style.display !== 'none' ? document.getElementById('cotTroqueladoInfo')?.textContent : null
-            },
-            // Costs
-            costoMaterial: document.getElementById('cotCostoMaterialVal')?.textContent,
-            costoPlacas: document.getElementById('cotCostoPlacasVal')?.textContent,
-            costoImpresion: document.getElementById('cotCostoImpresionVal')?.textContent,
-            costoTotal: document.getElementById('cotSubtotalCosto')?.textContent,
-            precioFinal: document.getElementById('cotPrecioFinal')?.textContent,
-        };
-
         const itemIvaPct = parseFloat(document.getElementById('cotIVA').value) || 0;
 
         proformaActiva.items.push({
             orden: proformaActiva.items.length + 1,
-            descripcion: descripcion,
-            cantidad: cantidad,
-            precio_unitario: precioUnit,
-            iva_pct: itemIvaPct,
-            imagen_url: null,
+            descripcion, cantidad, precio_unitario: precioUnit,
+            iva_pct: itemIvaPct, imagen_url: null,
             metodo_impresion: 'offset',
-            datos_cotizacion: snapshot
+            datos_cotizacion: _captureSnapshot('offset')
         });
 
-        // Switch back to proformas tab
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById('tab-proformas').classList.add('active');
-        document.querySelectorAll('.tab-btn').forEach(b => { if (b.textContent.toLowerCase().includes('proformas')) b.classList.add('active'); });
+        switchTab('proformas');
         renderProformaItems();
     }
 
@@ -6947,58 +6904,15 @@
         const precioUnit = parseFloat((document.getElementById('digPrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
         const itemIvaPct = parseFloat(document.getElementById('digIVA').value) || 0;
 
-        const digMatIdx = document.getElementById('digMaterial')?.value;
-        const digMatObj = digMatIdx !== '' ? appData.materiales[+digMatIdx] : null;
-        const snapshot = {
-            tipo: 'digital',
-            producto: { w: document.getElementById('digProdW').value, h: document.getElementById('digProdH').value },
-            sangrado: document.getElementById('digSangrado').value,
-            lados: document.getElementById('digLados').value,
-            maquina: document.getElementById('digMaquina').value,
-            formato: document.getElementById('digFormato').value,
-            material: digMatIdx,
-            material_nombre: digMatObj ? digMatObj.nombre : '',
-            material_gramaje: digMatObj ? digMatObj.gramaje : '',
-            pliego: { w: document.getElementById('digPliegoW')?.value, h: document.getElementById('digPliegoH')?.value, precio: document.getElementById('digPrecioPliego')?.value },
-            hoja: { w: document.getElementById('digHojaW')?.value, h: document.getElementById('digHojaH')?.value },
-            cantidad: cantidad,
-            margen: document.getElementById('digMargen').value,
-            iva: document.getElementById('digIVA').value,
-            // Production data
-            fmtPorPliego: +(document.getElementById('digResFmtPliego')?.textContent || 0),
-            piezasPorHoja: +(document.getElementById('digResPiezasHoja')?.textContent || 0),
-            hojasNetas: +(document.getElementById('digResHojasNetas')?.textContent || 0),
-            mermaTotal: +(document.getElementById('digResHojasTotales')?.textContent || 0) - +(document.getElementById('digResHojasNetas')?.textContent || 0),
-            hojasTotales: +(document.getElementById('digResHojasTotales')?.textContent || 0),
-            pliegosNec: +(document.getElementById('digResPliegosNec')?.textContent || 0),
-            terminados: _describirTerminadosDig(),
-            terminadosDetalle: {
-                plastificado: document.getElementById('digPlastificadoInfo')?.style.display !== 'none' ? document.getElementById('digPlastificadoInfo')?.textContent : null,
-                barnizUV: document.getElementById('digBarnizUVInfo')?.style.display !== 'none' ? document.getElementById('digBarnizUVInfo')?.textContent : null,
-                uvSelectivo: document.getElementById('digUVSelectivoInfo')?.style.display !== 'none' ? document.getElementById('digUVSelectivoInfo')?.textContent : null,
-                guillotina: document.getElementById('digGuillotinaInfo')?.style.display !== 'none' ? document.getElementById('digGuillotinaInfo')?.textContent : null,
-                troquelPlotter: document.getElementById('digTroquelPlotterInfo')?.style.display !== 'none' ? document.getElementById('digTroquelPlotterInfo')?.textContent : null
-            },
-            // Costs
-            costoTotal: document.getElementById('digSubtotalCosto')?.textContent,
-            precioFinal: document.getElementById('digPrecioFinal')?.textContent,
-        };
-
         proformaActiva.items.push({
             orden: proformaActiva.items.length + 1,
-            descripcion: descripcion,
-            cantidad: cantidad,
-            precio_unitario: precioUnit,
-            iva_pct: itemIvaPct,
-            imagen_url: null,
+            descripcion, cantidad, precio_unitario: precioUnit,
+            iva_pct: itemIvaPct, imagen_url: null,
             metodo_impresion: 'digital',
-            datos_cotizacion: snapshot
+            datos_cotizacion: _captureSnapshot('digital')
         });
 
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById('tab-proformas').classList.add('active');
-        document.querySelectorAll('.tab-btn').forEach(b => { if (b.textContent.toLowerCase().includes('proformas')) b.classList.add('active'); });
+        switchTab('proformas');
         renderProformaItems();
     }
 
