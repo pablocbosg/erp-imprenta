@@ -2243,6 +2243,7 @@
                     <div style="display:flex;align-items:center;gap:0.75rem;">
                         <button class="btn" style="border:1px solid var(--gray-300);padding:0.4rem 0.7rem;" onclick="cerrarEditor()">← Volver</button>
                         <h2>Proforma #<span id="editorProformaNum"></span></h2>
+                        <span id="editorCreadoPor" style="font-size:0.8rem;color:var(--gray-400);"></span>
                         <select id="editorEstado" onchange="cambiarEstadoProforma()" style="padding:0.3rem 0.5rem;font-size:0.8rem;border-radius:12px;font-weight:600;">
                             <option value="borrador">Borrador</option>
                             <option value="enviada">Enviada</option>
@@ -6434,6 +6435,7 @@
 
         // Fill header
         document.getElementById('editorProformaNum').textContent = prof.numero;
+        document.getElementById('editorCreadoPor').textContent = prof.created_by_name ? 'por ' + prof.created_by_name : '';
         document.getElementById('printProformaNum').textContent = prof.numero;
         document.getElementById('printProformaFecha').textContent = new Date(prof.fecha).toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
         document.getElementById('editorEstado').value = prof.estado || 'borrador';
@@ -6750,6 +6752,7 @@
         document.getElementById('proformasLista').style.display = 'none';
         document.getElementById('proformaEditor').classList.add('active');
         document.getElementById('editorProformaNum').textContent = prof.numero;
+        document.getElementById('editorCreadoPor').textContent = currentUser?.nombre ? 'por ' + currentUser.nombre : '';
         document.getElementById('printProformaNum').textContent = prof.numero;
         document.getElementById('printProformaFecha').textContent = new Date(prof.fecha).toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
         document.getElementById('editorEstado').value = 'borrador';
@@ -7398,7 +7401,7 @@
     async function abrirOrden(id) {
         // Load order + tasks + proforma items
         const { data: orden } = await db.from('ordenes_produccion')
-            .select('*, clientes(nombre, empresa, telefono), proformas(numero)')
+            .select('*, clientes(nombre, empresa, telefono), proformas(numero, created_by_name)')
             .eq('id', id).single();
         if (!orden) { alert('Orden no encontrada'); return; }
 
@@ -7432,7 +7435,7 @@
             ? '<strong>' + (cli.nombre || '') + '</strong>' + (cli.empresa ? ' — ' + cli.empresa : '') + (cli.telefono ? ' — ' + cli.telefono : '')
             : '<span style="color:var(--gray-400);">Sin cliente</span>';
         document.getElementById('ordenResumenProforma').textContent = orden.proformas?.numero
-            ? 'Desde proforma #' + orden.proformas.numero
+            ? 'Desde proforma #' + orden.proformas.numero + (orden.proformas.created_by_name ? ' — Creada por ' + orden.proformas.created_by_name : '')
             : '';
 
         // Materiales (agregado desde snapshots)
