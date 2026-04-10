@@ -6742,9 +6742,9 @@
         const { error: itemErr } = await db.from('proforma_items').insert(itemData);
         if (itemErr) { alert('Proforma creada pero error al agregar item: ' + itemErr.message); return; }
 
-        proformaActiva.items = [{ ...itemData, iva_pct: itemIvaPct }];
-        updateAddToProformaBtn();
-        alert('Proforma #' + nextNum + ' creada con 1 item. Puedes seguir agregando items desde el cotizador.');
+        // Abrir la proforma recien creada
+        switchTab('proformas');
+        await abrirProforma(data.id);
     }
 
     function addItemToProforma() {
