@@ -2256,6 +2256,7 @@
                         <button class="btn btn-sm" style="background:#dc3545;color:#fff;" onclick="descargarProformaPDF()">PDF</button>
                         <button class="btn btn-sm" style="background:#25D366;color:#fff;" onclick="enviarProformaWhatsApp()">💬</button>
                         <button class="btn btn-sm" style="background:#0078D4;color:#fff;" onclick="enviarProformaEmail()">✉</button>
+                        <button class="btn btn-sm" style="background:#6366f1;color:#fff;" onclick="duplicarProforma()">⊕ Duplicar</button>
                         <button id="btnCrearOrden" class="btn btn-sm" style="background:#059669;color:#fff;display:none;" onclick="crearOrdenProduccion()">▶ Crear Orden de Produccion</button>
                     </div>
                 </div>
@@ -6652,17 +6653,31 @@
         // fmtN formatea con coma decimal, parseFloat espera punto
         const precioUnit = parseFloat((document.getElementById('cotPrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
 
-        // Snapshot of all calculation data
+        // Snapshot of all calculation data + production data
+        const matIdx = document.getElementById('cotMaterial')?.value;
+        const matObj = matIdx !== '' ? appData.materiales[+matIdx] : null;
         const snapshot = {
+            tipo: 'offset',
             producto: { w: document.getElementById('cotProdW').value, h: document.getElementById('cotProdH').value },
             sangrado: document.getElementById('cotSangrado').value,
             lados: document.getElementById('cotLados').value,
-            material: document.getElementById('cotMaterial')?.value,
+            material: matIdx,
+            material_nombre: matObj ? matObj.nombre : '',
+            material_gramaje: matObj ? matObj.gramaje : '',
             pliego: { w: document.getElementById('cotPliegoW').value, h: document.getElementById('cotPliegoH').value, precio: document.getElementById('cotPrecioPliego').value },
             hoja: { w: document.getElementById('cotHojaW').value, h: document.getElementById('cotHojaH').value },
             colores: document.getElementById('cotColores').value,
             margen: document.getElementById('cotMargen').value,
             iva: document.getElementById('cotIVA').value,
+            // Production data
+            fmtPorPliego: +(document.getElementById('cotResFmtPliego')?.textContent || 0),
+            piezasPorHoja: +(document.getElementById('cotResPiezasHoja')?.textContent || 0),
+            hojasNetas: +(document.getElementById('cotResHojasNetas')?.textContent || 0),
+            mermaTotal: +(document.getElementById('cotResMermaInfo')?.textContent || 0),
+            hojasTotales: +(document.getElementById('cotResHojasTotales')?.textContent || 0),
+            pliegosNec: +(document.getElementById('cotResPliegosNec')?.textContent || 0),
+            totalPlacas: +(document.getElementById('cotCostoPlacasVal')?.textContent?.match(/\d+\s*placas/)?.[0] || 0),
+            terminados: _describirTerminadosCot(),
             // Costs
             costoMaterial: document.getElementById('cotCostoMaterialVal')?.textContent,
             costoPlacas: document.getElementById('cotCostoPlacasVal')?.textContent,
@@ -6817,6 +6832,8 @@
         const precioUnit = parseFloat((document.getElementById('digPrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
         const itemIvaPct = parseFloat(document.getElementById('digIVA').value) || 0;
 
+        const digMatIdx = document.getElementById('digMaterial')?.value;
+        const digMatObj = digMatIdx !== '' ? appData.materiales[+digMatIdx] : null;
         const snapshot = {
             tipo: 'digital',
             producto: { w: document.getElementById('digProdW').value, h: document.getElementById('digProdH').value },
@@ -6824,9 +6841,23 @@
             lados: document.getElementById('digLados').value,
             maquina: document.getElementById('digMaquina').value,
             formato: document.getElementById('digFormato').value,
+            material: digMatIdx,
+            material_nombre: digMatObj ? digMatObj.nombre : '',
+            material_gramaje: digMatObj ? digMatObj.gramaje : '',
+            pliego: { w: document.getElementById('digPliegoW')?.value, h: document.getElementById('digPliegoH')?.value, precio: document.getElementById('digPrecioPliego')?.value },
+            hoja: { w: document.getElementById('digHojaW')?.value, h: document.getElementById('digHojaH')?.value },
             cantidad: cantidad,
             margen: document.getElementById('digMargen').value,
             iva: document.getElementById('digIVA').value,
+            // Production data
+            fmtPorPliego: +(document.getElementById('digResFmtPliego')?.textContent || 0),
+            piezasPorHoja: +(document.getElementById('digResPiezasHoja')?.textContent || 0),
+            hojasNetas: +(document.getElementById('digResHojasNetas')?.textContent || 0),
+            mermaTotal: +(document.getElementById('digResHojasTotales')?.textContent || 0) - +(document.getElementById('digResHojasNetas')?.textContent || 0),
+            hojasTotales: +(document.getElementById('digResHojasTotales')?.textContent || 0),
+            pliegosNec: +(document.getElementById('digResPliegosNec')?.textContent || 0),
+            terminados: _describirTerminadosDig(),
+            // Costs
             costoTotal: document.getElementById('digSubtotalCosto')?.textContent,
             precioFinal: document.getElementById('digPrecioFinal')?.textContent,
         };
@@ -7101,6 +7132,50 @@
         proformaActiva.items = freshItems || [];
 
         alert('Proforma #' + proformaActiva.numero + ' guardada correctamente');
+    }
+
+    async function duplicarProforma() {
+        if (!proformaActiva) return;
+        if (!confirm('Se creara una copia de la proforma #' + proformaActiva.numero + ' como borrador. Continuar?')) return;
+
+        // Guardar cambios pendientes primero
+        await guardarProforma();
+
+        // Siguiente numero
+        const { data: maxRow } = await db.from('proformas').select('numero').order('numero', { ascending: false }).limit(1);
+        const nextNum = (maxRow && maxRow.length > 0) ? maxRow[0].numero + 1 : 6001;
+
+        // Crear nueva proforma copiando datos
+        const { data: nueva, error: profErr } = await db.from('proformas').insert({
+            numero: nextNum,
+            cliente_id: proformaActiva.cliente_id || null,
+            estado: 'borrador',
+            iva_porcentaje: proformaActiva.iva_porcentaje || 15,
+            tiempo_entrega: proformaActiva.tiempo_entrega || null,
+            forma_pago: proformaActiva.forma_pago || null
+        }).select().single();
+
+        if (profErr) { alert('Error duplicando: ' + profErr.message); return; }
+
+        // Copiar items
+        if (proformaActiva.items.length > 0) {
+            const itemsCopia = proformaActiva.items.map((it, i) => ({
+                proforma_id: nueva.id,
+                orden: i + 1,
+                codigo: it.codigo || null,
+                descripcion: it.descripcion,
+                cantidad: it.cantidad,
+                precio_unitario: it.precio_unitario,
+                imagen_url: it.imagen_url || null,
+                metodo_impresion: it.metodo_impresion || null,
+                datos_cotizacion: it.datos_cotizacion || null
+            }));
+            const { error: itemsErr } = await db.from('proforma_items').insert(itemsCopia);
+            if (itemsErr) { alert('Proforma creada pero fallo al copiar items: ' + itemsErr.message); return; }
+        }
+
+        alert('Proforma duplicada como #' + nextNum + ' (borrador). Puedes eliminar los items que el cliente no quiera.');
+        await abrirProforma(nueva.id);
     }
 
     async function cambiarEstadoProforma() {
@@ -7380,6 +7455,33 @@
                 : 'General';
             html += '<div style="margin-bottom:1.5rem;">';
             html += '<div style="font-weight:700;color:#111827;margin-bottom:0.5rem;padding:0.5rem 0.75rem;background:#f3f4f6;border-radius:6px;">' + itemLabel + '</div>';
+            // Ficha tecnica de produccion
+            if (item && item.datos_cotizacion) {
+                const s = item.datos_cotizacion;
+                const pW = s.producto?.w || '-'; const pH = s.producto?.h || '-';
+                const plW = s.pliego?.w || '-'; const plH = s.pliego?.h || '-';
+                const hW = s.hoja?.w || '-'; const hH = s.hoja?.h || '-';
+                const matNom = s.material_nombre || 'Sin material';
+                const matGr = s.material_gramaje ? (s.material_gramaje + 'g') : '';
+                const lados = s.lados || '1';
+                const terminados = (s.terminados && s.terminados.length > 0) ? s.terminados.join(', ') : 'Ninguno';
+                html += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:0.6rem 0.75rem;margin-bottom:0.5rem;font-size:0.8rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.3rem 1rem;">';
+                html += '<div><strong>Pieza:</strong> ' + pW + ' x ' + pH + ' cm</div>';
+                html += '<div><strong>Lados:</strong> ' + lados + '</div>';
+                html += '<div><strong>Material:</strong> ' + matNom + ' ' + matGr + '</div>';
+                html += '<div><strong>Pliego:</strong> ' + plW + ' x ' + plH + ' cm</div>';
+                html += '<div><strong>Hoja maq:</strong> ' + hW + ' x ' + hH + ' cm</div>';
+                if (s.fmtPorPliego) html += '<div><strong>Fmt/pliego:</strong> ' + s.fmtPorPliego + '</div>';
+                if (s.piezasPorHoja) html += '<div><strong>Piezas/hoja:</strong> ' + s.piezasPorHoja + '</div>';
+                if (s.hojasNetas) html += '<div><strong>Hojas netas:</strong> ' + s.hojasNetas + '</div>';
+                if (s.mermaTotal != null) html += '<div><strong>Merma:</strong> ' + s.mermaTotal + ' hojas</div>';
+                if (s.hojasTotales) html += '<div><strong>Total hojas:</strong> ' + s.hojasTotales + '</div>';
+                if (s.pliegosNec) html += '<div><strong>Pliegos:</strong> ' + s.pliegosNec + '</div>';
+                if (s.tipo === 'offset' && s.colores) html += '<div><strong>Colores:</strong> ' + s.colores + '</div>';
+                if (s.tipo === 'digital' && s.maquina) html += '<div><strong>Maquina:</strong> ' + s.maquina + '</div>';
+                html += '<div style="grid-column:1/-1;"><strong>Terminados:</strong> ' + terminados + '</div>';
+                html += '</div>';
+            }
             html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0.5rem;">';
             tareas.forEach(t => {
                 const c = PASO_ESTADO_COLORS[t.estado] || PASO_ESTADO_COLORS.pendiente;
