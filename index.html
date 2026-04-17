@@ -284,6 +284,60 @@
         .print-proforma-header img { height: 90px; }
         .print-proforma-header .company-info { text-align: right; font-size: 0.8rem; color: var(--gray-600); }
         .print-proforma-header .proforma-num { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
+
+        /* ================== KANBAN TRABAJOS ================== */
+        .kanban-wrap { max-width: 100%; padding: 1rem 1.5rem; }
+        .kanban-toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .kanban-toolbar h2 { margin-right: 0.5rem; }
+        .kanban-toolbar input[type="text"] { width: 280px; }
+        .kanban-toolbar select { width: 200px; }
+        .kanban-filter-chk { display: flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; color: var(--gray-600); cursor: pointer; user-select: none; }
+        .kanban-filter-chk input { width: auto; }
+
+        .kanban-board { display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 1rem; align-items: flex-start; }
+        .kanban-col { flex: 0 0 270px; background: var(--gray-50); border-radius: var(--radius); box-shadow: var(--shadow); max-height: calc(100vh - 210px); display: flex; flex-direction: column; }
+        .kanban-col.collapsed { flex: 0 0 52px; }
+        .kanban-col.collapsed .kanban-col-body { display: none; }
+        .kanban-col.collapsed .kanban-col-header { writing-mode: vertical-rl; transform: rotate(180deg); padding: 0.75rem 0.4rem; gap: 0.4rem; }
+        .kanban-col-header { padding: 0.65rem 0.75rem; border-radius: var(--radius) var(--radius) 0 0; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.5rem; text-transform: uppercase; }
+        .kanban-col-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .kanban-col-title { flex: 1; }
+        .kanban-col-count { background: rgba(0,0,0,0.09); padding: 1px 7px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
+        .kanban-col-add { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 1.15rem; padding: 0 4px; line-height: 1; border-radius: 4px; }
+        .kanban-col-add:hover { background: rgba(0,0,0,0.1); }
+        .kanban-col-body { padding: 0.5rem; overflow-y: auto; flex: 1; min-height: 80px; }
+        .kanban-col-body.drop-hover { background: var(--primary-light); }
+
+        .kanban-card { background: white; border-radius: 8px; padding: 0.6rem 0.7rem; margin-bottom: 0.5rem; box-shadow: var(--shadow); cursor: pointer; border-left: 3px solid var(--gray-300); transition: transform 0.12s, box-shadow 0.12s; }
+        .kanban-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+        .kanban-card.dragging { opacity: 0.4; }
+        .kanban-card.prio-alta { border-left-color: var(--warning); }
+        .kanban-card.prio-urgente { border-left-color: var(--danger); }
+        .kanban-card.prio-baja { border-left-color: var(--gray-300); }
+        .kanban-card-num { font-size: 0.68rem; color: var(--gray-400); font-weight: 700; }
+        .kanban-card-title { font-size: 0.88rem; font-weight: 600; color: var(--gray-800); margin: 0.1rem 0 0.2rem; line-height: 1.25; word-break: break-word; }
+        .kanban-card-cliente { font-size: 0.73rem; color: var(--gray-600); margin-bottom: 0.3rem; }
+        .kanban-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem; gap: 0.3rem; }
+        .kanban-card-links { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+        .kanban-link { font-size: 0.66rem; background: var(--gray-100); color: var(--gray-600); padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+        .kanban-card-fecha { font-size: 0.68rem; color: var(--gray-500); white-space: nowrap; }
+        .kanban-card-avatars { display: flex; gap: 2px; margin-top: 0.35rem; flex-wrap: wrap; }
+        .kanban-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: white; font-size: 0.6rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; border: 2px solid white; }
+
+        /* Modal Trabajo */
+        .tm-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
+        .tm-modal.active { display: flex; }
+        .tm-modal-content { background: white; width: 100%; max-width: 620px; max-height: 90vh; border-radius: var(--radius); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; }
+        .tm-modal-header { padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--gray-200); display: flex; justify-content: space-between; align-items: center; }
+        .tm-modal-header h3 { font-size: 1.05rem; color: var(--gray-800); }
+        .tm-close { background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--gray-500); line-height: 1; }
+        .tm-modal-body { padding: 1rem 1.25rem; overflow-y: auto; flex: 1; }
+        .tm-modal-footer { padding: 0.75rem 1.25rem; border-top: 1px solid var(--gray-200); display: flex; justify-content: flex-end; gap: 0.5rem; }
+        .tm-modal-footer .btn-danger { margin-right: auto; }
+        .tm-encs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.2rem; max-height: 160px; overflow-y: auto; border: 1px solid var(--gray-200); border-radius: 7px; padding: 0.4rem; }
+        .kanban-enc-check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--gray-700); cursor: pointer; padding: 0.25rem 0.4rem; border-radius: 4px; }
+        .kanban-enc-check:hover { background: var(--gray-100); }
+        .kanban-enc-check input { width: auto; }
     </style>
 </head>
 <body>
@@ -325,6 +379,7 @@
             <button class="tab-btn active" onclick="switchTab('cotizador')">Impresion Offset</button>
             <button class="tab-btn" onclick="switchTab('digital')">Imp. Digital</button>
             <button class="tab-btn" onclick="switchTab('proformas')">Proformas</button>
+            <button class="tab-btn" onclick="switchTab('trabajos')">Trabajos</button>
             <button class="tab-btn" onclick="switchTab('ordenes')">Ordenes</button>
             <button class="tab-btn" onclick="switchTab('productos')">Productos</button>
             <button class="tab-btn" onclick="switchTab('clientes')">Clientes</button>
@@ -2674,6 +2729,103 @@
         </div>
     </div>
 
+    <!-- ==================== TAB: TRABAJOS (KANBAN) ==================== -->
+    <div id="tab-trabajos" class="tab-content">
+        <div class="kanban-wrap">
+            <div class="kanban-toolbar">
+                <h2 style="font-size:1.15rem;color:var(--gray-800);">Trabajos</h2>
+                <input type="text" id="kanbanSearch" placeholder="Buscar por #, titulo, cliente, proforma..." oninput="renderKanban()">
+                <label class="kanban-filter-chk">
+                    <input type="checkbox" id="kanbanFilterMis" onchange="renderKanban()">
+                    <span>Solo mis trabajos</span>
+                </label>
+                <select id="kanbanFilterStaff" onchange="renderKanban()">
+                    <option value="">Todos los encargados</option>
+                </select>
+                <button class="btn btn-primary" onclick="nuevoTrabajo('prospecto')">+ Nuevo Prospecto</button>
+            </div>
+            <div class="kanban-board" id="kanbanBoard"></div>
+        </div>
+    </div>
+
+    <!-- Modal Trabajo -->
+    <div id="trabajoModal" class="tm-modal" onclick="if(event.target===this) cerrarModalTrabajo()">
+        <div class="tm-modal-content">
+            <div class="tm-modal-header">
+                <h3 id="tmTitle">Nuevo Trabajo</h3>
+                <button class="tm-close" onclick="cerrarModalTrabajo()" type="button">&times;</button>
+            </div>
+            <div class="tm-modal-body">
+                <div class="form-group">
+                    <label>Titulo</label>
+                    <input type="text" id="tmTitulo" placeholder="Ej. Tarjetas de presentacion Quito Motor">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cliente</label>
+                        <select id="tmCliente"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select id="tmEstado">
+                            <option value="prospecto">Prospecto</option>
+                            <option value="proforma_enviada">Proforma Enviada</option>
+                            <option value="diseno">Diseno</option>
+                            <option value="prueba_color">Prueba de Color</option>
+                            <option value="produccion">Produccion</option>
+                            <option value="pendiente_por_facturar">Pendiente por Facturar</option>
+                            <option value="facturacion">Facturacion</option>
+                            <option value="cobro">Cobro</option>
+                            <option value="postventa">Postventa</option>
+                            <option value="completado">Completado</option>
+                            <option value="perdido">Perdido</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Prioridad</label>
+                        <select id="tmPrioridad">
+                            <option value="baja">Baja</option>
+                            <option value="normal" selected>Normal</option>
+                            <option value="alta">Alta</option>
+                            <option value="urgente">Urgente</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha estimada entrega</label>
+                        <input type="date" id="tmFechaEstimada">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Descripcion</label>
+                    <textarea id="tmDescripcion" rows="2" placeholder="Detalle del trabajo..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Encargados</label>
+                    <div id="tmEncargados" class="tm-encs"></div>
+                </div>
+                <div class="form-group">
+                    <label>Notas internas</label>
+                    <textarea id="tmNotas" rows="2"></textarea>
+                </div>
+                <div class="form-group" id="tmMotivoPerdidoGroup" style="display:none;">
+                    <label>Motivo (si se pierde)</label>
+                    <input type="text" id="tmMotivoPerdido" placeholder="Ej. Cliente eligio otra imprenta">
+                </div>
+                <div class="form-group" id="tmLinksGroup" style="display:none;">
+                    <label>Vinculos</label>
+                    <div id="tmLinks" style="display:flex;gap:0.5rem;flex-wrap:wrap;"></div>
+                </div>
+            </div>
+            <div class="tm-modal-footer">
+                <button class="btn btn-danger" id="tmDeleteBtn" onclick="eliminarTrabajo()" type="button">Eliminar</button>
+                <button class="btn" style="border:1px solid var(--gray-300);" onclick="cerrarModalTrabajo()" type="button">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarTrabajo()" type="button">Guardar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== TAB: ORDENES DE PRODUCCION ==================== -->
     <div id="tab-ordenes" class="tab-content">
         <div id="ordenesLista">
@@ -3844,6 +3996,7 @@
         if (tab === 'digital') { digPopulateMaterials(); digCalc(); updateAddToProformaBtn(); }
         if (tab === 'conciliacion') { concInit(); }
         if (tab === 'proformas') cargarProformas();
+        if (tab === 'trabajos') cargarTrabajos();
         if (tab === 'ordenes') cargarOrdenes();
         if (tab === 'productos') cargarProductos();
         if (tab === 'clientes') cargarClientesTab();
@@ -3948,6 +4101,341 @@
             .select().single();
         if (data) staffCache.unshift(data);
         renderStaff();
+    }
+
+    // =====================================================
+    // KANBAN DE TRABAJOS
+    // =====================================================
+    const KANBAN_ESTADOS = [
+        { id:'prospecto',              label:'PROSPECTOS DE VENTA',   color:'#64748b', bg:'#e2e8f0' },
+        { id:'proforma_enviada',       label:'PROFORMA ENVIADA',      color:'#be185d', bg:'#fce7f3' },
+        { id:'diseno',                 label:'DISENO',                color:'#ca8a04', bg:'#fef9c3' },
+        { id:'prueba_color',           label:'PRUEBA DE COLOR',       color:'#0f766e', bg:'#ccfbf1' },
+        { id:'produccion',             label:'PRODUCCION',            color:'#be123c', bg:'#ffe4e6' },
+        { id:'pendiente_por_facturar', label:'PENDIENTE POR FACTURAR',color:'#7e22ce', bg:'#f3e8ff' },
+        { id:'facturacion',            label:'FACTURACION',           color:'#991b1b', bg:'#fee2e2' },
+        { id:'cobro',                  label:'COBRO',                 color:'#4d7c0f', bg:'#ecfccb' },
+        { id:'postventa',              label:'POSTVENTA',             color:'#1d4ed8', bg:'#dbeafe' },
+        { id:'completado',             label:'COMPLETADO',            color:'#15803d', bg:'#dcfce7' }
+    ];
+    const KANBAN_PERDIDO = { id:'perdido', label:'PERDIDO', color:'#4b5563', bg:'#f3f4f6' };
+
+    let trabajosCache = [];
+    let activeTrabajo = null;
+
+    function kanbanEscape(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function kanbanMyStaffId() {
+        if (!currentUser) return null;
+        const s = staffCache.find(x => (x.email||'').toLowerCase() === (currentUser.email||'').toLowerCase());
+        return s ? s.id : null;
+    }
+
+    async function cargarTrabajos() {
+        if (!staffCache.length) await loadStaff();
+        const { data, error } = await db.from('trabajos')
+            .select('*, clientes(id, nombre, empresa), proformas(id, numero, estado), ordenes_produccion(id, numero)')
+            .order('updated_at', { ascending: false })
+            .limit(500);
+        if (error) { console.error(error); alert('Error cargando trabajos: ' + error.message); return; }
+        trabajosCache = data || [];
+        kanbanRenderFilterStaff();
+        renderKanban();
+    }
+
+    function kanbanRenderFilterStaff() {
+        const sel = document.getElementById('kanbanFilterStaff');
+        if (!sel) return;
+        const curr = sel.value;
+        sel.innerHTML = '<option value="">Todos los encargados</option>' +
+            staffCache.filter(s => s.activo).map(s => `<option value="${s.id}">${kanbanEscape(s.nombre)}</option>`).join('');
+        sel.value = curr;
+    }
+
+    function kanbanFiltrar() {
+        const q = (document.getElementById('kanbanSearch')?.value || '').toLowerCase().trim();
+        const enc = document.getElementById('kanbanFilterStaff')?.value || '';
+        const mis = document.getElementById('kanbanFilterMis')?.checked || false;
+        const myId = kanbanMyStaffId();
+
+        return trabajosCache.filter(t => {
+            if (q) {
+                const hay = [
+                    String(t.numero||''),
+                    t.titulo||'',
+                    t.clientes?.nombre||'',
+                    t.clientes?.empresa||'',
+                    String(t.proformas?.numero||''),
+                    String(t.ordenes_produccion?.numero||'')
+                ].join(' ').toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            const encs = Array.isArray(t.encargados) ? t.encargados.map(String) : [];
+            if (enc && !encs.includes(String(enc))) return false;
+            if (mis) {
+                if (!myId) return false;
+                if (!encs.includes(String(myId))) return false;
+            }
+            return true;
+        });
+    }
+
+    function renderKanban() {
+        const board = document.getElementById('kanbanBoard');
+        if (!board) return;
+        const filtered = kanbanFiltrar();
+
+        const byEstado = {};
+        KANBAN_ESTADOS.forEach(e => byEstado[e.id] = []);
+        byEstado[KANBAN_PERDIDO.id] = [];
+        filtered.forEach(t => {
+            if (byEstado[t.estado]) byEstado[t.estado].push(t);
+            else byEstado['prospecto'].push(t);
+        });
+
+        board.innerHTML = KANBAN_ESTADOS.map(e => renderKanbanCol(e, byEstado[e.id], false)).join('') +
+            renderKanbanCol(KANBAN_PERDIDO, byEstado[KANBAN_PERDIDO.id], true);
+
+        attachKanbanDnD();
+    }
+
+    function renderKanbanCol(estado, trabajos, isPerdido) {
+        const collapsed = isPerdido && (localStorage.getItem('kanbanPerdidoOpen') !== 'true');
+        const addBtn = isPerdido ? '' : `<button class="kanban-col-add" type="button" onclick="event.stopPropagation();nuevoTrabajo('${estado.id}')" title="Nuevo">+</button>`;
+        const headerClick = isPerdido ? 'onclick="togglePerdido()"' : '';
+        const bodyStyle = collapsed ? 'display:none;' : '';
+        return `<div class="kanban-col ${collapsed?'collapsed':''}" data-estado="${estado.id}">
+            <div class="kanban-col-header" style="background:${estado.bg};color:${estado.color};${isPerdido?'cursor:pointer;':''}" ${headerClick}>
+                <span class="kanban-col-dot" style="background:${estado.color};"></span>
+                <span class="kanban-col-title">${estado.label}</span>
+                <span class="kanban-col-count">${trabajos.length}</span>
+                ${addBtn}
+            </div>
+            <div class="kanban-col-body" data-estado="${estado.id}" style="${bodyStyle}">
+                ${trabajos.map(renderKanbanCard).join('')}
+            </div>
+        </div>`;
+    }
+
+    function togglePerdido() {
+        const curr = localStorage.getItem('kanbanPerdidoOpen') === 'true';
+        localStorage.setItem('kanbanPerdidoOpen', (!curr).toString());
+        renderKanban();
+    }
+
+    function renderKanbanCard(t) {
+        const encs = Array.isArray(t.encargados) ? t.encargados : [];
+        const staffMap = {};
+        staffCache.forEach(s => staffMap[String(s.id)] = s);
+        const encsShown = encs.slice(0, 3).map(id => {
+            const s = staffMap[String(id)];
+            const nombre = s?.nombre || '?';
+            const ini = nombre.split(' ').map(w => w[0]||'').join('').slice(0,2).toUpperCase();
+            return `<span class="kanban-avatar" title="${kanbanEscape(nombre)}">${kanbanEscape(ini)}</span>`;
+        }).join('');
+        const more = encs.length > 3 ? `<span class="kanban-avatar" style="background:var(--gray-400);">+${encs.length-3}</span>` : '';
+        const prio = t.prioridad || 'normal';
+        const cliente = t.clientes?.empresa || t.clientes?.nombre || '(sin cliente)';
+        const fecha = t.fecha_estimada ? new Date(t.fecha_estimada+'T00:00:00').toLocaleDateString('es-EC',{day:'numeric',month:'short'}) : '';
+        const links = [];
+        if (t.proforma_id) links.push(`<span class="kanban-link">P#${t.proformas?.numero||t.proforma_id}</span>`);
+        if (t.orden_id) links.push(`<span class="kanban-link">O#${t.ordenes_produccion?.numero||t.orden_id}</span>`);
+
+        return `<div class="kanban-card prio-${prio}" draggable="true" data-id="${t.id}" onclick="editarTrabajo(${t.id})">
+            <div class="kanban-card-num">#${t.numero||t.id}</div>
+            <div class="kanban-card-title">${kanbanEscape(t.titulo||'(sin titulo)')}</div>
+            <div class="kanban-card-cliente">${kanbanEscape(cliente)}</div>
+            <div class="kanban-card-footer">
+                <div class="kanban-card-links">${links.join('')}</div>
+                <div class="kanban-card-fecha">${fecha}</div>
+            </div>
+            ${encs.length ? `<div class="kanban-card-avatars">${encsShown}${more}</div>` : ''}
+        </div>`;
+    }
+
+    function attachKanbanDnD() {
+        document.querySelectorAll('.kanban-card').forEach(el => {
+            el.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('text/plain', el.dataset.id);
+                e.dataTransfer.effectAllowed = 'move';
+                el.classList.add('dragging');
+            });
+            el.addEventListener('dragend', () => el.classList.remove('dragging'));
+        });
+        document.querySelectorAll('.kanban-col-body').forEach(el => {
+            el.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect='move'; el.classList.add('drop-hover'); });
+            el.addEventListener('dragleave', () => el.classList.remove('drop-hover'));
+            el.addEventListener('drop', async e => {
+                e.preventDefault();
+                el.classList.remove('drop-hover');
+                const id = Number(e.dataTransfer.getData('text/plain'));
+                const nuevoEstado = el.dataset.estado;
+                if (!id || !nuevoEstado) return;
+                await moverTrabajoEstado(id, nuevoEstado);
+            });
+        });
+    }
+
+    async function moverTrabajoEstado(id, nuevoEstado) {
+        const t = trabajosCache.find(x => x.id === id);
+        if (!t || t.estado === nuevoEstado) return;
+        const hist = Array.isArray(t.historial) ? t.historial.slice() : [];
+        hist.push({
+            estado: nuevoEstado,
+            from: t.estado,
+            at: new Date().toISOString(),
+            by: currentUser?.id || null,
+            by_name: currentUser?.nombre || null
+        });
+        const { error } = await db.from('trabajos')
+            .update({ estado: nuevoEstado, historial: hist })
+            .eq('id', id);
+        if (error) { alert('Error moviendo trabajo: ' + error.message); return; }
+        t.estado = nuevoEstado;
+        t.historial = hist;
+        t.updated_at = new Date().toISOString();
+        renderKanban();
+    }
+
+    let kanbanClientesCache = null;
+    async function kanbanLoadClientes() {
+        if (kanbanClientesCache) return kanbanClientesCache;
+        const { data } = await db.from('clientes').select('id, nombre, empresa').order('nombre').limit(2000);
+        kanbanClientesCache = data || [];
+        return kanbanClientesCache;
+    }
+
+    async function nuevoTrabajo(estadoInicial) {
+        activeTrabajo = null;
+        await abrirModalTrabajo({ estado: estadoInicial || 'prospecto', prioridad: 'normal', encargados: [] });
+    }
+
+    async function editarTrabajo(id) {
+        const t = trabajosCache.find(x => x.id === id);
+        if (!t) return;
+        activeTrabajo = t;
+        await abrirModalTrabajo(t);
+    }
+
+    async function abrirModalTrabajo(t) {
+        if (!staffCache.length) await loadStaff();
+        const clientes = await kanbanLoadClientes();
+
+        document.getElementById('tmTitle').textContent = activeTrabajo ? `Trabajo #${activeTrabajo.numero||activeTrabajo.id}` : 'Nuevo Trabajo';
+        document.getElementById('tmTitulo').value = t.titulo || '';
+        document.getElementById('tmDescripcion').value = t.descripcion || '';
+        document.getElementById('tmEstado').value = t.estado || 'prospecto';
+        document.getElementById('tmPrioridad').value = t.prioridad || 'normal';
+        document.getElementById('tmFechaEstimada').value = t.fecha_estimada || '';
+        document.getElementById('tmNotas').value = t.notas || '';
+        document.getElementById('tmMotivoPerdido').value = t.motivo_perdido || '';
+
+        // Cliente select
+        const selCli = document.getElementById('tmCliente');
+        selCli.innerHTML = '<option value="">(sin cliente)</option>' +
+            clientes.map(c => `<option value="${c.id}" ${String(c.id)===String(t.cliente_id)?'selected':''}>${kanbanEscape(c.nombre||'')}${c.empresa?' — '+kanbanEscape(c.empresa):''}</option>`).join('');
+
+        // Encargados checkboxes
+        const sel = (Array.isArray(t.encargados)?t.encargados:[]).map(String);
+        const cont = document.getElementById('tmEncargados');
+        const activos = staffCache.filter(s => s.activo);
+        if (!activos.length) {
+            cont.innerHTML = '<div style="color:var(--gray-400);font-size:0.8rem;padding:0.5rem;">No hay personal activo. Agregalo en Administracion → Equipo.</div>';
+        } else {
+            cont.innerHTML = activos.map(s => `
+                <label class="kanban-enc-check">
+                    <input type="checkbox" value="${s.id}" ${sel.includes(String(s.id))?'checked':''}>
+                    <span>${kanbanEscape(s.nombre)}${s.rol?' · '+kanbanEscape(s.rol):''}</span>
+                </label>
+            `).join('');
+        }
+
+        // Motivo perdido: mostrar solo si estado = perdido
+        const motivoGroup = document.getElementById('tmMotivoPerdidoGroup');
+        motivoGroup.style.display = (t.estado === 'perdido') ? '' : 'none';
+        document.getElementById('tmEstado').onchange = function() {
+            motivoGroup.style.display = (this.value === 'perdido') ? '' : 'none';
+        };
+
+        // Links a proforma/orden
+        const linksGroup = document.getElementById('tmLinksGroup');
+        const linksDiv = document.getElementById('tmLinks');
+        if (activeTrabajo && (activeTrabajo.proforma_id || activeTrabajo.orden_id)) {
+            linksGroup.style.display = '';
+            const parts = [];
+            if (activeTrabajo.proforma_id) {
+                parts.push(`<button type="button" class="btn" style="border:1px solid var(--gray-300);font-size:0.8rem;" onclick="cerrarModalTrabajo();abrirProforma(${activeTrabajo.proforma_id})">Ver Proforma #${activeTrabajo.proformas?.numero||activeTrabajo.proforma_id}</button>`);
+            }
+            if (activeTrabajo.orden_id) {
+                parts.push(`<button type="button" class="btn" style="border:1px solid var(--gray-300);font-size:0.8rem;" onclick="cerrarModalTrabajo();abrirOrden(${activeTrabajo.orden_id})">Ver Orden #${activeTrabajo.ordenes_produccion?.numero||activeTrabajo.orden_id}</button>`);
+            }
+            linksDiv.innerHTML = parts.join('');
+        } else {
+            linksGroup.style.display = 'none';
+        }
+
+        // Delete solo en edicion
+        document.getElementById('tmDeleteBtn').style.display = activeTrabajo ? '' : 'none';
+
+        document.getElementById('trabajoModal').classList.add('active');
+        setTimeout(() => document.getElementById('tmTitulo').focus(), 50);
+    }
+
+    function cerrarModalTrabajo() {
+        document.getElementById('trabajoModal').classList.remove('active');
+        activeTrabajo = null;
+    }
+
+    async function guardarTrabajo() {
+        const titulo = document.getElementById('tmTitulo').value.trim();
+        if (!titulo) { alert('Ingresa un titulo'); return; }
+
+        const encargados = Array.from(document.querySelectorAll('#tmEncargados input:checked')).map(x => Number(x.value));
+        const cliente_id = document.getElementById('tmCliente').value || null;
+        const descripcion = document.getElementById('tmDescripcion').value.trim() || null;
+        const estado = document.getElementById('tmEstado').value;
+        const prioridad = document.getElementById('tmPrioridad').value;
+        const fecha_estimada = document.getElementById('tmFechaEstimada').value || null;
+        const notas = document.getElementById('tmNotas').value.trim() || null;
+        const motivo_perdido = estado === 'perdido' ? (document.getElementById('tmMotivoPerdido').value.trim() || null) : null;
+
+        const payload = {
+            titulo, descripcion,
+            cliente_id: cliente_id ? Number(cliente_id) : null,
+            estado, prioridad, fecha_estimada, notas, motivo_perdido,
+            encargados
+        };
+
+        if (activeTrabajo) {
+            if (estado !== activeTrabajo.estado) {
+                const hist = Array.isArray(activeTrabajo.historial) ? activeTrabajo.historial.slice() : [];
+                hist.push({ estado, from: activeTrabajo.estado, at: new Date().toISOString(), by: currentUser?.id||null, by_name: currentUser?.nombre||null });
+                payload.historial = hist;
+            }
+            const { error } = await db.from('trabajos').update(payload).eq('id', activeTrabajo.id);
+            if (error) { alert('Error: ' + error.message); return; }
+        } else {
+            payload.historial = [{ estado, from: null, at: new Date().toISOString(), by: currentUser?.id||null, by_name: currentUser?.nombre||null }];
+            payload.created_by = currentUser?.id || null;
+            payload.created_by_name = currentUser?.nombre || null;
+            const { error } = await db.from('trabajos').insert(payload);
+            if (error) { alert('Error: ' + error.message); return; }
+        }
+
+        cerrarModalTrabajo();
+        await cargarTrabajos();
+    }
+
+    async function eliminarTrabajo() {
+        if (!activeTrabajo) return;
+        if (!confirm('Eliminar este trabajo? (no elimina la proforma ni la orden vinculada)')) return;
+        const { error } = await db.from('trabajos').delete().eq('id', activeTrabajo.id);
+        if (error) { alert('Error: ' + error.message); return; }
+        cerrarModalTrabajo();
+        await cargarTrabajos();
     }
 
     // =====================================================
