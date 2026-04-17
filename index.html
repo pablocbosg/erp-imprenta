@@ -4537,6 +4537,127 @@
         setTimeout(() => abrirOrden(ordenId), 50);
     }
 
+    // Normaliza un nombre para matching simple
+    function _kanbanNormNombre(s) {
+        return (s || '').toString().toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    function _kanbanNombreCoincide(a, b) {
+        const na = _kanbanNormNombre(a);
+        const nb = _kanbanNormNombre(b);
+        if (!na || !nb) return false;
+        if (na === nb) return true;
+        // Una contiene la otra (para razon social vs nombre comercial)
+        const tokensA = na.split(' ').filter(t => t.length > 2);
+        const tokensB = nb.split(' ').filter(t => t.length > 2);
+        if (!tokensA.length || !tokensB.length) return false;
+        // Al menos 2 tokens en comun (o 1 si son nombres cortos)
+        const comunes = tokensA.filter(t => tokensB.includes(t));
+        const umbral = Math.min(2, Math.min(tokensA.length, tokensB.length));
+        return comunes.length >= umbral;
+    }
+
+    // Calcula total esperado de una proforma (sub + IVA)
+    async function _kanbanTotalProforma(proformaId) {
+        if (!proformaId) return 0;
+        const [itemsRes, profRes] = await Promise.all([
+            db.from('proforma_items').select('cantidad, precio_unitario').eq('proforma_id', proformaId),
+            db.from('proformas').select('iva_porcentaje').eq('id', proformaId).maybeSingle()
+        ]);
+        const sub = (itemsRes.data || []).reduce((s, i) => s + ((+i.cantidad || 0) * (+i.precio_unitario || 0)), 0);
+        const ivaPct = (profRes.data?.iva_porcentaje ?? 15);
+        return sub + (sub * ivaPct / 100);
+    }
+
+    // Scan: cruza trabajos con facturas Contifico para mover estados
+    async function kanbanScanContifico() {
+        let movidosACobro = 0, movidosAPostventa = 0;
+
+        // 1. Trabajos sin factura, en estados elegibles: buscar match Contifico
+        const estadosFac = ['produccion','pendiente_por_facturar','facturacion','entrega','diseno','prueba_color','proforma_enviada'];
+        const { data: trabajos } = await db.from('trabajos')
+            .select('id, estado, cliente_id, proforma_id, historial, clientes(nombre, empresa, rfc)')
+            .is('factura_id', null)
+            .in('estado', estadosFac);
+
+        const desde = new Date(Date.now() - 120 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+
+        for (const t of (trabajos || [])) {
+            if (!t.cliente_id) continue;
+            const nombre = t.clientes?.empresa || t.clientes?.nombre || '';
+            const rfc = t.clientes?.rfc;
+            if (!nombre && !rfc) continue;
+
+            // Buscar facturas candidatas por RFC primero (mas preciso), luego por nombre aproximado
+            let facs = [];
+            if (rfc) {
+                const { data } = await db.from('facturas')
+                    .select('id, total, saldo, estado_pago, cliente, identificacion, fecha, estado')
+                    .eq('identificacion', rfc)
+                    .gte('fecha', desde)
+                    .neq('estado', 'Anulada');
+                facs = data || [];
+            }
+            if (!facs.length && nombre) {
+                const like = '%' + nombre.slice(0, Math.min(30, nombre.length)) + '%';
+                const { data } = await db.from('facturas')
+                    .select('id, total, saldo, estado_pago, cliente, identificacion, fecha, estado')
+                    .ilike('cliente', like)
+                    .gte('fecha', desde)
+                    .neq('estado', 'Anulada');
+                facs = data || [];
+                // filtro extra con matcher fuzzy por nombre
+                facs = facs.filter(f => _kanbanNombreCoincide(nombre, f.cliente));
+            }
+            if (!facs.length) continue;
+
+            // Match por total esperado si hay proforma
+            let candidatas = facs;
+            if (t.proforma_id) {
+                const total = await _kanbanTotalProforma(t.proforma_id);
+                if (total > 0) {
+                    const tol = Math.max(1.0, total * 0.005); // 0.5% o $1, lo que sea mayor
+                    candidatas = facs.filter(f => Math.abs(+f.total - total) <= tol);
+                }
+            }
+            // Si multiples, tomar la mas reciente no anulada; si sigue siendo 1+, saltar
+            if (candidatas.length !== 1) continue;
+
+            const fac = candidatas[0];
+            const nuevoEstado = (fac.estado_pago === 'pagada') ? 'postventa' : 'cobro';
+            const hist = _pushHistorial(t.historial, t.estado, nuevoEstado);
+            const { error } = await db.from('trabajos').update({
+                factura_id: fac.id, estado: nuevoEstado, historial: hist
+            }).eq('id', t.id);
+            if (!error) {
+                if (nuevoEstado === 'cobro') movidosACobro++;
+                else movidosAPostventa++;
+            }
+        }
+
+        // 2. Trabajos en cobro con factura ya pagada -> postventa
+        const { data: enCobro } = await db.from('trabajos')
+            .select('id, historial, factura_id, facturas(estado_pago)')
+            .eq('estado', 'cobro')
+            .not('factura_id', 'is', null);
+        for (const t of (enCobro || [])) {
+            if (t.facturas?.estado_pago === 'pagada') {
+                const hist = _pushHistorial(t.historial, 'cobro', 'postventa');
+                const { error } = await db.from('trabajos').update({ estado: 'postventa', historial: hist }).eq('id', t.id);
+                if (!error) movidosAPostventa++;
+            }
+        }
+
+        // Si hay cambios y el tab trabajos esta activo, recargar
+        if ((movidosACobro + movidosAPostventa) > 0) {
+            if (document.getElementById('tab-trabajos')?.classList.contains('active')) {
+                await cargarTrabajos();
+            }
+        }
+        return { movidosACobro, movidosAPostventa };
+    }
+
     // Crea proforma desde una tarjeta de prospecto: arrastra el cliente y vincula el trabajo
     async function crearProformaDesdeProspecto(trabajoId) {
         const t = trabajosCache.find(x => x.id === trabajoId);

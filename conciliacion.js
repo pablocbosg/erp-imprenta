@@ -103,7 +103,18 @@ async function concSyncContifico() {
 
         const totalPend = concData.facturas.filter(f => f.estado_pago === 'pendiente').length;
         const totalPag = facturas.filter(f => f.estado_pago === 'pagada').length;
-        status.innerHTML = '<span style="color:#059669;">' + facturas.length + ' facturas sincronizadas<br>' + totalPend + ' pendientes, ' + totalPag + ' pagadas' + (autoConciliados > 0 ? '<br>' + autoConciliados + ' depositos auto-conciliados' : '') + '</span>';
+
+        // Scan kanban: cruzar facturas con trabajos
+        let scanMsg = '';
+        if (typeof kanbanScanContifico === 'function') {
+            try {
+                const scan = await kanbanScanContifico();
+                const total = scan.movidosACobro + scan.movidosAPostventa;
+                if (total > 0) scanMsg = '<br>' + total + ' trabajos movidos (' + scan.movidosACobro + ' a Cobro, ' + scan.movidosAPostventa + ' a Postventa)';
+            } catch (e) { console.error('kanbanScanContifico error:', e); }
+        }
+
+        status.innerHTML = '<span style="color:#059669;">' + facturas.length + ' facturas sincronizadas<br>' + totalPend + ' pendientes, ' + totalPag + ' pagadas' + (autoConciliados > 0 ? '<br>' + autoConciliados + ' depositos auto-conciliados' : '') + scanMsg + '</span>';
 
         concUpdateResumen();
         concRenderDepositos();
@@ -335,7 +346,15 @@ async function concAutoMatch() {
     const matched = await concAutoMatchInternal();
     concUpdateResumen();
     concRenderDepositos();
-    alert('Auto-conciliacion: ' + matched + ' depositos conciliados');
+    let scanMsg = '';
+    if (typeof kanbanScanContifico === 'function') {
+        try {
+            const scan = await kanbanScanContifico();
+            const total = scan.movidosACobro + scan.movidosAPostventa;
+            if (total > 0) scanMsg = '\nKanban: ' + scan.movidosACobro + ' a Cobro, ' + scan.movidosAPostventa + ' a Postventa';
+        } catch (e) { console.error('kanbanScanContifico error:', e); }
+    }
+    alert('Auto-conciliacion: ' + matched + ' depositos conciliados' + scanMsg);
 }
 
 function concFindCombination(amounts, target, tolerance, maxItems = 5) {
