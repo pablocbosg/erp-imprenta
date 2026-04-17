@@ -353,8 +353,12 @@
         .tm-file-preview .ico { font-size: 1.8rem; color: var(--gray-400); }
         .tm-file-meta { padding: 0.3rem 0.4rem; font-size: 0.7rem; color: var(--gray-600); line-height: 1.2; }
         .tm-file-name { font-weight: 600; color: var(--gray-800); word-break: break-word; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tm-file-del { position: absolute; top: 3px; right: 3px; background: rgba(220,38,38,0.92); color: white; border: none; width: 20px; height: 20px; border-radius: 50%; font-size: 0.75rem; cursor: pointer; line-height: 1; padding: 0; display: none; }
-        .tm-file:hover .tm-file-del { display: block; }
+        .tm-file-actions { position: absolute; top: 3px; right: 3px; display: none; gap: 3px; }
+        .tm-file:hover .tm-file-actions { display: flex; }
+        .tm-file-act { background: rgba(31,41,55,0.85); color: white; border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 0.8rem; cursor: pointer; line-height: 1; padding: 0; display: flex; align-items: center; justify-content: center; }
+        .tm-file-act:hover { background: var(--primary); }
+        .tm-file-act.danger { background: rgba(220,38,38,0.92); }
+        .tm-file-act.danger:hover { background: var(--danger); }
         .tm-file-uploading { opacity: 0.5; }
         .kanban-card-files-badge { display: inline-flex; align-items: center; gap: 2px; font-size: 0.68rem; color: var(--gray-500); background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-weight: 600; }
     </style>
@@ -4474,13 +4478,18 @@
             const preview = ico
                 ? `<div class="tm-file-preview" onclick="window.open('${url}','_blank')"><span class="ico">${ico}</span></div>`
                 : `<div class="tm-file-preview" onclick="window.open('${url}','_blank')"><img src="${url}" loading="lazy" alt=""></div>`;
+            const pathEsc = JSON.stringify(a.path);
+            const nomEsc = JSON.stringify(a.nombre);
             return `<div class="tm-file" data-id="${a.id}">
                 ${preview}
                 <div class="tm-file-meta">
                     <div class="tm-file-name" title="${kanbanEscape(a.nombre)}">${kanbanEscape(a.nombre)}</div>
                     <div>${_formatBytes(a.tamano)}${a.created_by_name ? ' · '+kanbanEscape(a.created_by_name) : ''}</div>
                 </div>
-                <button type="button" class="tm-file-del" onclick="eliminarArchivoTrabajo(${a.id}, ${JSON.stringify(a.path)})" title="Eliminar">×</button>
+                <div class="tm-file-actions">
+                    <button type="button" class="tm-file-act" onclick="descargarArchivoTrabajo(${pathEsc}, ${nomEsc})" title="Descargar">↓</button>
+                    <button type="button" class="tm-file-act danger" onclick="eliminarArchivoTrabajo(${a.id}, ${pathEsc})" title="Eliminar">×</button>
+                </div>
             </div>`;
         }).join('');
     }
@@ -4546,6 +4555,23 @@
                 t.trabajo_archivos[0].count = (t.trabajo_archivos[0]?.count || 0) + inserted;
                 renderKanban();
             }
+        }
+    }
+
+    async function descargarArchivoTrabajo(path, nombre) {
+        try {
+            const { data, error } = await db.storage.from('trabajo-archivos').download(path);
+            if (error) throw error;
+            const url = URL.createObjectURL(data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nombre || 'archivo';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (e) {
+            alert('Error descargando: ' + (e.message || e));
         }
     }
 
