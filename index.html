@@ -2766,6 +2766,7 @@
                     <option value="">Todos los encargados</option>
                 </select>
                 <button class="btn btn-primary" onclick="nuevoTrabajo('prospecto')">+ Nuevo Prospecto</button>
+                <button class="btn" style="border:1px solid var(--gray-300);" onclick="cargarTrabajos({force:true})" title="Refrescar">⟳</button>
             </div>
             <div class="kanban-board" id="kanbanBoard"></div>
         </div>
@@ -4154,6 +4155,8 @@
     const KANBAN_PERDIDO = { id:'perdido', label:'PERDIDO', color:'#4b5563', bg:'#f3f4f6' };
 
     let trabajosCache = [];
+    let trabajosCacheTs = 0;
+    const TRABAJOS_CACHE_MS = 30000;
     let activeTrabajo = null;
 
     function kanbanEscape(s) {
@@ -4167,16 +4170,62 @@
         return s ? s.id : null;
     }
 
-    async function cargarTrabajos() {
-        if (!staffCache.length) await loadStaff();
+    function renderKanbanSkeleton() {
+        const board = document.getElementById('kanbanBoard');
+        if (!board) return;
+        board.innerHTML = KANBAN_ESTADOS.map(e =>
+            `<div class="kanban-col" data-estado="${e.id}">
+                <div class="kanban-col-header" style="background:${e.bg};color:${e.color};">
+                    <span class="kanban-col-dot" style="background:${e.color};"></span>
+                    <span class="kanban-col-title">${e.label}</span>
+                    <span class="kanban-col-count">…</span>
+                </div>
+                <div class="kanban-col-body" data-estado="${e.id}"></div>
+            </div>`
+        ).join('') +
+        `<div class="kanban-col collapsed" data-estado="perdido">
+            <div class="kanban-col-header" style="background:${KANBAN_PERDIDO.bg};color:${KANBAN_PERDIDO.color};cursor:pointer;">
+                <span class="kanban-col-dot" style="background:${KANBAN_PERDIDO.color};"></span>
+                <span class="kanban-col-title">${KANBAN_PERDIDO.label}</span>
+                <span class="kanban-col-count">…</span>
+            </div>
+            <div class="kanban-col-body" data-estado="perdido" style="display:none;"></div>
+        </div>`;
+    }
+
+    function invalidarCacheTrabajos() { trabajosCacheTs = 0; }
+
+    async function cargarTrabajos(opts) {
+        opts = opts || {};
+        const ahora = Date.now();
+        const cacheFresco = trabajosCache.length && (ahora - trabajosCacheTs) < TRABAJOS_CACHE_MS;
+
+        // Mostrar inmediatamente lo que tenemos (cache o skeleton)
+        if (trabajosCache.length) {
+            kanbanRenderFilterStaff();
+            renderKanban();
+        } else {
+            renderKanbanSkeleton();
+        }
+
+        if (cacheFresco && !opts.force) return;
+
+        // Cargar staff en paralelo
+        const staffPromise = staffCache.length ? Promise.resolve() : loadStaff();
         const { data, error } = await db.from('trabajos')
             .select('*, clientes(id, nombre, empresa), proformas(id, numero, estado), ordenes_produccion(id, numero), trabajo_archivos(count)')
             .order('updated_at', { ascending: false })
-            .limit(500);
+            .limit(200);
+        await staffPromise;
+
         if (error) { console.error(error); alert('Error cargando trabajos: ' + error.message); return; }
         trabajosCache = data || [];
+        trabajosCacheTs = Date.now();
         kanbanRenderFilterStaff();
         renderKanban();
+
+        // Pre-cargar clientes en background (para modal instantaneo)
+        if (!kanbanClientesCache) { kanbanLoadClientes().catch(()=>{}); }
     }
 
     function kanbanRenderFilterStaff() {
@@ -4654,7 +4703,8 @@
         }
 
         cerrarModalTrabajo();
-        await cargarTrabajos();
+        invalidarCacheTrabajos();
+        await cargarTrabajos({ force: true });
     }
 
     async function eliminarTrabajo() {
@@ -4663,7 +4713,8 @@
         const { error } = await db.from('trabajos').delete().eq('id', activeTrabajo.id);
         if (error) { alert('Error: ' + error.message); return; }
         cerrarModalTrabajo();
-        await cargarTrabajos();
+        invalidarCacheTrabajos();
+        await cargarTrabajos({ force: true });
     }
 
     // ---- Helpers fase 2: hooks con proformas ----
@@ -4868,8 +4919,9 @@
 
         // Si hay cambios y el tab trabajos esta activo, recargar
         if ((movidosACobro + movidosAPostventa) > 0) {
+            invalidarCacheTrabajos();
             if (document.getElementById('tab-trabajos')?.classList.contains('active')) {
-                await cargarTrabajos();
+                await cargarTrabajos({ force: true });
             }
         }
         return { movidosACobro, movidosAPostventa };
@@ -4902,6 +4954,7 @@
             .update({ proforma_id: prof.id })
             .eq('id', trabajoId);
 
+        invalidarCacheTrabajos();
         // Abrir el editor de proforma
         await abrirProforma(prof.id);
         switchTab('proformas');
@@ -8196,6 +8249,7 @@
         try {
             if (estado === 'enviada') {
                 await asegurarTrabajoParaProforma(proformaActiva.id, 'proforma_enviada');
+                invalidarCacheTrabajos();
             } else if (estado === 'aprobada') {
                 await asegurarTrabajoParaProforma(proformaActiva.id, 'diseno');
                 // Auto-crear orden si no existe
@@ -8204,8 +8258,10 @@
                 if (!ord && proformaActiva.items && proformaActiva.items.length > 0) {
                     await crearOrdenProduccion(true);
                 }
+                invalidarCacheTrabajos();
             } else if (estado === 'rechazada') {
                 await asegurarTrabajoParaProforma(proformaActiva.id, 'perdido');
+                invalidarCacheTrabajos();
             }
         } catch (e) {
             console.error('Error en hooks kanban:', e);
