@@ -323,6 +323,8 @@
         .kanban-card-fecha { font-size: 0.68rem; color: var(--gray-500); white-space: nowrap; }
         .kanban-card-avatars { display: flex; gap: 2px; margin-top: 0.35rem; flex-wrap: wrap; }
         .kanban-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: white; font-size: 0.6rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; border: 2px solid white; }
+        .kanban-card-btn { display: block; width: 100%; margin-top: 0.5rem; padding: 0.35rem; background: var(--primary-light); color: var(--primary-dark); border: 1px dashed var(--primary); border-radius: 5px; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+        .kanban-card-btn:hover { background: var(--primary); color: white; }
 
         /* Modal Trabajo */
         .tm-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
@@ -2775,6 +2777,7 @@
                             <option value="produccion">Produccion</option>
                             <option value="pendiente_por_facturar">Pendiente por Facturar</option>
                             <option value="facturacion">Facturacion</option>
+                            <option value="entrega">Entrega</option>
                             <option value="cobro">Cobro</option>
                             <option value="postventa">Postventa</option>
                             <option value="completado">Completado</option>
@@ -4114,6 +4117,7 @@
         { id:'produccion',             label:'PRODUCCION',            color:'#be123c', bg:'#ffe4e6' },
         { id:'pendiente_por_facturar', label:'PENDIENTE POR FACTURAR',color:'#7e22ce', bg:'#f3e8ff' },
         { id:'facturacion',            label:'FACTURACION',           color:'#991b1b', bg:'#fee2e2' },
+        { id:'entrega',                label:'ENTREGA',               color:'#0369a1', bg:'#e0f2fe' },
         { id:'cobro',                  label:'COBRO',                 color:'#4d7c0f', bg:'#ecfccb' },
         { id:'postventa',              label:'POSTVENTA',             color:'#1d4ed8', bg:'#dbeafe' },
         { id:'completado',             label:'COMPLETADO',            color:'#15803d', bg:'#dcfce7' }
@@ -4244,6 +4248,10 @@
         if (t.proforma_id) links.push(`<span class="kanban-link">P#${t.proformas?.numero||t.proforma_id}</span>`);
         if (t.orden_id) links.push(`<span class="kanban-link">O#${t.ordenes_produccion?.numero||t.orden_id}</span>`);
 
+        const btnProforma = (t.estado === 'prospecto' && !t.proforma_id)
+            ? `<button class="kanban-card-btn" type="button" onclick="event.stopPropagation();crearProformaDesdeProspecto(${t.id})">+ Crear Proforma</button>`
+            : '';
+
         return `<div class="kanban-card prio-${prio}" draggable="true" data-id="${t.id}" onclick="editarTrabajo(${t.id})">
             <div class="kanban-card-num">#${t.numero||t.id}</div>
             <div class="kanban-card-title">${kanbanEscape(t.titulo||'(sin titulo)')}</div>
@@ -4253,6 +4261,7 @@
                 <div class="kanban-card-fecha">${fecha}</div>
             </div>
             ${encs.length ? `<div class="kanban-card-avatars">${encsShown}${more}</div>` : ''}
+            ${btnProforma}
         </div>`;
     }
 
@@ -4436,6 +4445,114 @@
         if (error) { alert('Error: ' + error.message); return; }
         cerrarModalTrabajo();
         await cargarTrabajos();
+    }
+
+    // ---- Helpers fase 2: hooks con proformas ----
+
+    // Agrega una entrada al historial del trabajo (en memoria, devuelve nuevo array)
+    function _pushHistorial(histPrev, from, to) {
+        const hist = Array.isArray(histPrev) ? histPrev.slice() : [];
+        hist.push({
+            estado: to, from: from || null,
+            at: new Date().toISOString(),
+            by: currentUser?.id || null,
+            by_name: currentUser?.nombre || null
+        });
+        return hist;
+    }
+
+    // Garantiza que exista un trabajo vinculado a la proforma, con el estado deseado.
+    // Crea uno nuevo si no existe, o actualiza el estado si ya existe.
+    async function asegurarTrabajoParaProforma(proformaId, estadoDeseado, opts) {
+        opts = opts || {};
+        // Buscar trabajo existente
+        const { data: existente } = await db.from('trabajos')
+            .select('id, estado, historial, titulo, cliente_id')
+            .eq('proforma_id', proformaId)
+            .maybeSingle();
+
+        if (existente) {
+            if (existente.estado !== estadoDeseado) {
+                const hist = _pushHistorial(existente.historial, existente.estado, estadoDeseado);
+                const upd = { estado: estadoDeseado, historial: hist };
+                if (opts.motivo_perdido !== undefined) upd.motivo_perdido = opts.motivo_perdido;
+                await db.from('trabajos').update(upd).eq('id', existente.id);
+            }
+            return existente.id;
+        }
+
+        // Crear trabajo nuevo
+        const { data: prof } = await db.from('proformas')
+            .select('numero, cliente_id, clientes(nombre, empresa)')
+            .eq('id', proformaId)
+            .maybeSingle();
+        if (!prof) return null;
+
+        const { count } = await db.from('proforma_items')
+            .select('*', { count: 'exact', head: true })
+            .eq('proforma_id', proformaId);
+
+        const titulo = opts.titulo
+            || `Proforma #${prof.numero}${prof.clientes?.empresa ? ' - '+prof.clientes.empresa : (prof.clientes?.nombre ? ' - '+prof.clientes.nombre : '')}`;
+
+        const payload = {
+            titulo,
+            cliente_id: prof.cliente_id || null,
+            proforma_id: proformaId,
+            estado: estadoDeseado,
+            prioridad: 'normal',
+            encargados: [],
+            historial: _pushHistorial([], null, estadoDeseado),
+            created_by: currentUser?.id || null,
+            created_by_name: currentUser?.nombre || null
+        };
+        if (opts.motivo_perdido) payload.motivo_perdido = opts.motivo_perdido;
+
+        const { data: nuevo } = await db.from('trabajos').insert(payload).select().single();
+        return nuevo ? nuevo.id : null;
+    }
+
+    // Linkea una orden de produccion al trabajo correspondiente
+    async function linkOrdenATrabajo(ordenId, proformaId) {
+        const { data: existente } = await db.from('trabajos')
+            .select('id, orden_id')
+            .eq('proforma_id', proformaId)
+            .maybeSingle();
+        if (existente && existente.orden_id !== ordenId) {
+            await db.from('trabajos').update({ orden_id: ordenId }).eq('id', existente.id);
+        }
+    }
+
+    // Crea proforma desde una tarjeta de prospecto: arrastra el cliente y vincula el trabajo
+    async function crearProformaDesdeProspecto(trabajoId) {
+        const t = trabajosCache.find(x => x.id === trabajoId);
+        if (!t) { alert('Trabajo no encontrado'); return; }
+
+        // Siguiente numero de proforma
+        const { data: maxRow } = await db.from('proformas')
+            .select('numero').order('numero', { ascending: false }).limit(1);
+        const nextNum = (maxRow && maxRow.length > 0) ? maxRow[0].numero + 1 : 6001;
+
+        // Crear proforma con cliente precargado
+        const insertPayload = {
+            numero: nextNum,
+            estado: 'borrador',
+            cliente_id: t.cliente_id || null,
+            created_by: currentUser?.id || null,
+            created_by_name: currentUser?.nombre || null
+        };
+        const { data: prof, error } = await db.from('proformas')
+            .insert(insertPayload).select().single();
+        if (error) { alert('Error creando proforma: ' + error.message); return; }
+
+        // Vincular el trabajo (sigue en 'prospecto' hasta que la proforma se envie)
+        await db.from('trabajos')
+            .update({ proforma_id: prof.id })
+            .eq('id', trabajoId);
+
+        // Abrir el editor de proforma
+        await abrirProforma(prof.id);
+        switchTab('proformas');
     }
 
     // =====================================================
@@ -7718,9 +7835,29 @@
     async function cambiarEstadoProforma() {
         if (!proformaActiva) return;
         const estado = document.getElementById('editorEstado').value;
+        const estadoAnterior = proformaActiva.estado;
         proformaActiva.estado = estado;
         await db.from('proformas').update({ estado }).eq('id', proformaActiva.id);
         actualizarBotonCrearOrden();
+
+        // ---- Hooks kanban de trabajos ----
+        try {
+            if (estado === 'enviada') {
+                await asegurarTrabajoParaProforma(proformaActiva.id, 'proforma_enviada');
+            } else if (estado === 'aprobada') {
+                await asegurarTrabajoParaProforma(proformaActiva.id, 'diseno');
+                // Auto-crear orden si no existe
+                const { data: ord } = await db.from('ordenes_produccion')
+                    .select('id').eq('proforma_id', proformaActiva.id).maybeSingle();
+                if (!ord && proformaActiva.items && proformaActiva.items.length > 0) {
+                    await crearOrdenProduccion(true);
+                }
+            } else if (estado === 'rechazada') {
+                await asegurarTrabajoParaProforma(proformaActiva.id, 'perdido');
+            }
+        } catch (e) {
+            console.error('Error en hooks kanban:', e);
+        }
     }
 
     function actualizarBotonCrearOrden() {
@@ -7743,16 +7880,16 @@
         'Facturacion', 'Entrega', 'Pago', 'Postventa'
     ];
 
-    async function crearOrdenProduccion() {
+    async function crearOrdenProduccion(silent) {
         if (!proformaActiva) return;
         if (proformaActiva.estado !== 'aprobada') {
-            alert('La proforma debe estar aprobada para crear una orden.');
+            if (!silent) alert('La proforma debe estar aprobada para crear una orden.');
             return;
         }
 
         // metodo_impresion se asigna automaticamente desde cotizador
         if (proformaActiva.items.length === 0) {
-            alert('La proforma no tiene items.');
+            if (!silent) alert('La proforma no tiene items.');
             return;
         }
 
@@ -7763,6 +7900,10 @@
         const { data: existente } = await db.from('ordenes_produccion')
             .select('id, numero').eq('proforma_id', proformaActiva.id).maybeSingle();
         if (existente) {
+            if (silent) {
+                await linkOrdenATrabajo(existente.id, proformaActiva.id);
+                return;
+            }
             if (!confirm('Ya existe la orden #' + existente.numero + ' para esta proforma. Crear otra de todas formas?')) return;
         }
 
@@ -7814,6 +7955,10 @@
             }
         }
 
+        // Linkar orden al trabajo correspondiente (si existe)
+        try { await linkOrdenATrabajo(orden.id, proformaActiva.id); } catch (e) { console.error(e); }
+
+        if (silent) return;
         alert('Orden de Produccion #' + nextNum + ' creada con ' + tareasToInsert.length + ' tareas. Abriendo tab Ordenes de Produccion...');
         cerrarEditor();
         switchTab('ordenes');
