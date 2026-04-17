@@ -342,6 +342,21 @@
         .kanban-enc-check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--gray-700); cursor: pointer; padding: 0.25rem 0.4rem; border-radius: 4px; }
         .kanban-enc-check:hover { background: var(--gray-100); }
         .kanban-enc-check input { width: auto; }
+
+        /* Archivos en modal */
+        .tm-files-drop { border: 2px dashed var(--gray-300); border-radius: 7px; padding: 0.75rem; text-align: center; color: var(--gray-500); font-size: 0.8rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+        .tm-files-drop:hover, .tm-files-drop.drag-over { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); }
+        .tm-files-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.5rem; margin-top: 0.5rem; }
+        .tm-file { position: relative; border: 1px solid var(--gray-200); border-radius: 6px; background: white; overflow: hidden; display: flex; flex-direction: column; }
+        .tm-file-preview { height: 80px; background: var(--gray-50); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; }
+        .tm-file-preview img { width: 100%; height: 100%; object-fit: cover; }
+        .tm-file-preview .ico { font-size: 1.8rem; color: var(--gray-400); }
+        .tm-file-meta { padding: 0.3rem 0.4rem; font-size: 0.7rem; color: var(--gray-600); line-height: 1.2; }
+        .tm-file-name { font-weight: 600; color: var(--gray-800); word-break: break-word; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tm-file-del { position: absolute; top: 3px; right: 3px; background: rgba(220,38,38,0.92); color: white; border: none; width: 20px; height: 20px; border-radius: 50%; font-size: 0.75rem; cursor: pointer; line-height: 1; padding: 0; display: none; }
+        .tm-file:hover .tm-file-del { display: block; }
+        .tm-file-uploading { opacity: 0.5; }
+        .kanban-card-files-badge { display: inline-flex; align-items: center; gap: 2px; font-size: 0.68rem; color: var(--gray-500); background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -2814,6 +2829,14 @@
                     <label>Notas internas</label>
                     <textarea id="tmNotas" rows="2"></textarea>
                 </div>
+                <div class="form-group" id="tmArchivosGroup" style="display:none;">
+                    <label>Archivos (disenos, fotos, PDFs)</label>
+                    <div id="tmFilesDrop" class="tm-files-drop" onclick="document.getElementById('tmFilesInput').click()">
+                        Arrastra archivos aqui o haz clic para seleccionar
+                    </div>
+                    <input type="file" id="tmFilesInput" multiple style="display:none;">
+                    <div id="tmFilesList" class="tm-files-list"></div>
+                </div>
                 <div class="form-group" id="tmMotivoPerdidoGroup" style="display:none;">
                     <label>Motivo (si se pierde)</label>
                     <input type="text" id="tmMotivoPerdido" placeholder="Ej. Cliente eligio otra imprenta">
@@ -4143,7 +4166,7 @@
     async function cargarTrabajos() {
         if (!staffCache.length) await loadStaff();
         const { data, error } = await db.from('trabajos')
-            .select('*, clientes(id, nombre, empresa), proformas(id, numero, estado), ordenes_produccion(id, numero)')
+            .select('*, clientes(id, nombre, empresa), proformas(id, numero, estado), ordenes_produccion(id, numero), trabajo_archivos(count)')
             .order('updated_at', { ascending: false })
             .limit(500);
         if (error) { console.error(error); alert('Error cargando trabajos: ' + error.message); return; }
@@ -4249,6 +4272,8 @@
         const links = [];
         if (t.proforma_id) links.push(`<span class="kanban-link kanban-link-btn" onclick="event.stopPropagation();abrirProformaDesdeKanban(${t.proforma_id})" title="Abrir proforma">P#${t.proformas?.numero||t.proforma_id}</span>`);
         if (t.orden_id) links.push(`<span class="kanban-link kanban-link-btn" onclick="event.stopPropagation();abrirOrdenDesdeKanban(${t.orden_id})" title="Abrir orden">O#${t.ordenes_produccion?.numero||t.orden_id}</span>`);
+        const nArchivos = t.trabajo_archivos?.[0]?.count || 0;
+        if (nArchivos > 0) links.push(`<span class="kanban-card-files-badge" title="${nArchivos} archivo(s)">📎 ${nArchivos}</span>`);
 
         const btnProforma = (t.estado === 'prospecto' && !t.proforma_id)
             ? `<button class="kanban-card-btn" type="button" onclick="event.stopPropagation();crearProformaDesdeProspecto(${t.id})">+ Crear Proforma</button>`
@@ -4391,8 +4416,152 @@
         // Delete solo en edicion
         document.getElementById('tmDeleteBtn').style.display = activeTrabajo ? '' : 'none';
 
+        // Archivos: solo disponibles en modo edicion (requiere trabajo.id)
+        const archivosGroup = document.getElementById('tmArchivosGroup');
+        if (activeTrabajo) {
+            archivosGroup.style.display = '';
+            document.getElementById('tmFilesList').innerHTML = '<div style="font-size:0.75rem;color:var(--gray-400);padding:0.5rem;">Cargando archivos...</div>';
+            setupTrabajoFilesHandlers(activeTrabajo.id);
+            cargarArchivosTrabajo(activeTrabajo.id);
+        } else {
+            archivosGroup.style.display = 'none';
+        }
+
         document.getElementById('trabajoModal').classList.add('active');
         setTimeout(() => document.getElementById('tmTitulo').focus(), 50);
+    }
+
+    // --- Archivos del trabajo ---
+    function _formatBytes(n) {
+        if (!n) return '';
+        if (n < 1024) return n + ' B';
+        if (n < 1024*1024) return Math.round(n/1024) + ' KB';
+        return (n/1024/1024).toFixed(1) + ' MB';
+    }
+
+    function _iconForMime(tipo, nombre) {
+        const t = (tipo||'').toLowerCase();
+        const ext = (nombre||'').split('.').pop().toLowerCase();
+        if (t.startsWith('image/')) return null; // preview image
+        if (t === 'application/pdf' || ext === 'pdf') return '📄';
+        if (['ai','psd','eps','indd','cdr','svg'].includes(ext)) return '🎨';
+        if (['doc','docx','txt','rtf','odt'].includes(ext)) return '📝';
+        if (['xls','xlsx','csv','ods'].includes(ext)) return '📊';
+        if (['zip','rar','7z'].includes(ext)) return '🗜️';
+        return '📎';
+    }
+
+    async function cargarArchivosTrabajo(trabajoId) {
+        const { data, error } = await db.from('trabajo_archivos')
+            .select('*').eq('trabajo_id', trabajoId).order('created_at', { ascending: false });
+        if (error) {
+            document.getElementById('tmFilesList').innerHTML = '<div style="color:var(--danger);font-size:0.75rem;">Error: '+error.message+'</div>';
+            return;
+        }
+        renderArchivosTrabajo(data || []);
+    }
+
+    function renderArchivosTrabajo(archivos) {
+        const cont = document.getElementById('tmFilesList');
+        if (!archivos.length) {
+            cont.innerHTML = '<div style="font-size:0.75rem;color:var(--gray-400);padding:0.25rem;grid-column:1/-1;">No hay archivos todavia.</div>';
+            return;
+        }
+        cont.innerHTML = archivos.map(a => {
+            const { data: urlData } = db.storage.from('trabajo-archivos').getPublicUrl(a.path);
+            const url = urlData.publicUrl;
+            const ico = _iconForMime(a.tipo, a.nombre);
+            const preview = ico
+                ? `<div class="tm-file-preview" onclick="window.open('${url}','_blank')"><span class="ico">${ico}</span></div>`
+                : `<div class="tm-file-preview" onclick="window.open('${url}','_blank')"><img src="${url}" loading="lazy" alt=""></div>`;
+            return `<div class="tm-file" data-id="${a.id}">
+                ${preview}
+                <div class="tm-file-meta">
+                    <div class="tm-file-name" title="${kanbanEscape(a.nombre)}">${kanbanEscape(a.nombre)}</div>
+                    <div>${_formatBytes(a.tamano)}${a.created_by_name ? ' · '+kanbanEscape(a.created_by_name) : ''}</div>
+                </div>
+                <button type="button" class="tm-file-del" onclick="eliminarArchivoTrabajo(${a.id}, ${JSON.stringify(a.path)})" title="Eliminar">×</button>
+            </div>`;
+        }).join('');
+    }
+
+    let _tmFilesHandlersAttached = false;
+    function setupTrabajoFilesHandlers(trabajoId) {
+        const drop = document.getElementById('tmFilesDrop');
+        const input = document.getElementById('tmFilesInput');
+        // Limpiar handlers previos clonando el nodo
+        const newDrop = drop.cloneNode(true);
+        drop.parentNode.replaceChild(newDrop, drop);
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        // Reattach click en drop para abrir input
+        newDrop.onclick = () => newInput.click();
+        newInput.onchange = (e) => {
+            const files = Array.from(e.target.files||[]);
+            if (files.length) subirArchivosTrabajo(trabajoId, files);
+            newInput.value = '';
+        };
+        newDrop.addEventListener('dragover', e => { e.preventDefault(); newDrop.classList.add('drag-over'); });
+        newDrop.addEventListener('dragleave', () => newDrop.classList.remove('drag-over'));
+        newDrop.addEventListener('drop', e => {
+            e.preventDefault();
+            newDrop.classList.remove('drag-over');
+            const files = Array.from(e.dataTransfer.files||[]);
+            if (files.length) subirArchivosTrabajo(trabajoId, files);
+        });
+    }
+
+    async function subirArchivosTrabajo(trabajoId, files) {
+        const cont = document.getElementById('tmFilesList');
+        // Agregar placeholders
+        for (const f of files) {
+            const ph = document.createElement('div');
+            ph.className = 'tm-file tm-file-uploading';
+            ph.innerHTML = `<div class="tm-file-preview"><span class="ico">⏳</span></div>
+                <div class="tm-file-meta"><div class="tm-file-name">${kanbanEscape(f.name)}</div><div>${_formatBytes(f.size)} · subiendo...</div></div>`;
+            cont.appendChild(ph);
+        }
+        let inserted = 0;
+        for (const file of files) {
+            try {
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const path = `trabajo-${trabajoId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${safeName}`;
+                const { error: upErr } = await db.storage.from('trabajo-archivos')
+                    .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+                if (upErr) { console.error(upErr); alert('Error subiendo '+file.name+': '+upErr.message); continue; }
+                const { error: dbErr } = await db.from('trabajo_archivos').insert({
+                    trabajo_id: trabajoId, path, nombre: file.name, tipo: file.type || null, tamano: file.size,
+                    created_by: currentUser?.id || null, created_by_name: currentUser?.nombre || null
+                });
+                if (dbErr) { console.error(dbErr); alert('Error registrando '+file.name+': '+dbErr.message); continue; }
+                inserted++;
+            } catch (e) { console.error(e); alert('Error: '+e.message); }
+        }
+        await cargarArchivosTrabajo(trabajoId);
+        if (inserted > 0) {
+            // Actualizar count en cache sin recargar todo
+            const t = trabajosCache.find(x => x.id === trabajoId);
+            if (t) {
+                if (!t.trabajo_archivos) t.trabajo_archivos = [{count: 0}];
+                t.trabajo_archivos[0].count = (t.trabajo_archivos[0]?.count || 0) + inserted;
+                renderKanban();
+            }
+        }
+    }
+
+    async function eliminarArchivoTrabajo(archivoId, path) {
+        if (!confirm('Eliminar este archivo?')) return;
+        await db.storage.from('trabajo-archivos').remove([path]);
+        const { error } = await db.from('trabajo_archivos').delete().eq('id', archivoId);
+        if (error) { alert('Error: '+error.message); return; }
+        if (activeTrabajo) {
+            await cargarArchivosTrabajo(activeTrabajo.id);
+            const t = trabajosCache.find(x => x.id === activeTrabajo.id);
+            if (t && t.trabajo_archivos?.[0]) {
+                t.trabajo_archivos[0].count = Math.max(0, (t.trabajo_archivos[0].count || 1) - 1);
+                renderKanban();
+            }
+        }
     }
 
     function cerrarModalTrabajo() {
