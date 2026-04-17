@@ -320,6 +320,8 @@
         .kanban-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem; gap: 0.3rem; }
         .kanban-card-links { display: flex; gap: 0.25rem; flex-wrap: wrap; }
         .kanban-link { font-size: 0.66rem; background: var(--gray-100); color: var(--gray-600); padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+        .kanban-link-btn { cursor: pointer; transition: background 0.12s, color 0.12s; }
+        .kanban-link-btn:hover { background: var(--primary); color: white; }
         .kanban-card-fecha { font-size: 0.68rem; color: var(--gray-500); white-space: nowrap; }
         .kanban-card-avatars { display: flex; gap: 2px; margin-top: 0.35rem; flex-wrap: wrap; }
         .kanban-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: white; font-size: 0.6rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; border: 2px solid white; }
@@ -4245,8 +4247,8 @@
         const cliente = t.clientes?.empresa || t.clientes?.nombre || '(sin cliente)';
         const fecha = t.fecha_estimada ? new Date(t.fecha_estimada+'T00:00:00').toLocaleDateString('es-EC',{day:'numeric',month:'short'}) : '';
         const links = [];
-        if (t.proforma_id) links.push(`<span class="kanban-link">P#${t.proformas?.numero||t.proforma_id}</span>`);
-        if (t.orden_id) links.push(`<span class="kanban-link">O#${t.ordenes_produccion?.numero||t.orden_id}</span>`);
+        if (t.proforma_id) links.push(`<span class="kanban-link kanban-link-btn" onclick="event.stopPropagation();abrirProformaDesdeKanban(${t.proforma_id})" title="Abrir proforma">P#${t.proformas?.numero||t.proforma_id}</span>`);
+        if (t.orden_id) links.push(`<span class="kanban-link kanban-link-btn" onclick="event.stopPropagation();abrirOrdenDesdeKanban(${t.orden_id})" title="Abrir orden">O#${t.ordenes_produccion?.numero||t.orden_id}</span>`);
 
         const btnProforma = (t.estado === 'prospecto' && !t.proforma_id)
             ? `<button class="kanban-card-btn" type="button" onclick="event.stopPropagation();crearProformaDesdeProspecto(${t.id})">+ Crear Proforma</button>`
@@ -4376,10 +4378,10 @@
             linksGroup.style.display = '';
             const parts = [];
             if (activeTrabajo.proforma_id) {
-                parts.push(`<button type="button" class="btn" style="border:1px solid var(--gray-300);font-size:0.8rem;" onclick="cerrarModalTrabajo();abrirProforma(${activeTrabajo.proforma_id})">Ver Proforma #${activeTrabajo.proformas?.numero||activeTrabajo.proforma_id}</button>`);
+                parts.push(`<button type="button" class="btn" style="border:1px solid var(--gray-300);font-size:0.8rem;" onclick="abrirProformaDesdeKanban(${activeTrabajo.proforma_id})">Ver Proforma #${activeTrabajo.proformas?.numero||activeTrabajo.proforma_id}</button>`);
             }
             if (activeTrabajo.orden_id) {
-                parts.push(`<button type="button" class="btn" style="border:1px solid var(--gray-300);font-size:0.8rem;" onclick="cerrarModalTrabajo();abrirOrden(${activeTrabajo.orden_id})">Ver Orden #${activeTrabajo.ordenes_produccion?.numero||activeTrabajo.orden_id}</button>`);
+                parts.push(`<button type="button" class="btn" style="border:1px solid var(--gray-300);font-size:0.8rem;" onclick="abrirOrdenDesdeKanban(${activeTrabajo.orden_id})">Ver Orden #${activeTrabajo.ordenes_produccion?.numero||activeTrabajo.orden_id}</button>`);
             }
             linksDiv.innerHTML = parts.join('');
         } else {
@@ -4521,6 +4523,18 @@
         if (existente && existente.orden_id !== ordenId) {
             await db.from('trabajos').update({ orden_id: ordenId }).eq('id', existente.id);
         }
+    }
+
+    // Abrir proforma/orden desde el kanban (activa primero el tab correcto)
+    async function abrirProformaDesdeKanban(proformaId) {
+        cerrarModalTrabajo();
+        switchTab('proformas');
+        setTimeout(() => abrirProforma(proformaId), 50);
+    }
+    async function abrirOrdenDesdeKanban(ordenId) {
+        cerrarModalTrabajo();
+        switchTab('ordenes');
+        setTimeout(() => abrirOrden(ordenId), 50);
     }
 
     // Crea proforma desde una tarjeta de prospecto: arrastra el cliente y vincula el trabajo
