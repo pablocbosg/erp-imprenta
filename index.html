@@ -4465,21 +4465,22 @@
         renderArchivosTrabajo(data || []);
     }
 
+    let _tmArchivosById = {};
     function renderArchivosTrabajo(archivos) {
         const cont = document.getElementById('tmFilesList');
+        _tmArchivosById = {};
         if (!archivos.length) {
             cont.innerHTML = '<div style="font-size:0.75rem;color:var(--gray-400);padding:0.25rem;grid-column:1/-1;">No hay archivos todavia.</div>';
             return;
         }
+        archivos.forEach(a => _tmArchivosById[a.id] = a);
         cont.innerHTML = archivos.map(a => {
             const { data: urlData } = db.storage.from('trabajo-archivos').getPublicUrl(a.path);
             const url = urlData.publicUrl;
             const ico = _iconForMime(a.tipo, a.nombre);
             const preview = ico
-                ? `<div class="tm-file-preview" onclick="window.open('${url}','_blank')"><span class="ico">${ico}</span></div>`
-                : `<div class="tm-file-preview" onclick="window.open('${url}','_blank')"><img src="${url}" loading="lazy" alt=""></div>`;
-            const pathEsc = JSON.stringify(a.path);
-            const nomEsc = JSON.stringify(a.nombre);
+                ? `<div class="tm-file-preview" data-action="view"><span class="ico">${ico}</span></div>`
+                : `<div class="tm-file-preview" data-action="view"><img src="${kanbanEscape(url)}" loading="lazy" alt=""></div>`;
             return `<div class="tm-file" data-id="${a.id}">
                 ${preview}
                 <div class="tm-file-meta">
@@ -4487,11 +4488,32 @@
                     <div>${_formatBytes(a.tamano)}${a.created_by_name ? ' · '+kanbanEscape(a.created_by_name) : ''}</div>
                 </div>
                 <div class="tm-file-actions">
-                    <button type="button" class="tm-file-act" onclick="descargarArchivoTrabajo(${pathEsc}, ${nomEsc})" title="Descargar">↓</button>
-                    <button type="button" class="tm-file-act danger" onclick="eliminarArchivoTrabajo(${a.id}, ${pathEsc})" title="Eliminar">×</button>
+                    <button type="button" class="tm-file-act" data-action="download" title="Descargar">↓</button>
+                    <button type="button" class="tm-file-act danger" data-action="delete" title="Eliminar">×</button>
                 </div>
             </div>`;
         }).join('');
+
+        // Un unico listener delegado
+        cont.onclick = async (ev) => {
+            const actEl = ev.target.closest('[data-action]');
+            if (!actEl) return;
+            const fileEl = actEl.closest('.tm-file');
+            if (!fileEl) return;
+            const id = Number(fileEl.dataset.id);
+            const a = _tmArchivosById[id];
+            if (!a) return;
+            ev.stopPropagation();
+            const action = actEl.dataset.action;
+            if (action === 'download') {
+                await descargarArchivoTrabajo(a.path, a.nombre);
+            } else if (action === 'delete') {
+                await eliminarArchivoTrabajo(a.id, a.path);
+            } else if (action === 'view') {
+                const { data: u } = db.storage.from('trabajo-archivos').getPublicUrl(a.path);
+                window.open(u.publicUrl, '_blank');
+            }
+        };
     }
 
     let _tmFilesHandlersAttached = false;
