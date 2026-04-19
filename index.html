@@ -8404,17 +8404,17 @@
             const state = gigaAditivosSeleccionados[a.id] || {};
             const checked = state.checked ? 'checked' : '';
             const esML = a.tipo === 'aditivo_ml';
-            const inputML = esML ? `
-                <input type="number" step="0.1" min="0" value="${state.meters || 0}"
-                  placeholder="m lineales" style="width:90px;font-size:0.8rem;padding:0.2rem 0.4rem;margin-left:0.4rem;"
-                  onchange="gigaOnAditivoMeters(${a.id}, +this.value)" ${!state.checked ? 'disabled' : ''}>
-                <span style="font-size:0.7rem;color:var(--gray-500);margin-left:0.3rem;">m lineales</span>
+            // aditivo_ml = auto-calculado del layout
+            const metersDisplay = esML ? `
+                <span style="font-size:0.78rem;color:#0e7490;font-weight:600;margin-left:0.5rem;">
+                    <span data-giga-ml-display="${a.id}">${(+state.meters || 0).toFixed(2)}</span> m lineales (auto)
+                </span>
             ` : '';
             const unit = esML ? '/m lineal' : '/m²';
             return `<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-bottom:0.3rem;flex-wrap:wrap;">
                 <input type="checkbox" data-giga-aditivo="${a.id}" ${checked} onchange="gigaOnAditivoToggle(${a.id}, this.checked)">
                 ${a.nombre} <span style="color:var(--gray-500);font-size:0.78rem;">(+$${(+a.precio_venta).toFixed(2)}${unit})</span>
-                ${inputML}
+                ${metersDisplay}
             </label>`;
         }).join('');
     }
@@ -8424,9 +8424,20 @@
         gigaRenderAditivos();
         gigaCalc();
     }
-    function gigaOnAditivoMeters(id, meters) {
-        gigaAditivosSeleccionados[id] = { ...(gigaAditivosSeleccionados[id] || {checked:true}), meters };
-        gigaCalc();
+
+    // Metros lineales de corte con estilete: suma de todas las lineas de la imposicion
+    // (perimetros de cada pieza menos bordes compartidos entre piezas contiguas)
+    function _gigaMetrosCorteImposicion(cols, cantidad, piezaWcm, piezaHcm) {
+        if (!cols || !cantidad || !piezaWcm || !piezaHcm) return 0;
+        const filasCompletas = Math.floor(cantidad / cols);
+        const p = cantidad - filasCompletas * cols; // piezas en fila parcial
+        const perimetros = cantidad * 2 * (piezaWcm + piezaHcm);
+        let bordesH = (cols - 1) * filasCompletas * piezaHcm;
+        if (p > 1) bordesH += (p - 1) * piezaHcm;
+        let bordesV = 0;
+        if (filasCompletas >= 2) bordesV += cols * (filasCompletas - 1) * piezaWcm;
+        if (filasCompletas >= 1 && p > 0) bordesV += p * piezaWcm;
+        return (perimetros - bordesH - bordesV) / 100; // cm -> m
     }
 
     function gigaOnMaterialChange() {
@@ -8590,6 +8601,10 @@
             const mantPorM2 = costoFijoAnual / Math.max(1, +gigaConfig.m2_anuales_est);
             const costoMant = mantPorM2 * area_util_total;
 
+            // Metros lineales de cortes (auto-calculado del layout)
+            const cols = chosen ? chosen.pack.cols : 0;
+            const metrosCorteAuto = cols ? _gigaMetrosCorteImposicion(cols, cantidad, anchoCm, altoCm) : 0;
+
             // Aditivos
             const costoAditivos = [], precioAditivos = [];
             Object.keys(gigaAditivosSeleccionados).forEach(id => {
@@ -8598,9 +8613,14 @@
                 const ad = gigaMaterialesCache.find(m => m.id === +id);
                 if (!ad) return;
                 if (ad.tipo === 'aditivo_ml') {
-                    const meters = +st.meters || 0;
-                    costoAditivos.push({ nombre: `${ad.nombre} (${meters} m)`, costo: (+ad.costo_real) * meters });
-                    precioAditivos.push({ nombre: `${ad.nombre} (${meters} m)`, precio: (+ad.precio_venta) * meters });
+                    // Auto-calcular metros desde la imposicion
+                    gigaAditivosSeleccionados[id].meters = metrosCorteAuto;
+                    // Actualizar display en vivo
+                    const disp = document.querySelector(`[data-giga-ml-display="${id}"]`);
+                    if (disp) disp.textContent = metrosCorteAuto.toFixed(2);
+                    const meters = metrosCorteAuto;
+                    costoAditivos.push({ nombre: `${ad.nombre} (${meters.toFixed(2)} m)`, costo: (+ad.costo_real) * meters });
+                    precioAditivos.push({ nombre: `${ad.nombre} (${meters.toFixed(2)} m)`, precio: (+ad.precio_venta) * meters });
                 } else {
                     costoAditivos.push({ nombre: ad.nombre, costo: (+ad.costo_real) * area_util_total });
                     precioAditivos.push({ nombre: ad.nombre, precio: (+ad.precio_venta) * area_util_total });
