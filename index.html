@@ -401,6 +401,7 @@
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('cotizador')">Impresion Offset</button>
             <button class="tab-btn" onclick="switchTab('digital')">Imp. Digital</button>
+            <button class="tab-btn" onclick="switchTab('gigantografia')">Gigantografia</button>
             <button class="tab-btn" onclick="switchTab('proformas')">Proformas</button>
             <button class="tab-btn" onclick="switchTab('trabajos')">Trabajos</button>
             <button class="tab-btn" onclick="switchTab('ordenes')">Ordenes</button>
@@ -2286,6 +2287,225 @@
         </div>
     </div>
 
+    <!-- ==================== TAB: GIGANTOGRAFIA (VersaExpress RF-640) ==================== -->
+    <div id="tab-gigantografia" class="tab-content">
+        <div class="cot-layout">
+            <div class="cot-sidebar">
+                <!-- Datos del trabajo -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;">Gigantografia (RF-640)</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Descripcion</label>
+                            <input type="text" id="gigaDescripcion" placeholder="Ej: Banner promocional" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label>Material / Producto</label>
+                            <select id="gigaMaterial" onchange="gigaOnMaterialChange()" style="font-weight:600;"></select>
+                            <div id="gigaMaterialInfo" class="text-sm text-muted mt-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seccion por m2 (se muestra si material es tipo m2) -->
+                <div class="panel" id="gigaPanelM2">
+                    <div class="panel-header">Medidas</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Ancho (cm)</label>
+                                <input type="number" id="gigaAncho" step="1" min="1" value="100" oninput="gigaCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>Alto (cm)</label>
+                                <input type="number" id="gigaAlto" step="1" min="1" value="50" oninput="gigaCalc()">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Cantidad</label>
+                                <input type="number" id="gigaCantidad" min="1" value="1" oninput="gigaCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>M2 minimo por pieza</label>
+                                <input type="number" id="gigaMinM2" step="0.1" min="0" value="0" oninput="gigaCalc()">
+                                <div style="font-size:0.7rem;color:var(--gray-400);">0 = sin minimo</div>
+                            </div>
+                        </div>
+                        <div id="gigaAnchoMaxAlert" style="display:none;margin-top:0.5rem;padding:0.5rem 0.75rem;background:#fef3c7;border:1px solid #fbbf24;border-radius:6px;font-size:0.8rem;color:#92400e;"></div>
+                    </div>
+                </div>
+
+                <!-- Seccion unidad (se muestra si material es tipo unidad) -->
+                <div class="panel" id="gigaPanelUnidad" style="display:none;">
+                    <div class="panel-header">Cantidad</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label>Unidades</label>
+                            <input type="number" id="gigaCantidadUni" min="1" value="1" oninput="gigaCalc()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aditivos (solo si material es tipo m2) -->
+                <div class="panel" id="gigaPanelAditivos">
+                    <div class="panel-header">Aditivos (opcional)</div>
+                    <div class="panel-body">
+                        <div id="gigaAditivosList"></div>
+                        <div class="separator"></div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label>Otros costos ($)</label>
+                            <input type="number" id="gigaOtrosCosto" step="0.5" min="0" value="0" oninput="gigaCalc()">
+                            <div style="font-size:0.7rem;color:var(--gray-400);">Instalacion, transporte, etc.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Margen y Precio -->
+                <div class="panel">
+                    <div class="panel-header">Margen y Precio</div>
+                    <div class="panel-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Precio final unitario ($)</label>
+                                <input type="number" id="gigaPrecioUnitManual" step="0.01" min="0" value="0" oninput="window._gigaManualPrecio=true;gigaCalc()" style="font-weight:700;border-color:#0891b2;">
+                                <div style="font-size:0.7rem;color:var(--gray-400);">Se auto-calcula con la lista de precios</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Descuento %</label>
+                                <input type="number" id="gigaDescuento" step="1" min="0" max="99" value="0" oninput="gigaCalc()">
+                            </div>
+                            <div class="form-group">
+                                <label>IVA %</label>
+                                <select id="gigaIVA" onchange="gigaCalc()">
+                                    <option value="15" selected>15% (normal)</option>
+                                    <option value="0">0% (exento)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cot-main">
+                <!-- Resumen superior -->
+                <div class="panel">
+                    <div class="panel-header" style="background:linear-gradient(135deg,#0891b2,#0e7490);color:white;">Calculo</div>
+                    <div class="panel-body">
+                        <div class="results-grid">
+                            <div class="result-card">
+                                <div class="value" id="gigaResArea">0,00</div>
+                                <div class="label">m² por pieza</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="gigaResAreaTotal">0,00</div>
+                                <div class="label">m² total</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value" id="gigaResCantidad">0</div>
+                                <div class="label">Cantidad</div>
+                            </div>
+                            <div class="result-card highlight">
+                                <div class="value" id="gigaResPrecioUnit">$0,00</div>
+                                <div class="label">Precio unit. (sin IVA)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview rectangular de la pieza -->
+                <div class="panel">
+                    <div class="panel-header">Vista Previa</div>
+                    <div class="panel-body" style="padding:0.75rem;">
+                        <div id="gigaPreviewInfo" style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.5rem;"></div>
+                        <canvas id="gigaPreview" style="width:100%;max-height:280px;border:1px solid var(--gray-200);border-radius:6px;background:var(--gray-50);"></canvas>
+                    </div>
+                </div>
+
+                <!-- Desglose (costo vs precio => margen real) -->
+                <div class="panel">
+                    <div class="panel-header">Desglose de Costos vs Precio</div>
+                    <div class="panel-body">
+                        <div style="font-weight:600;font-size:0.78rem;color:#0e7490;text-transform:uppercase;margin-bottom:0.3rem;">Costo real</div>
+                        <div class="cost-row" id="gigaCostoMatRow">
+                            <span class="cost-label"><span id="gigaCostoMatLabel">Material</span></span>
+                            <span class="cost-value">$<span id="gigaCostoMat">0,00</span></span>
+                        </div>
+                        <div id="gigaCostoAditivosList"></div>
+                        <div class="cost-row" id="gigaCostoOtrosRow" style="display:none;">
+                            <span class="cost-label">Otros costos</span>
+                            <span class="cost-value">$<span id="gigaCostoOtros">0,00</span></span>
+                        </div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Costo total real</span>
+                            <span class="cost-value">$<span id="gigaCostoTotal">0,00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div style="font-weight:600;font-size:0.78rem;color:#0e7490;text-transform:uppercase;margin-bottom:0.3rem;">Precio lista</div>
+                        <div class="cost-row" id="gigaPrecioMatRow">
+                            <span class="cost-label"><span id="gigaPrecioMatLabel">Material</span></span>
+                            <span class="cost-value">$<span id="gigaPrecioMat">0,00</span></span>
+                        </div>
+                        <div id="gigaPrecioAditivosList"></div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Precio lista (sin IVA)</span>
+                            <span class="cost-value">$<span id="gigaPrecioLista">0,00</span></span>
+                        </div>
+                        <div class="cost-row" id="gigaDescuentoRow" style="display:none;color:#dc2626;">
+                            <span class="cost-label">Descuento <span id="gigaDescuentoPct">0</span>%</span>
+                            <span class="cost-value">-$<span id="gigaDescuentoMonto">0,00</span></span>
+                        </div>
+                        <div class="cost-row subtotal">
+                            <span class="cost-label">Precio final (sin IVA)</span>
+                            <span class="cost-value">$<span id="gigaPrecioFinalSinIVA">0,00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">IVA <span id="gigaIVAPct">15</span>%</span>
+                            <span class="cost-value">$<span id="gigaMontoIVA">0,00</span></span>
+                        </div>
+                        <div class="cost-row total">
+                            <span class="cost-label">TOTAL CON IVA</span>
+                            <span class="cost-value">$<span id="gigaPrecioTotal">0,00</span></span>
+                        </div>
+                        <div class="separator"></div>
+                        <div style="font-weight:600;font-size:0.78rem;color:#15803d;text-transform:uppercase;margin-bottom:0.3rem;">Margen</div>
+                        <div class="cost-row" id="gigaUtilidadRow">
+                            <span class="cost-label">Utilidad bruta</span>
+                            <span class="cost-value" style="color:#15803d;font-weight:700;">$<span id="gigaUtilidad">0,00</span></span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Margen sobre venta</span>
+                            <span class="cost-value"><span id="gigaMargenVenta">0,0</span>%</span>
+                        </div>
+                        <div class="cost-row">
+                            <span class="cost-label">Markup sobre costo</span>
+                            <span class="cost-value"><span id="gigaMarkupCosto">0,0</span>%</span>
+                        </div>
+                        <div id="gigaAlertaPerdida" style="display:none;margin-top:0.5rem;padding:0.6rem;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;font-size:0.8rem;color:#991b1b;font-weight:600;text-align:center;">⚠️ Precio por debajo del costo - estas perdiendo plata</div>
+                    </div>
+                </div>
+
+                <!-- Precio final + acciones -->
+                <div class="panel">
+                    <div class="panel-body">
+                        <div class="results-grid">
+                            <div class="result-card success">
+                                <div class="value">$<span id="gigaPrecioTotalBig">0,00</span></div>
+                                <div class="label">Total con IVA</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="value">$<span id="gigaUtilidadBig">0,00</span></div>
+                                <div class="label">Utilidad</div>
+                            </div>
+                        </div>
+                        <button class="btn no-print" style="width:100%;margin-top:0.5rem;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;padding:0.6rem 1rem;border-radius:7px;font-weight:600;cursor:pointer;" onclick="crearProformaDesdeCalc('gigantografia')">+ Crear Proforma</button>
+                        <button class="btn-add-proforma no-print" onclick="addItemToProformaGiga()">+ Agregar a Proforma #<span class="proforma-activa-num">1</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== TAB: PROFORMAS ==================== -->
     <div id="tab-proformas" class="tab-content">
         <div class="proformas-layout">
@@ -2937,6 +3157,7 @@
             <div class="admin-tabs">
                 <button class="admin-tab-btn active" onclick="switchAdminTab('materiales')">Materiales</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('terminados')">Terminados</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('gigantografia')">Gigantografia</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('parametros')">Parametros</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('staff')">Equipo</button>
             </div>
@@ -2986,6 +3207,34 @@
                                 </tr>
                             </thead>
                             <tbody id="terminadosBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gigantografia -->
+            <div id="admin-gigantografia" class="admin-content">
+                <div class="panel">
+                    <div class="panel-header">
+                        Lista de Precios Gigantografia (RF-640)
+                        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="addMaterialGiga()">+ Agregar</button>
+                    </div>
+                    <div class="panel-body" style="overflow-x:auto">
+                        <p class="text-sm text-muted" style="margin-bottom:0.5rem;">Precio venta es lo que cobras. Costo real es lo que pagas. La diferencia es tu utilidad.</p>
+                        <table class="data-table" id="gigaMaterialesTable">
+                            <thead>
+                                <tr>
+                                    <th>Material / Producto</th>
+                                    <th>Tipo</th>
+                                    <th>Categoria</th>
+                                    <th>Precio venta ($)</th>
+                                    <th>Costo real ($)</th>
+                                    <th>Margen %</th>
+                                    <th>Activo</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="gigaMaterialesBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -4027,6 +4276,7 @@
         if (tab === 'calculadora') calcCalc();
         if (tab === 'cotizador') { cotCalc(); updateAddToProformaBtn(); }
         if (tab === 'digital') { digPopulateMaterials(); digCalc(); updateAddToProformaBtn(); }
+        if (tab === 'gigantografia') { gigaInitTab(); updateAddToProformaBtn(); }
         if (tab === 'conciliacion') { concInit(); }
         if (tab === 'proformas') cargarProformas();
         if (tab === 'trabajos') cargarTrabajos();
@@ -4041,6 +4291,7 @@
         document.getElementById('admin-' + tab).classList.add('active');
         event.target.classList.add('active');
         if (tab === 'staff') loadStaff();
+        if (tab === 'gigantografia') gigaAdminLoad();
     }
 
     // =====================================================
@@ -7730,13 +7981,21 @@
 
     async function crearProformaDesdeCalc(metodo) {
         // Capturar datos ANTES de cualquier await (sincrono, instantaneo)
-        const pref = metodo === 'offset' ? 'cot' : 'dig';
-        const userText = document.getElementById(pref + 'Descripcion').value.trim();
-        const descripcion = buildDescripcionProforma(userText, pref);
-        const cantidad = parseFloat(document.getElementById(pref + 'Cantidad').value) || 0;
-        const precioUnit = parseFloat((document.getElementById(pref + 'PrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
-        const itemIvaPct = parseFloat(document.getElementById(pref + 'IVA').value) || 0;
-        const snapshot = _captureSnapshot(metodo);
+        let userText, descripcion, cantidad, precioUnit, itemIvaPct, snapshot;
+        if (metodo === 'gigantografia') {
+            const d = _gigaCapturarDatosItem();
+            if (!d) return;
+            userText = d.userText; descripcion = d.descripcion; cantidad = d.cantidad;
+            precioUnit = d.precioUnit; itemIvaPct = d.itemIvaPct; snapshot = d.snapshot;
+        } else {
+            const pref = metodo === 'offset' ? 'cot' : 'dig';
+            userText = document.getElementById(pref + 'Descripcion').value.trim();
+            descripcion = buildDescripcionProforma(userText, pref);
+            cantidad = parseFloat(document.getElementById(pref + 'Cantidad').value) || 0;
+            precioUnit = parseFloat((document.getElementById(pref + 'PrecioUnit')?.textContent || '0').replace(',', '.')) || 0;
+            itemIvaPct = parseFloat(document.getElementById(pref + 'IVA').value) || 0;
+            snapshot = _captureSnapshot(metodo);
+        }
 
         // 1 query: crear proforma + obtener numero en paralelo
         const [{ data: maxRow }, _] = await Promise.all([
@@ -7938,6 +8197,464 @@
 
         switchTab('proformas');
         renderProformaItems();
+    }
+
+    // =====================================================
+    // GIGANTOGRAFIA (VersaExpress RF-640)
+    // =====================================================
+    const GIGA_ANCHO_MAX_CM = 160; // RF-640 = ~64" ≈ 162cm utiles
+    let gigaMaterialesCache = [];
+    let gigaAditivosSeleccionados = {}; // {id: true/false}
+    window._gigaManualPrecio = false;
+
+    async function gigaLoadMateriales(opts = {}) {
+        if (gigaMaterialesCache.length && !opts.force) return gigaMaterialesCache;
+        const { data } = await db.from('materiales_gigantografia')
+            .select('*')
+            .order('orden')
+            .order('nombre');
+        gigaMaterialesCache = data || [];
+        return gigaMaterialesCache;
+    }
+
+    async function gigaInitTab() {
+        await gigaLoadMateriales();
+        gigaPopulateMaterialSelect();
+        gigaRenderAditivos();
+        gigaCalc();
+    }
+
+    function gigaPopulateMaterialSelect() {
+        const sel = document.getElementById('gigaMaterial');
+        if (!sel) return;
+        const activos = gigaMaterialesCache.filter(m => m.activo && m.tipo !== 'aditivo_m2');
+        // Agrupar por categoria
+        const grupos = {};
+        activos.forEach(m => {
+            const cat = m.categoria || 'Otros';
+            if (!grupos[cat]) grupos[cat] = [];
+            grupos[cat].push(m);
+        });
+        let html = '<option value="">Elegir material...</option>';
+        Object.keys(grupos).forEach(cat => {
+            html += `<optgroup label="${cat}">`;
+            grupos[cat].forEach(m => {
+                const unidad = m.tipo === 'unidad' ? '/u' : '/m²';
+                html += `<option value="${m.id}">${m.nombre} — $${(+m.precio_venta).toFixed(2)}${unidad}</option>`;
+            });
+            html += '</optgroup>';
+        });
+        sel.innerHTML = html;
+    }
+
+    function gigaRenderAditivos() {
+        const cont = document.getElementById('gigaAditivosList');
+        if (!cont) return;
+        const aditivos = gigaMaterialesCache.filter(m => m.activo && m.tipo === 'aditivo_m2');
+        if (!aditivos.length) {
+            cont.innerHTML = '<div style="font-size:0.8rem;color:var(--gray-400);">No hay aditivos configurados.</div>';
+            return;
+        }
+        cont.innerHTML = aditivos.map(a => `
+            <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-bottom:0.3rem;">
+                <input type="checkbox" data-giga-aditivo="${a.id}" ${gigaAditivosSeleccionados[a.id] ? 'checked' : ''} onchange="gigaOnAditivoToggle(${a.id}, this.checked)">
+                ${a.nombre} <span style="color:var(--gray-500);">(+$${(+a.precio_venta).toFixed(2)}/m²)</span>
+            </label>
+        `).join('');
+    }
+
+    function gigaOnAditivoToggle(id, checked) {
+        gigaAditivosSeleccionados[id] = checked;
+        gigaCalc();
+    }
+
+    function gigaOnMaterialChange() {
+        const matId = +document.getElementById('gigaMaterial').value;
+        const mat = gigaMaterialesCache.find(m => m.id === matId);
+        const info = document.getElementById('gigaMaterialInfo');
+        if (!mat) {
+            info.textContent = '';
+            document.getElementById('gigaPanelM2').style.display = '';
+            document.getElementById('gigaPanelUnidad').style.display = 'none';
+            document.getElementById('gigaPanelAditivos').style.display = '';
+            gigaCalc();
+            return;
+        }
+        const esM2 = mat.tipo === 'm2';
+        document.getElementById('gigaPanelM2').style.display = esM2 ? '' : 'none';
+        document.getElementById('gigaPanelUnidad').style.display = esM2 ? 'none' : '';
+        document.getElementById('gigaPanelAditivos').style.display = esM2 ? '' : 'none';
+        const margen = +mat.precio_venta > 0 && +mat.costo_real > 0
+            ? (((+mat.precio_venta - +mat.costo_real) / +mat.precio_venta) * 100).toFixed(1) + '% margen'
+            : 'costo no configurado';
+        info.textContent = mat.tipo === 'unidad'
+            ? `Precio $${(+mat.precio_venta).toFixed(2)}/unidad — ${margen}`
+            : `Precio $${(+mat.precio_venta).toFixed(2)}/m² — ${margen}`;
+        window._gigaManualPrecio = false;
+        gigaCalc();
+    }
+
+    function gigaCalc() {
+        const matId = +document.getElementById('gigaMaterial').value;
+        const mat = gigaMaterialesCache.find(m => m.id === matId);
+
+        let areaPorPieza = 0, areaTotal = 0, cantidad = 0;
+        let costoBase = 0, precioBase = 0;
+        let costoAditivos = [], precioAditivos = [];
+        let etiquetaMat = mat ? mat.nombre : '-';
+
+        if (!mat) {
+            return gigaRenderResultados({ areaPorPieza: 0, areaTotal: 0, cantidad: 0,
+                costoBase: 0, precioBase: 0, costoAditivos: [], precioAditivos: [],
+                etiquetaMat: '-', etiquetaBase: 'Material', esM2: true, ancho: 0, alto: 0 });
+        }
+
+        const esM2 = mat.tipo === 'm2';
+
+        if (esM2) {
+            const anchoCm = parseFloat(document.getElementById('gigaAncho').value) || 0;
+            const altoCm = parseFloat(document.getElementById('gigaAlto').value) || 0;
+            cantidad = parseInt(document.getElementById('gigaCantidad').value) || 0;
+            const minM2 = parseFloat(document.getElementById('gigaMinM2').value) || 0;
+            const m2Real = (anchoCm * altoCm) / 10000;
+            areaPorPieza = Math.max(m2Real, minM2);
+            areaTotal = areaPorPieza * cantidad;
+
+            // Alert ancho maximo RF-640 (comparar con el menor lado, que es el que va en el rollo)
+            const lmin = Math.min(anchoCm, altoCm);
+            const alert = document.getElementById('gigaAnchoMaxAlert');
+            if (lmin > GIGA_ANCHO_MAX_CM) {
+                alert.style.display = '';
+                alert.innerHTML = `⚠️ El lado mas corto (${lmin} cm) supera el ancho maximo de la RF-640 (${GIGA_ANCHO_MAX_CM} cm). Verifica si entra en rollo.`;
+            } else {
+                alert.style.display = 'none';
+            }
+
+            costoBase = (+mat.costo_real) * areaTotal;
+            precioBase = (+mat.precio_venta) * areaTotal;
+
+            // Aditivos (solo para m2)
+            Object.keys(gigaAditivosSeleccionados).forEach(id => {
+                if (!gigaAditivosSeleccionados[id]) return;
+                const ad = gigaMaterialesCache.find(m => m.id === +id);
+                if (!ad) return;
+                costoAditivos.push({ nombre: ad.nombre, costo: (+ad.costo_real) * areaTotal });
+                precioAditivos.push({ nombre: ad.nombre, precio: (+ad.precio_venta) * areaTotal });
+            });
+        } else {
+            cantidad = parseInt(document.getElementById('gigaCantidadUni').value) || 0;
+            areaPorPieza = 0;
+            areaTotal = 0;
+            costoBase = (+mat.costo_real) * cantidad;
+            precioBase = (+mat.precio_venta) * cantidad;
+        }
+
+        const otrosCosto = parseFloat(document.getElementById('gigaOtrosCosto')?.value) || 0;
+
+        gigaRenderResultados({
+            areaPorPieza, areaTotal, cantidad, costoBase, precioBase, costoAditivos, precioAditivos,
+            otrosCosto, etiquetaMat,
+            etiquetaBase: esM2 ? `${etiquetaMat} (${fmtN(areaTotal,2)} m² x $${(+mat.precio_venta).toFixed(2)})`
+                                : `${etiquetaMat} (${cantidad} x $${(+mat.precio_venta).toFixed(2)})`,
+            esM2, ancho: esM2 ? parseFloat(document.getElementById('gigaAncho').value) || 0 : 0,
+            alto: esM2 ? parseFloat(document.getElementById('gigaAlto').value) || 0 : 0,
+            mat
+        });
+    }
+
+    function gigaRenderResultados(r) {
+        document.getElementById('gigaResArea').textContent = fmtN(r.areaPorPieza, 2);
+        document.getElementById('gigaResAreaTotal').textContent = fmtN(r.areaTotal, 2);
+        document.getElementById('gigaResCantidad').textContent = r.cantidad;
+
+        // Costo
+        document.getElementById('gigaCostoMatLabel').textContent = r.etiquetaBase;
+        document.getElementById('gigaCostoMat').textContent = fmtN(r.costoBase, 2);
+        const costoAditivosCont = document.getElementById('gigaCostoAditivosList');
+        costoAditivosCont.innerHTML = (r.costoAditivos || []).map(a => `
+            <div class="cost-row">
+                <span class="cost-label">${a.nombre}</span>
+                <span class="cost-value">$<span>${fmtN(a.costo, 2)}</span></span>
+            </div>`).join('');
+
+        const otros = r.otrosCosto || 0;
+        if (otros > 0) {
+            document.getElementById('gigaCostoOtrosRow').style.display = '';
+            document.getElementById('gigaCostoOtros').textContent = fmtN(otros, 2);
+        } else {
+            document.getElementById('gigaCostoOtrosRow').style.display = 'none';
+        }
+
+        const costoTotal = r.costoBase + (r.costoAditivos || []).reduce((s, a) => s + a.costo, 0) + otros;
+        document.getElementById('gigaCostoTotal').textContent = fmtN(costoTotal, 2);
+
+        // Precio lista
+        document.getElementById('gigaPrecioMatLabel').textContent = r.etiquetaBase;
+        document.getElementById('gigaPrecioMat').textContent = fmtN(r.precioBase, 2);
+        const precioAditivosCont = document.getElementById('gigaPrecioAditivosList');
+        precioAditivosCont.innerHTML = (r.precioAditivos || []).map(a => `
+            <div class="cost-row">
+                <span class="cost-label">${a.nombre}</span>
+                <span class="cost-value">$<span>${fmtN(a.precio, 2)}</span></span>
+            </div>`).join('');
+
+        let precioLista = r.precioBase + (r.precioAditivos || []).reduce((s, a) => s + a.precio, 0);
+        document.getElementById('gigaPrecioLista').textContent = fmtN(precioLista, 2);
+
+        // Manual precio override
+        const precioManualUnit = parseFloat(document.getElementById('gigaPrecioUnitManual').value) || 0;
+        if (!window._gigaManualPrecio) {
+            const unitAuto = r.cantidad > 0 ? precioLista / r.cantidad : 0;
+            document.getElementById('gigaPrecioUnitManual').value = unitAuto.toFixed(2);
+        } else if (precioManualUnit > 0) {
+            precioLista = precioManualUnit * r.cantidad;
+            document.getElementById('gigaPrecioLista').textContent = fmtN(precioLista, 2);
+        }
+
+        const precioUnit = r.cantidad > 0 ? precioLista / r.cantidad : 0;
+        document.getElementById('gigaResPrecioUnit').textContent = '$' + fmtN(precioUnit, 2);
+
+        // Descuento
+        const descPct = parseFloat(document.getElementById('gigaDescuento').value) || 0;
+        const descMonto = precioLista * (descPct / 100);
+        if (descPct > 0) {
+            document.getElementById('gigaDescuentoRow').style.display = '';
+            document.getElementById('gigaDescuentoPct').textContent = descPct;
+            document.getElementById('gigaDescuentoMonto').textContent = fmtN(descMonto, 2);
+        } else {
+            document.getElementById('gigaDescuentoRow').style.display = 'none';
+        }
+        const precioSinIVA = precioLista - descMonto;
+        document.getElementById('gigaPrecioFinalSinIVA').textContent = fmtN(precioSinIVA, 2);
+
+        // IVA
+        const ivaPct = parseFloat(document.getElementById('gigaIVA').value) || 0;
+        const montoIVA = precioSinIVA * (ivaPct / 100);
+        document.getElementById('gigaIVAPct').textContent = ivaPct;
+        document.getElementById('gigaMontoIVA').textContent = fmtN(montoIVA, 2);
+        const precioTotal = precioSinIVA + montoIVA;
+        document.getElementById('gigaPrecioTotal').textContent = fmtN(precioTotal, 2);
+        document.getElementById('gigaPrecioTotalBig').textContent = fmtN(precioTotal, 2);
+
+        // Margen
+        const utilidad = precioSinIVA - costoTotal;
+        document.getElementById('gigaUtilidad').textContent = fmtN(utilidad, 2);
+        document.getElementById('gigaUtilidadBig').textContent = fmtN(utilidad, 2);
+        const margenVenta = precioSinIVA > 0 ? (utilidad / precioSinIVA) * 100 : 0;
+        const markupCosto = costoTotal > 0 ? (utilidad / costoTotal) * 100 : 0;
+        document.getElementById('gigaMargenVenta').textContent = fmtN(margenVenta, 1);
+        document.getElementById('gigaMarkupCosto').textContent = fmtN(markupCosto, 1);
+        document.getElementById('gigaAlertaPerdida').style.display = (utilidad < 0 && costoTotal > 0) ? '' : 'none';
+
+        // Preview
+        gigaDrawPreview(r);
+    }
+
+    function gigaDrawPreview(r) {
+        const cv = document.getElementById('gigaPreview');
+        const info = document.getElementById('gigaPreviewInfo');
+        if (!cv || !cv.getContext) return;
+        const ctx = cv.getContext('2d');
+        const cssW = cv.clientWidth || 600;
+        const dpr = window.devicePixelRatio || 1;
+        if (!r.esM2 || r.ancho <= 0 || r.alto <= 0) {
+            info.textContent = r.esM2 ? 'Ingresa medidas para ver la vista previa' : 'Producto por unidad — sin vista previa';
+            cv.width = cssW * dpr; cv.height = 180 * dpr;
+            cv.style.height = '180px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, cssW, 180);
+            return;
+        }
+        const padding = 20;
+        const maxH = 280;
+        const ratio = r.ancho / r.alto;
+        let w = cssW - padding * 2;
+        let h = w / ratio;
+        if (h > maxH - padding * 2) { h = maxH - padding * 2; w = h * ratio; }
+        const canvasH = Math.max(180, h + padding * 2);
+        cv.width = cssW * dpr; cv.height = canvasH * dpr;
+        cv.style.height = canvasH + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(0, 0, cssW, canvasH);
+        const x = (cssW - w) / 2;
+        const y = (canvasH - h) / 2;
+        // Rectangulo
+        ctx.fillStyle = '#cffafe';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = '#0891b2';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+        // Medidas
+        ctx.fillStyle = '#0e7490';
+        ctx.font = '11px -apple-system, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(r.ancho + ' cm', x + w / 2, y - 4);
+        ctx.save();
+        ctx.translate(x - 4, y + h / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(r.alto + ' cm', 0, 0);
+        ctx.restore();
+        info.textContent = `Pieza: ${r.ancho} × ${r.alto} cm (${fmtN(r.areaPorPieza, 2)} m²) × ${r.cantidad} = ${fmtN(r.areaTotal, 2)} m² totales`;
+    }
+
+    // ===== Proforma integration =====
+    function _gigaBuildDescripcion() {
+        const userText = document.getElementById('gigaDescripcion').value.trim();
+        const matId = +document.getElementById('gigaMaterial').value;
+        const mat = gigaMaterialesCache.find(m => m.id === matId);
+        if (!mat) return userText || 'Gigantografia';
+        const partes = [];
+        if (mat.tipo === 'm2') {
+            const ancho = parseFloat(document.getElementById('gigaAncho').value) || 0;
+            const alto = parseFloat(document.getElementById('gigaAlto').value) || 0;
+            partes.push(mat.nombre);
+            partes.push(ancho + 'x' + alto + ' cm');
+            const aditivos = Object.keys(gigaAditivosSeleccionados)
+                .filter(id => gigaAditivosSeleccionados[id])
+                .map(id => gigaMaterialesCache.find(m => m.id === +id))
+                .filter(Boolean)
+                .map(a => a.nombre);
+            if (aditivos.length) partes.push('con ' + aditivos.join(' + '));
+        } else {
+            partes.push(mat.nombre);
+        }
+        const base = userText || 'Gigantografia';
+        return base + ' - ' + partes.join(' | ');
+    }
+
+    function _gigaCaptureSnapshot() {
+        const matId = +document.getElementById('gigaMaterial').value;
+        const mat = gigaMaterialesCache.find(m => m.id === matId);
+        const aditivosSel = Object.keys(gigaAditivosSeleccionados)
+            .filter(id => gigaAditivosSeleccionados[id])
+            .map(id => gigaMaterialesCache.find(m => m.id === +id))
+            .filter(Boolean)
+            .map(a => ({ id: a.id, nombre: a.nombre, precio_venta: +a.precio_venta, costo_real: +a.costo_real }));
+        const esM2 = mat && mat.tipo === 'm2';
+        return {
+            tipo: 'gigantografia',
+            material: mat ? { id: mat.id, nombre: mat.nombre, tipo: mat.tipo, precio_venta: +mat.precio_venta, costo_real: +mat.costo_real } : null,
+            medidas: esM2 ? {
+                ancho: parseFloat(document.getElementById('gigaAncho').value) || 0,
+                alto: parseFloat(document.getElementById('gigaAlto').value) || 0,
+                min_m2: parseFloat(document.getElementById('gigaMinM2').value) || 0
+            } : null,
+            area_por_pieza: parseFloat(document.getElementById('gigaResArea').textContent.replace(',', '.')) || 0,
+            area_total: parseFloat(document.getElementById('gigaResAreaTotal').textContent.replace(',', '.')) || 0,
+            cantidad: esM2 ? (parseInt(document.getElementById('gigaCantidad').value) || 0)
+                           : (parseInt(document.getElementById('gigaCantidadUni').value) || 0),
+            aditivos: aditivosSel,
+            otros_costo: parseFloat(document.getElementById('gigaOtrosCosto').value) || 0,
+            descuento: parseFloat(document.getElementById('gigaDescuento').value) || 0,
+            iva: parseFloat(document.getElementById('gigaIVA').value) || 0,
+            costo_total: parseFloat(document.getElementById('gigaCostoTotal').textContent.replace(',', '.')) || 0,
+            precio_final: parseFloat(document.getElementById('gigaPrecioFinalSinIVA').textContent.replace(',', '.')) || 0,
+            precio_unitario: parseFloat(document.getElementById('gigaPrecioUnitManual').value) || 0
+        };
+    }
+
+    function _gigaCapturarDatosItem() {
+        const matId = +document.getElementById('gigaMaterial').value;
+        const mat = gigaMaterialesCache.find(m => m.id === matId);
+        if (!mat) { alert('Elegi un material primero'); return null; }
+        const esM2 = mat.tipo === 'm2';
+        const cantidad = esM2
+            ? (parseInt(document.getElementById('gigaCantidad').value) || 0)
+            : (parseInt(document.getElementById('gigaCantidadUni').value) || 0);
+        if (cantidad <= 0) { alert('Cantidad debe ser mayor a 0'); return null; }
+        const precioUnit = parseFloat(document.getElementById('gigaPrecioUnitManual').value) || 0;
+        return {
+            userText: document.getElementById('gigaDescripcion').value.trim(),
+            descripcion: _gigaBuildDescripcion(),
+            cantidad,
+            precioUnit,
+            itemIvaPct: parseFloat(document.getElementById('gigaIVA').value) || 0,
+            snapshot: _gigaCaptureSnapshot()
+        };
+    }
+
+    function addItemToProformaGiga() {
+        if (!proformaActiva) return;
+        const d = _gigaCapturarDatosItem();
+        if (!d) return;
+        proformaActiva.items.push({
+            orden: proformaActiva.items.length + 1,
+            descripcion: d.descripcion, cantidad: d.cantidad, precio_unitario: d.precioUnit,
+            iva_pct: d.itemIvaPct, imagen_url: null,
+            metodo_impresion: 'gigantografia',
+            datos_cotizacion: d.snapshot
+        });
+        switchTab('proformas');
+        renderProformaItems();
+    }
+
+    // ===== Admin gigantografia =====
+    async function gigaAdminLoad() {
+        await gigaLoadMateriales({ force: true });
+        gigaAdminRender();
+    }
+
+    function gigaAdminRender() {
+        const tbody = document.getElementById('gigaMaterialesBody');
+        if (!tbody) return;
+        tbody.innerHTML = gigaMaterialesCache.map((m, i) => {
+            const pv = +m.precio_venta, cr = +m.costo_real;
+            const margen = pv > 0 && cr > 0 ? (((pv - cr) / pv) * 100).toFixed(1) : '-';
+            const margenColor = margen === '-' ? 'var(--gray-400)' : (+margen < 15 ? '#dc2626' : (+margen < 30 ? '#d97706' : '#15803d'));
+            return `<tr style="${m.activo ? '' : 'opacity:0.5;'}">
+                <td><input type="text" value="${(m.nombre || '').replace(/"/g, '&quot;')}" onchange="gigaAdminUpdate(${i},'nombre',this.value)"></td>
+                <td>
+                    <select style="width:110px" onchange="gigaAdminUpdate(${i},'tipo',this.value)">
+                        <option value="m2" ${m.tipo === 'm2' ? 'selected' : ''}>m²</option>
+                        <option value="aditivo_m2" ${m.tipo === 'aditivo_m2' ? 'selected' : ''}>Aditivo m²</option>
+                        <option value="unidad" ${m.tipo === 'unidad' ? 'selected' : ''}>Unidad</option>
+                    </select>
+                </td>
+                <td><input type="text" value="${(m.categoria || '').replace(/"/g, '&quot;')}" style="width:110px" onchange="gigaAdminUpdate(${i},'categoria',this.value)"></td>
+                <td><input type="number" value="${pv}" step="0.01" min="0" style="width:85px" onchange="gigaAdminUpdate(${i},'precio_venta',+this.value)"></td>
+                <td><input type="number" value="${cr}" step="0.01" min="0" style="width:85px" onchange="gigaAdminUpdate(${i},'costo_real',+this.value)"></td>
+                <td style="color:${margenColor};font-weight:600;">${margen === '-' ? '-' : margen + '%'}</td>
+                <td style="text-align:center;"><input type="checkbox" ${m.activo ? 'checked' : ''} onchange="gigaAdminUpdate(${i},'activo',this.checked)"></td>
+                <td><button class="btn btn-danger btn-sm" onclick="gigaAdminDelete(${i})">X</button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    async function gigaAdminUpdate(i, field, val) {
+        gigaMaterialesCache[i][field] = val;
+        const m = gigaMaterialesCache[i];
+        const { error } = await db.from('materiales_gigantografia').update({ [field]: val }).eq('id', m.id);
+        if (error) { alert('Error: ' + error.message); return; }
+        gigaAdminRender();
+        gigaPopulateMaterialSelect();
+        gigaRenderAditivos();
+        gigaCalc();
+    }
+
+    async function gigaAdminDelete(i) {
+        const m = gigaMaterialesCache[i];
+        if (!confirm('Eliminar "' + m.nombre + '"?')) return;
+        const { error } = await db.from('materiales_gigantografia').delete().eq('id', m.id);
+        if (error) { alert('Error: ' + error.message); return; }
+        gigaMaterialesCache.splice(i, 1);
+        gigaAdminRender();
+        gigaPopulateMaterialSelect();
+        gigaRenderAditivos();
+        gigaCalc();
+    }
+
+    async function addMaterialGiga() {
+        const maxOrden = gigaMaterialesCache.reduce((mx, m) => Math.max(mx, +m.orden || 0), 0);
+        const { data, error } = await db.from('materiales_gigantografia')
+            .insert({ nombre: 'Nuevo material', tipo: 'm2', precio_venta: 0, costo_real: 0, categoria: '', orden: maxOrden + 10 })
+            .select().single();
+        if (error) { alert('Error: ' + error.message); return; }
+        gigaMaterialesCache.push(data);
+        gigaAdminRender();
+        gigaPopulateMaterialSelect();
+        gigaRenderAditivos();
     }
 
     // =====================================================
