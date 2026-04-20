@@ -8507,7 +8507,10 @@
     }
 
     function gigaRollosDelMaterial(matId) {
-        return gigaRollosCache.filter(r => r.material_id === matId && r.activo);
+        // Si el material hereda rollos de otro (combos), usar ese
+        const mat = gigaMaterialesCache.find(m => m.id === matId);
+        const effectiveId = (mat && mat.rollo_de_material_id) ? mat.rollo_de_material_id : matId;
+        return gigaRollosCache.filter(r => r.material_id === effectiveId && r.activo);
     }
 
     // Retorna todos los rollos con su metrica: m facturados, m utiles, rendimiento
