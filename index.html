@@ -2658,6 +2658,54 @@
         </div>
     </div>
 
+    <!-- MODAL IMPORT EXCEL PROMOCIONALES -->
+    <div id="promoImportModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+        <div style="background:white;border-radius:12px;max-width:720px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+            <div style="padding:1rem 1.5rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="margin:0;">📤 Importar productos desde Excel</h3>
+                <button onclick="promoImportCerrar()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#6b7280;">×</button>
+            </div>
+            <div style="padding:1rem 1.5rem;">
+                <p style="font-size:0.85rem;color:var(--gray-600);margin-bottom:0.75rem;">Subí la lista del proveedor (.xlsx). El sistema detecta columnas <strong>CÓDIGO, NOMBRE, DESCRIPCIÓN, IMPRESIÓN, STOCK, PVP</strong> automáticamente. Los productos existentes se actualizan; los nuevos se agregan.</p>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Proveedor</label>
+                        <select id="promoImportProveedor" style="font-weight:600;"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Archivo Excel (.xlsx)</label>
+                        <input type="file" id="promoImportArchivo" accept=".xlsx,.xls" onchange="promoImportParsearArchivo()">
+                    </div>
+                </div>
+
+                <div id="promoImportMapeo" style="display:none;margin-top:1rem;">
+                    <h4 style="font-size:0.9rem;color:var(--gray-700);margin-bottom:0.5rem;">Columnas detectadas</h4>
+                    <div id="promoImportMapeoDetalle" style="background:#f8fafc;padding:0.75rem;border-radius:6px;font-size:0.8rem;"></div>
+                </div>
+
+                <div id="promoImportPreview" style="display:none;margin-top:1rem;">
+                    <h4 style="font-size:0.9rem;color:var(--gray-700);margin-bottom:0.5rem;">Preview (primeras 5 filas)</h4>
+                    <div style="overflow-x:auto;border:1px solid var(--gray-200);border-radius:6px;max-height:200px;overflow-y:auto;">
+                        <table class="data-table" style="font-size:0.75rem;">
+                            <thead><tr><th>Código</th><th>Nombre</th><th>Costo</th><th>Stock</th><th>Técnicas</th></tr></thead>
+                            <tbody id="promoImportPreviewBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="promoImportStats" style="margin-top:0.5rem;font-size:0.85rem;color:#0891b2;"></div>
+                </div>
+
+                <div id="promoImportProgreso" style="display:none;margin-top:1rem;padding:0.75rem;background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;font-size:0.85rem;color:#065f46;"></div>
+                <div id="promoImportError" style="display:none;margin-top:0.75rem;padding:0.75rem;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;font-size:0.85rem;color:#991b1b;"></div>
+
+                <div style="display:flex;gap:0.5rem;margin-top:1rem;justify-content:flex-end;">
+                    <button class="btn btn-secondary" onclick="promoImportCerrar()">Cancelar</button>
+                    <button id="promoImportBtnConfirm" class="btn btn-primary" onclick="promoImportEjecutar()" disabled>Importar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== TAB: PROFORMAS ==================== -->
     <div id="tab-proformas" class="tab-content">
         <div class="proformas-layout">
@@ -3313,6 +3361,7 @@
                 <button class="admin-tab-btn" onclick="switchAdminTab('rollos')">Giga Rollos</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('gigaconfig')">Giga Config</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('promoproveedores')">Promo Proveedores</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('promoproductos')">Promo Productos</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('promotecnicas')">Promo Tecnicas</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('parametros')">Parametros</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('staff')">Equipo</button>
@@ -3499,6 +3548,35 @@
                             <thead><tr><th>Nombre</th><th>Contacto</th><th>Email</th><th>Teléfono</th><th># Productos</th><th>Activo</th><th></th></tr></thead>
                             <tbody id="promoProveedoresBody"></tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Promo Productos -->
+            <div id="admin-promoproductos" class="admin-content">
+                <div class="panel">
+                    <div class="panel-header" style="flex-wrap:wrap;gap:0.5rem;">
+                        Productos de Promocionales
+                        <span id="promoAdminContador" style="font-size:0.8rem;color:var(--gray-500);font-weight:400;margin-left:0.75rem;"></span>
+                        <button class="btn btn-primary btn-sm" style="margin-left:auto;" onclick="promoImportAbrir()">📤 Importar Excel</button>
+                    </div>
+                    <div class="panel-body">
+                        <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap;">
+                            <input type="text" id="promoAdminSearch" placeholder="Buscar código o nombre..." oninput="promoAdminRender()" style="flex:1;min-width:220px;padding:0.4rem 0.6rem;border:1px solid var(--gray-300);border-radius:5px;font-size:0.85rem;">
+                            <select id="promoAdminFiltroProv" onchange="promoAdminRender()" style="padding:0.4rem;border:1px solid var(--gray-300);border-radius:5px;font-size:0.85rem;">
+                                <option value="">Todos los proveedores</option>
+                            </select>
+                            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="promoAdminSoloActivos" checked onchange="promoAdminRender()"> Solo activos</label>
+                        </div>
+                        <div style="overflow-x:auto;max-height:70vh;overflow-y:auto;">
+                            <table class="data-table">
+                                <thead style="position:sticky;top:0;background:white;z-index:1;">
+                                    <tr><th>Código</th><th>Nombre</th><th>Proveedor</th><th>Cat.</th><th>Costo</th><th>Stock</th><th>Técnicas</th><th>Activo</th><th></th></tr>
+                                </thead>
+                                <tbody id="promoAdminProductosBody"></tbody>
+                            </table>
+                        </div>
+                        <div id="promoAdminPag" style="margin-top:0.5rem;text-align:center;"></div>
                     </div>
                 </div>
             </div>
@@ -4576,6 +4654,7 @@
         if (tab === 'rollos') gigaRollosAdminLoad();
         if (tab === 'gigaconfig') gigaConfigLoad();
         if (tab === 'promoproveedores') promoProveedoresAdminLoad();
+        if (tab === 'promoproductos') promoProductosAdminLoad();
         if (tab === 'promotecnicas') promoTecnicasAdminLoad();
     }
 
@@ -9692,6 +9771,284 @@
         if (error) { alert('Error: ' + error.message); return; }
         promoTecnicasAdminLoad();
     }
+
+    // ===== Admin Promo Productos =====
+    let promoAdminProductosCache = [];
+    let promoAdminPagina = 1;
+    const PROMO_ADMIN_PAGE = 50;
+
+    async function promoProductosAdminLoad() {
+        // Cargar proveedores y productos
+        const [{data: prods}, {data: provs}, {data: tecs}] = await Promise.all([
+            db.from('promocionales_productos').select('*').order('nombre'),
+            db.from('promocionales_proveedores').select('*').order('nombre'),
+            db.from('promocionales_tecnicas').select('*').eq('activo', true).order('orden')
+        ]);
+        promoAdminProductosCache = prods || [];
+        promoProveedoresCache = provs || [];
+        promoTecnicasCache = tecs || [];
+        const selProv = document.getElementById('promoAdminFiltroProv');
+        if (selProv) {
+            selProv.innerHTML = '<option value="">Todos los proveedores</option>' +
+                (provs || []).map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+        }
+        promoAdminPagina = 1;
+        promoAdminRender();
+    }
+
+    function _promoAdminFiltrar() {
+        const q = (document.getElementById('promoAdminSearch')?.value || '').trim().toLowerCase();
+        const provId = document.getElementById('promoAdminFiltroProv')?.value;
+        const soloActivos = document.getElementById('promoAdminSoloActivos')?.checked;
+        return promoAdminProductosCache.filter(p => {
+            if (provId && +provId !== p.proveedor_id) return false;
+            if (soloActivos && !p.activo) return false;
+            if (q) {
+                const hay = (p.codigo_proveedor + ' ' + p.nombre).toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+    }
+
+    function promoAdminRender() {
+        const tbody = document.getElementById('promoAdminProductosBody');
+        const cont = document.getElementById('promoAdminContador');
+        const pag = document.getElementById('promoAdminPag');
+        if (!tbody) return;
+        const filtrados = _promoAdminFiltrar();
+        cont.textContent = `${filtrados.length} productos`;
+        const totalPag = Math.max(1, Math.ceil(filtrados.length / PROMO_ADMIN_PAGE));
+        if (promoAdminPagina > totalPag) promoAdminPagina = 1;
+        const inicio = (promoAdminPagina - 1) * PROMO_ADMIN_PAGE;
+        const pagProds = filtrados.slice(inicio, inicio + PROMO_ADMIN_PAGE);
+        const provMap = {};
+        promoProveedoresCache.forEach(p => { provMap[p.id] = p.nombre; });
+        tbody.innerHTML = pagProds.map(p => {
+            const idx = promoAdminProductosCache.findIndex(x => x.id === p.id);
+            const tecStr = (p.tecnicas_codigos || []).join(', ') || '—';
+            return `<tr style="${p.activo ? '' : 'opacity:0.5;'}">
+                <td style="font-family:monospace;font-size:0.75rem;">${p.codigo_proveedor}</td>
+                <td><input type="text" value="${(p.nombre||'').replace(/"/g,'&quot;')}" style="min-width:180px" onchange="promoProdUpdate(${idx},'nombre',this.value)"></td>
+                <td style="font-size:0.8rem;">${provMap[p.proveedor_id] || '—'}</td>
+                <td style="font-size:0.75rem;color:var(--gray-500);">${p.categoria || '—'}</td>
+                <td><input type="number" step="0.01" min="0" value="${+p.costo}" style="width:75px" onchange="promoProdUpdate(${idx},'costo',+this.value)"></td>
+                <td><input type="number" step="1" value="${+p.stock}" style="width:70px" onchange="promoProdUpdate(${idx},'stock',+this.value)"></td>
+                <td style="font-size:0.72rem;color:#0369a1;">${tecStr}</td>
+                <td style="text-align:center;"><input type="checkbox" ${p.activo ? 'checked' : ''} onchange="promoProdUpdate(${idx},'activo',this.checked)"></td>
+                <td><button class="btn btn-danger btn-sm" onclick="promoProdDelete(${idx})">X</button></td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--gray-400);">Sin resultados</td></tr>';
+
+        if (totalPag > 1) {
+            pag.innerHTML = `
+                <button class="btn btn-secondary btn-sm" ${promoAdminPagina === 1 ? 'disabled' : ''} onclick="promoAdminPag(-1)">← Anterior</button>
+                <span style="margin:0 0.75rem;color:var(--gray-500);font-size:0.8rem;">Pág ${promoAdminPagina}/${totalPag}</span>
+                <button class="btn btn-secondary btn-sm" ${promoAdminPagina === totalPag ? 'disabled' : ''} onclick="promoAdminPag(1)">Siguiente →</button>`;
+        } else pag.innerHTML = '';
+    }
+
+    function promoAdminPag(delta) { promoAdminPagina += delta; promoAdminRender(); }
+
+    async function promoProdUpdate(i, field, val) {
+        promoAdminProductosCache[i][field] = val;
+        const p = promoAdminProductosCache[i];
+        const { error } = await db.from('promocionales_productos').update({ [field]: val }).eq('id', p.id);
+        if (error) alert('Error: ' + error.message);
+    }
+
+    async function promoProdDelete(i) {
+        const p = promoAdminProductosCache[i];
+        if (!confirm(`Eliminar "${p.codigo_proveedor} — ${p.nombre}"?`)) return;
+        const { error } = await db.from('promocionales_productos').delete().eq('id', p.id);
+        if (error) { alert('Error: ' + error.message); return; }
+        promoAdminProductosCache.splice(i, 1);
+        promoAdminRender();
+    }
+
+    // ===== Import Excel de promocionales =====
+    let _promoImportBuffer = null; // { proveedor_id, productos: [...] }
+
+    function promoImportAbrir() {
+        const sel = document.getElementById('promoImportProveedor');
+        sel.innerHTML = '<option value="">Elegir proveedor...</option>' +
+            promoProveedoresCache.filter(p => p.activo)
+                .map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+        document.getElementById('promoImportArchivo').value = '';
+        document.getElementById('promoImportMapeo').style.display = 'none';
+        document.getElementById('promoImportPreview').style.display = 'none';
+        document.getElementById('promoImportProgreso').style.display = 'none';
+        document.getElementById('promoImportError').style.display = 'none';
+        document.getElementById('promoImportBtnConfirm').disabled = true;
+        _promoImportBuffer = null;
+        document.getElementById('promoImportModal').style.display = 'flex';
+    }
+
+    function promoImportCerrar() {
+        document.getElementById('promoImportModal').style.display = 'none';
+        _promoImportBuffer = null;
+    }
+
+    function _rmAccents(s) { return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+
+    function _promoNormTecnicas(texto) {
+        if (!texto) return [];
+        const t = _rmAccents(String(texto).toUpperCase());
+        const codigos = new Set();
+        if (/\bUV\b/.test(t)) codigos.add('uv');
+        if (/SERI[GFR]+AFIA|SERIGARFIA|SERIFRAFIA/.test(t)) codigos.add('serigrafia');
+        if (/LASER/.test(t)) codigos.add('laser');
+        if (/S[UB]+LIMA/.test(t)) codigos.add('sublimacion');
+        if (/TRANSFER/.test(t)) codigos.add('transfer');
+        return [...codigos].sort();
+    }
+
+    function _detectColumnas(headers) {
+        const map = { codigo: null, nombre: null, descripcion: null, impresion: null, stock: null, pvp: null, categoria: null };
+        headers.forEach((h, i) => {
+            const norm = _rmAccents(String(h || '').toUpperCase().trim());
+            if (/\bCODIGO\b|\bCOD\b|\bSKU\b/.test(norm) && map.codigo === null) map.codigo = i;
+            else if (/\bNOMBRE\b/.test(norm) && map.nombre === null) map.nombre = i;
+            else if (/\bDESCRIPCION\b|\bDETALLE\b/.test(norm) && map.descripcion === null) map.descripcion = i;
+            else if (/IMPRESION|TECNICA|PERSONALIZACION/.test(norm) && map.impresion === null) map.impresion = i;
+            else if (/\bSTOCK\b|EXISTENCIA|INVENTARIO|CANTIDAD/.test(norm) && map.stock === null) map.stock = i;
+            else if (/\bPVP\b|\bPRECIO\b|\bCOSTO\b/.test(norm) && !/IVA/.test(norm) && map.pvp === null) map.pvp = i;
+            else if (/CATEGORIA|\bCAT\b|\bC\b|CLASE|FAMILIA/.test(norm) && map.categoria === null) map.categoria = i;
+        });
+        return map;
+    }
+
+    async function promoImportParsearArchivo() {
+        const file = document.getElementById('promoImportArchivo').files[0];
+        if (!file) return;
+        const errorEl = document.getElementById('promoImportError');
+        errorEl.style.display = 'none';
+        try {
+            const buf = await file.arrayBuffer();
+            const wb = XLSX.read(buf, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+            // Detectar fila de headers (buscar la que contenga al menos 3 palabras claves)
+            let headerRow = -1;
+            for (let i = 0; i < Math.min(10, rows.length); i++) {
+                const joined = _rmAccents(String(rows[i].join(' ') || '').toUpperCase());
+                const matches = ['CODIGO', 'NOMBRE', 'PRECIO', 'PVP', 'DESCRIPCION', 'STOCK', 'IMPRESION'].filter(k => joined.includes(k));
+                if (matches.length >= 2) { headerRow = i; break; }
+            }
+            if (headerRow === -1) { throw new Error('No se detectaron columnas conocidas (CODIGO, NOMBRE, PVP, etc)'); }
+
+            const headers = rows[headerRow];
+            const mapa = _detectColumnas(headers);
+            if (mapa.codigo === null || mapa.nombre === null || mapa.pvp === null) {
+                throw new Error('Faltan columnas críticas. Se detectaron: ' + JSON.stringify(mapa));
+            }
+
+            const productos = [];
+            for (let i = headerRow + 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || !row[mapa.codigo] || !row[mapa.nombre]) continue;
+                const pvp = parseFloat(row[mapa.pvp]);
+                if (isNaN(pvp)) continue;
+                productos.push({
+                    codigo_proveedor: String(row[mapa.codigo]).trim().substring(0, 100),
+                    nombre: String(row[mapa.nombre]).trim().substring(0, 200),
+                    descripcion: mapa.descripcion !== null ? String(row[mapa.descripcion] || '').replace(/[\r\n]+/g, ' ').substring(0, 800) : null,
+                    categoria: mapa.categoria !== null ? String(row[mapa.categoria] || '').substring(0, 30) : null,
+                    costo: pvp,
+                    stock: mapa.stock !== null ? (parseInt(row[mapa.stock]) || 0) : 0,
+                    impresion_texto_original: mapa.impresion !== null ? String(row[mapa.impresion] || '').substring(0, 200) : null,
+                    tecnicas_codigos: mapa.impresion !== null ? _promoNormTecnicas(row[mapa.impresion]) : []
+                });
+            }
+            if (!productos.length) throw new Error('No se encontraron filas válidas con código+nombre+PVP');
+
+            _promoImportBuffer = { productos };
+
+            // Render mapeo
+            document.getElementById('promoImportMapeo').style.display = '';
+            const detalle = Object.entries(mapa).map(([k, v]) =>
+                `<div><strong>${k}:</strong> ${v !== null ? `col ${v+1} (${headers[v]})` : '<span style="color:var(--gray-400);">no detectada</span>'}</div>`
+            ).join('');
+            document.getElementById('promoImportMapeoDetalle').innerHTML = detalle;
+
+            // Preview primeras 5 filas
+            document.getElementById('promoImportPreview').style.display = '';
+            document.getElementById('promoImportPreviewBody').innerHTML = productos.slice(0, 5).map(p => `<tr>
+                <td style="font-family:monospace;">${p.codigo_proveedor}</td>
+                <td>${p.nombre}</td>
+                <td>$${p.costo.toFixed(2)}</td>
+                <td>${p.stock}</td>
+                <td style="font-size:0.7rem;color:#0369a1;">${p.tecnicas_codigos.join(', ') || '—'}</td>
+            </tr>`).join('');
+
+            const tecStats = { uv:0, serigrafia:0, laser:0, sublimacion:0, transfer:0, sin:0 };
+            productos.forEach(p => {
+                if (!p.tecnicas_codigos.length) tecStats.sin++;
+                p.tecnicas_codigos.forEach(t => { if (tecStats[t] !== undefined) tecStats[t]++; });
+            });
+            const statsStr = Object.entries(tecStats).filter(([,v]) => v > 0).map(([k,v]) => `${k}: ${v}`).join(' · ');
+            document.getElementById('promoImportStats').innerHTML = `<strong>${productos.length}</strong> productos listos para importar. Técnicas detectadas: ${statsStr}`;
+
+            // Habilitar botón solo si también hay proveedor
+            _promoImportUpdateBtn();
+        } catch (e) {
+            errorEl.style.display = '';
+            errorEl.textContent = '⚠️ ' + e.message;
+            document.getElementById('promoImportBtnConfirm').disabled = true;
+        }
+    }
+
+    function _promoImportUpdateBtn() {
+        const proveedorOk = !!document.getElementById('promoImportProveedor').value;
+        const datosOk = _promoImportBuffer && _promoImportBuffer.productos.length > 0;
+        document.getElementById('promoImportBtnConfirm').disabled = !(proveedorOk && datosOk);
+    }
+
+    async function promoImportEjecutar() {
+        const proveedorId = +document.getElementById('promoImportProveedor').value;
+        if (!proveedorId || !_promoImportBuffer) return;
+        const btn = document.getElementById('promoImportBtnConfirm');
+        btn.disabled = true;
+        btn.textContent = 'Importando...';
+        const prog = document.getElementById('promoImportProgreso');
+        prog.style.display = '';
+        const errEl = document.getElementById('promoImportError');
+        errEl.style.display = 'none';
+
+        const productos = _promoImportBuffer.productos.map(p => ({ ...p, proveedor_id: proveedorId }));
+        const BATCH = 200;
+        let insertados = 0;
+        try {
+            for (let i = 0; i < productos.length; i += BATCH) {
+                const batch = productos.slice(i, i + BATCH);
+                const { error } = await db.rpc('promocionales_bulk_insert', { data: batch });
+                if (error) throw error;
+                insertados += batch.length;
+                prog.innerHTML = `⏳ Procesando... ${insertados} / ${productos.length} productos`;
+            }
+            prog.innerHTML = `✅ Importación completa. ${insertados} productos insertados/actualizados.`;
+            btn.textContent = 'Listo';
+            setTimeout(() => {
+                promoImportCerrar();
+                btn.textContent = 'Importar';
+                btn.disabled = false;
+                // Refrescar caches
+                promoProductosCache = [];
+                promoProductosAdminLoad();
+            }, 1600);
+        } catch (e) {
+            errEl.style.display = '';
+            errEl.textContent = '⚠️ Error: ' + (e.message || e);
+            btn.disabled = false;
+            btn.textContent = 'Importar';
+        }
+    }
+
+    // Enganchar cambio de proveedor al estado del botón
+    document.addEventListener('change', (e) => {
+        if (e.target && e.target.id === 'promoImportProveedor') _promoImportUpdateBtn();
+    });
 
     // =====================================================
     // COMPARADOR OFFSET vs DIGITAL
