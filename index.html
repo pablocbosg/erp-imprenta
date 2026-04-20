@@ -48,6 +48,19 @@
         .tab-btn.active { background: var(--gray-100); color: var(--primary-dark); font-weight: 600; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .promo-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap:0.85rem; }
+        .promo-card { border:1px solid var(--gray-200); border-radius:8px; padding:0.7rem; background:white; cursor:pointer; transition:0.15s; display:flex; flex-direction:column; }
+        .promo-card:hover { border-color:#0891b2; box-shadow:0 4px 12px rgba(8,145,178,0.15); transform:translateY(-2px); }
+        .promo-card-img { width:100%; aspect-ratio:1/1; background:#f1f5f9; border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--gray-400); font-size:2.5rem; margin-bottom:0.5rem; overflow:hidden; }
+        .promo-card-img img { max-width:100%; max-height:100%; object-fit:contain; }
+        .promo-card-nombre { font-weight:600; font-size:0.85rem; color:var(--gray-800); line-height:1.2; margin-bottom:0.2rem; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:2.1em; }
+        .promo-card-cod { font-size:0.7rem; color:var(--gray-500); font-family:monospace; }
+        .promo-card-foot { margin-top:auto; display:flex; justify-content:space-between; align-items:baseline; padding-top:0.5rem; }
+        .promo-card-precio { font-size:0.95rem; font-weight:700; color:#0891b2; }
+        .promo-card-stock { font-size:0.7rem; color:var(--gray-500); }
+        .promo-card-stock.sin { color:#991b1b; font-weight:600; }
+        .promo-card-tec { display:flex; gap:0.2rem; flex-wrap:wrap; margin-top:0.3rem; }
+        .promo-chip { font-size:0.62rem; background:#e0f2fe; color:#0369a1; padding:0.1rem 0.35rem; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px; }
 
         /* Panels */
         .panel { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
@@ -402,6 +415,7 @@
             <button class="tab-btn active" onclick="switchTab('cotizador')">Impresion Offset</button>
             <button class="tab-btn" onclick="switchTab('digital')">Imp. Digital</button>
             <button class="tab-btn" onclick="switchTab('gigantografia')">Gigantografia</button>
+            <button class="tab-btn" onclick="switchTab('promocionales')">Promocionales</button>
             <button class="tab-btn" onclick="switchTab('proformas')">Proformas</button>
             <button class="tab-btn" onclick="switchTab('trabajos')">Trabajos</button>
             <button class="tab-btn" onclick="switchTab('ordenes')">Ordenes</button>
@@ -2540,6 +2554,110 @@
         </div>
     </div>
 
+    <!-- ==================== TAB: PROMOCIONALES ==================== -->
+    <div id="tab-promocionales" class="tab-content">
+        <div style="padding:0.5rem 0.25rem;">
+            <!-- Filtros -->
+            <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;">
+                <input type="text" id="promoSearch" placeholder="Buscar por codigo, nombre, descripcion..." style="flex:1;min-width:250px;padding:0.5rem 0.75rem;border:1px solid var(--gray-300);border-radius:6px;" oninput="promoRender()">
+                <select id="promoFiltroProveedor" onchange="promoRender()" style="padding:0.5rem;border:1px solid var(--gray-300);border-radius:6px;">
+                    <option value="">Todos los proveedores</option>
+                </select>
+                <select id="promoFiltroTecnica" onchange="promoRender()" style="padding:0.5rem;border:1px solid var(--gray-300);border-radius:6px;">
+                    <option value="">Todas las tecnicas</option>
+                </select>
+                <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="promoFiltroStock" checked onchange="promoRender()"> Solo con stock</label>
+                <span id="promoContador" style="margin-left:auto;font-size:0.85rem;color:var(--gray-500);"></span>
+            </div>
+            <div id="promoGrid" class="promo-grid"></div>
+            <div id="promoPaginacion" style="margin-top:1rem;text-align:center;"></div>
+        </div>
+    </div>
+
+    <!-- MODAL DETALLE PROMOCIONAL -->
+    <div id="promoModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+        <div style="background:white;border-radius:12px;max-width:800px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+            <div style="padding:1rem 1.5rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;z-index:2;">
+                <h3 id="promoModalTitulo" style="margin:0;color:#111827;font-size:1.05rem;">Producto</h3>
+                <button onclick="promoCerrarModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#6b7280;">×</button>
+            </div>
+            <div style="padding:1rem 1.5rem;display:grid;grid-template-columns:240px 1fr;gap:1.5rem;">
+                <div>
+                    <div id="promoModalImg" style="width:100%;aspect-ratio:1/1;background:#f1f5f9;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--gray-400);overflow:hidden;font-size:3rem;">📦</div>
+                    <div style="margin-top:0.75rem;font-size:0.8rem;color:var(--gray-500);">
+                        <div><strong>Código:</strong> <span id="promoModalCodigo">—</span></div>
+                        <div><strong>Proveedor:</strong> <span id="promoModalProveedor">—</span></div>
+                        <div><strong>Stock:</strong> <span id="promoModalStock">—</span></div>
+                        <div><strong>Categoría:</strong> <span id="promoModalCategoria">—</span></div>
+                    </div>
+                    <div id="promoModalDesc" style="margin-top:0.75rem;font-size:0.8rem;color:var(--gray-600);line-height:1.4;"></div>
+                </div>
+                <div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cantidad</label>
+                            <input type="number" id="promoCantidad" min="1" value="50" oninput="promoCalcular()">
+                        </div>
+                        <div class="form-group">
+                            <label>Técnica de impresión</label>
+                            <select id="promoTecnica" onchange="promoCalcular()"></select>
+                            <div style="font-size:0.7rem;color:var(--gray-400);margin-top:0.2rem;" id="promoTecnicaInfo"></div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Precio impresión/unidad ($)</label>
+                            <input type="number" id="promoPrecioImpresion" step="0.01" min="0" value="0.40" oninput="window._promoManualImp=true;promoCalcular()">
+                            <div style="font-size:0.7rem;color:var(--gray-400);">Se auto-carga de la técnica</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Sin impresión</label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;font-weight:400;text-transform:none;letter-spacing:0;font-size:0.85rem;cursor:pointer;margin-top:0.3rem;">
+                                <input type="checkbox" id="promoSinImp" onchange="promoCalcular()"> Solo producto (sin logo)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Markup sobre costo %</label>
+                            <input type="number" id="promoMarkup" step="1" min="0" max="200" value="35" oninput="promoCalcular()" style="font-weight:700;border-color:#0891b2;">
+                        </div>
+                        <div class="form-group">
+                            <label>Descuento %</label>
+                            <input type="number" id="promoDescuento" step="1" min="0" max="99" value="0" oninput="promoCalcular()">
+                        </div>
+                        <div class="form-group">
+                            <label>IVA %</label>
+                            <select id="promoIVA" onchange="promoCalcular()">
+                                <option value="15" selected>15% (normal)</option>
+                                <option value="0">0% (exento)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="panel" style="background:#f8fafc;margin-top:0.75rem;">
+                        <div class="panel-body" style="padding:0.75rem;">
+                            <div class="cost-row"><span class="cost-label">Costo producto (<span id="promoCantDisp">0</span> × $<span id="promoCostoProdUnit">0</span>)</span><span class="cost-value">$<span id="promoCostoProd">0,00</span></span></div>
+                            <div class="cost-row" id="promoCostoImpRow"><span class="cost-label"><span id="promoCostoImpLabel">Impresión</span></span><span class="cost-value">$<span id="promoCostoImp">0,00</span></span></div>
+                            <div class="cost-row subtotal"><span class="cost-label">Costo total</span><span class="cost-value">$<span id="promoCostoTotal">0,00</span></span></div>
+                            <div class="separator"></div>
+                            <div class="cost-row"><span class="cost-label">Utilidad (<span id="promoMarkupDisp">35</span>%)</span><span class="cost-value" style="color:#15803d;">$<span id="promoUtilidad">0,00</span></span></div>
+                            <div class="cost-row subtotal"><span class="cost-label">Subtotal sin IVA</span><span class="cost-value">$<span id="promoSubtotalSinIVA">0,00</span></span></div>
+                            <div class="cost-row" id="promoDescRow" style="display:none;color:#dc2626;"><span class="cost-label">Descuento <span id="promoDescPct">0</span>%</span><span class="cost-value">-$<span id="promoDescMonto">0,00</span></span></div>
+                            <div class="cost-row"><span class="cost-label">IVA <span id="promoIvaPct">15</span>%</span><span class="cost-value">$<span id="promoMontoIVA">0,00</span></span></div>
+                            <div class="cost-row total"><span class="cost-label">TOTAL con IVA</span><span class="cost-value">$<span id="promoTotal">0,00</span></span></div>
+                            <div class="separator"></div>
+                            <div class="cost-row"><span class="cost-label">Precio unitario sin IVA</span><span class="cost-value" style="font-weight:700;color:#0891b2;">$<span id="promoPrecioUnit">0,00</span></span></div>
+                            <div class="cost-row"><span class="cost-label">Margen sobre venta</span><span class="cost-value"><span id="promoMargenVenta">0,0</span>%</span></div>
+                        </div>
+                    </div>
+                    <div id="promoStockAlert" style="display:none;margin-top:0.5rem;padding:0.5rem 0.75rem;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;font-size:0.8rem;color:#991b1b;"></div>
+                    <button class="btn no-print" style="width:100%;margin-top:0.75rem;background:linear-gradient(135deg,#059669,#047857);color:white;border:none;padding:0.7rem;border-radius:7px;font-weight:600;cursor:pointer;" onclick="crearProformaDesdeCalc('promocional')">+ Crear Proforma</button>
+                    <button class="btn-add-proforma no-print" style="display:none;" onclick="addItemToProformaPromo()">+ Agregar a Proforma #<span class="proforma-activa-num">1</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== TAB: PROFORMAS ==================== -->
     <div id="tab-proformas" class="tab-content">
         <div class="proformas-layout">
@@ -3194,6 +3312,8 @@
                 <button class="admin-tab-btn" onclick="switchAdminTab('gigantografia')">Giga Materiales</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('rollos')">Giga Rollos</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('gigaconfig')">Giga Config</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('promoproveedores')">Promo Proveedores</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('promotecnicas')">Promo Tecnicas</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('parametros')">Parametros</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('staff')">Equipo</button>
             </div>
@@ -3363,6 +3483,39 @@
                         </div>
                         <div class="separator"></div>
                         <div id="gigaConfigResumen" style="background:#ecfeff;border:1px solid #67e8f9;border-radius:7px;padding:0.75rem;font-size:0.85rem;color:#155e75;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Promo Proveedores -->
+            <div id="admin-promoproveedores" class="admin-content">
+                <div class="panel">
+                    <div class="panel-header">
+                        Proveedores de Promocionales
+                        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="addPromoProveedor()">+ Agregar proveedor</button>
+                    </div>
+                    <div class="panel-body" style="overflow-x:auto">
+                        <table class="data-table">
+                            <thead><tr><th>Nombre</th><th>Contacto</th><th>Email</th><th>Teléfono</th><th># Productos</th><th>Activo</th><th></th></tr></thead>
+                            <tbody id="promoProveedoresBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Promo Técnicas -->
+            <div id="admin-promotecnicas" class="admin-content">
+                <div class="panel">
+                    <div class="panel-header">
+                        Técnicas de Impresión
+                        <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="addPromoTecnica()">+ Agregar técnica</button>
+                    </div>
+                    <div class="panel-body" style="overflow-x:auto">
+                        <p class="text-sm text-muted" style="margin-bottom:0.5rem;">Precio default de la impresión del logo por unidad. Se puede ajustar en cada cotización.</p>
+                        <table class="data-table">
+                            <thead><tr><th>Código</th><th>Nombre</th><th>Precio default ($)</th><th>Descripción</th><th>Orden</th><th>Activo</th><th></th></tr></thead>
+                            <tbody id="promoTecnicasBody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -4404,6 +4557,7 @@
         if (tab === 'cotizador') { cotCalc(); updateAddToProformaBtn(); }
         if (tab === 'digital') { digPopulateMaterials(); digCalc(); updateAddToProformaBtn(); }
         if (tab === 'gigantografia') { gigaInitTab(); updateAddToProformaBtn(); }
+        if (tab === 'promocionales') { promoInitTab(); }
         if (tab === 'conciliacion') { concInit(); }
         if (tab === 'proformas') cargarProformas();
         if (tab === 'trabajos') cargarTrabajos();
@@ -4421,6 +4575,8 @@
         if (tab === 'gigantografia') gigaAdminLoad();
         if (tab === 'rollos') gigaRollosAdminLoad();
         if (tab === 'gigaconfig') gigaConfigLoad();
+        if (tab === 'promoproveedores') promoProveedoresAdminLoad();
+        if (tab === 'promotecnicas') promoTecnicasAdminLoad();
     }
 
     // =====================================================
@@ -8116,6 +8272,11 @@
             if (!d) return;
             userText = d.userText; descripcion = d.descripcion; cantidad = d.cantidad;
             precioUnit = d.precioUnit; itemIvaPct = d.itemIvaPct; snapshot = d.snapshot;
+        } else if (metodo === 'promocional') {
+            const d = _promoCapturarDatosItem();
+            if (!d) return;
+            userText = d.userText; descripcion = d.descripcion; cantidad = d.cantidad;
+            precioUnit = d.precioUnit; itemIvaPct = d.itemIvaPct; snapshot = d.snapshot;
         } else {
             const pref = metodo === 'offset' ? 'cot' : 'dig';
             userText = document.getElementById(pref + 'Descripcion').value.trim();
@@ -9162,6 +9323,372 @@
             metros_lineales: metrosUsados, m2_consumidos: m2Consumidos, m2_desperdicio: desperdicioM2,
             created_by: currentUser?.id || null, created_by_name: currentUser?.nombre || null
         });
+    }
+
+    // =====================================================
+    // PROMOCIONALES
+    // =====================================================
+    let promoProductosCache = [];
+    let promoProveedoresCache = [];
+    let promoTecnicasCache = [];
+    let promoProductoActivo = null;
+    const PROMO_PAGE_SIZE = 60;
+    let promoPagina = 1;
+    window._promoManualImp = false;
+
+    async function promoInitTab() {
+        if (!promoProductosCache.length) {
+            const [{data: prods}, {data: provs}, {data: tecs}] = await Promise.all([
+                db.from('promocionales_productos').select('*').eq('activo', true).order('nombre'),
+                db.from('promocionales_proveedores').select('*').eq('activo', true).order('nombre'),
+                db.from('promocionales_tecnicas').select('*').eq('activo', true).order('orden')
+            ]);
+            promoProductosCache = prods || [];
+            promoProveedoresCache = provs || [];
+            promoTecnicasCache = tecs || [];
+        }
+        const selProv = document.getElementById('promoFiltroProveedor');
+        if (selProv) {
+            selProv.innerHTML = '<option value="">Todos los proveedores</option>' +
+                promoProveedoresCache.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+        }
+        const selTec = document.getElementById('promoFiltroTecnica');
+        if (selTec) {
+            selTec.innerHTML = '<option value="">Todas las técnicas</option>' +
+                promoTecnicasCache.map(t => `<option value="${t.codigo}">${t.nombre}</option>`).join('');
+        }
+        promoPagina = 1;
+        promoRender();
+    }
+
+    function _promoFiltrar() {
+        const q = (document.getElementById('promoSearch')?.value || '').trim().toLowerCase();
+        const provId = document.getElementById('promoFiltroProveedor')?.value;
+        const tec = document.getElementById('promoFiltroTecnica')?.value;
+        const soloStock = document.getElementById('promoFiltroStock')?.checked;
+        return promoProductosCache.filter(p => {
+            if (provId && +provId !== p.proveedor_id) return false;
+            if (tec && !(p.tecnicas_codigos || []).includes(tec)) return false;
+            if (soloStock && (+p.stock || 0) <= 0) return false;
+            if (q) {
+                const hay = (p.codigo_proveedor + ' ' + p.nombre + ' ' + (p.descripcion||'')).toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+    }
+
+    function promoRender() {
+        const grid = document.getElementById('promoGrid');
+        const cont = document.getElementById('promoContador');
+        const pag = document.getElementById('promoPaginacion');
+        if (!grid) return;
+        const filtrados = _promoFiltrar();
+        cont.textContent = `${filtrados.length} productos`;
+        const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PROMO_PAGE_SIZE));
+        if (promoPagina > totalPaginas) promoPagina = 1;
+        const inicio = (promoPagina - 1) * PROMO_PAGE_SIZE;
+        const pagProds = filtrados.slice(inicio, inicio + PROMO_PAGE_SIZE);
+        grid.innerHTML = pagProds.map(p => {
+            const precioSugerido = (+p.costo + 0.40) * 1.35;
+            const stockClass = (+p.stock || 0) > 0 ? '' : 'sin';
+            const stockTxt = (+p.stock || 0) > 0 ? `Stock: ${p.stock}` : 'Sin stock';
+            const chips = (p.tecnicas_codigos || []).map(t => {
+                const tec = promoTecnicasCache.find(x => x.codigo === t);
+                return `<span class="promo-chip">${tec ? tec.nombre.split(' ')[0] : t}</span>`;
+            }).join('');
+            const img = p.imagen_url
+                ? `<img src="${p.imagen_url}" alt="${(p.nombre||'').replace(/"/g,'&quot;')}">` : '📦';
+            return `<div class="promo-card" onclick="promoAbrirModal(${p.id})">
+                <div class="promo-card-img">${img}</div>
+                <div class="promo-card-nombre">${(p.nombre||'').replace(/</g,'&lt;')}</div>
+                <div class="promo-card-cod">${p.codigo_proveedor}</div>
+                <div class="promo-card-tec">${chips}</div>
+                <div class="promo-card-foot">
+                    <span class="promo-card-precio">~$${precioSugerido.toFixed(2)}</span>
+                    <span class="promo-card-stock ${stockClass}">${stockTxt}</span>
+                </div>
+            </div>`;
+        }).join('') || '<div style="padding:2rem;text-align:center;color:var(--gray-400);">No hay productos que coincidan con los filtros</div>';
+        if (totalPaginas > 1) {
+            pag.innerHTML = `
+                <button class="btn btn-secondary btn-sm" ${promoPagina === 1 ? 'disabled' : ''} onclick="promoPag(-1)">← Anterior</button>
+                <span style="margin:0 1rem;color:var(--gray-500);font-size:0.85rem;">Página ${promoPagina} de ${totalPaginas}</span>
+                <button class="btn btn-secondary btn-sm" ${promoPagina === totalPaginas ? 'disabled' : ''} onclick="promoPag(1)">Siguiente →</button>
+            `;
+        } else {
+            pag.innerHTML = '';
+        }
+    }
+
+    function promoPag(delta) {
+        promoPagina += delta;
+        promoRender();
+        window.scrollTo({top:0, behavior:'smooth'});
+    }
+
+    function promoAbrirModal(id) {
+        const p = promoProductosCache.find(x => x.id === id);
+        if (!p) return;
+        promoProductoActivo = p;
+        window._promoManualImp = false;
+        const prov = promoProveedoresCache.find(x => x.id === p.proveedor_id);
+        document.getElementById('promoModalTitulo').textContent = p.nombre;
+        document.getElementById('promoModalCodigo').textContent = p.codigo_proveedor;
+        document.getElementById('promoModalProveedor').textContent = prov ? prov.nombre : '—';
+        document.getElementById('promoModalStock').textContent = (+p.stock || 0) + ' unidades';
+        document.getElementById('promoModalCategoria').textContent = p.categoria || '—';
+        document.getElementById('promoModalDesc').textContent = p.descripcion || '';
+        const imgEl = document.getElementById('promoModalImg');
+        imgEl.innerHTML = p.imagen_url ? `<img src="${p.imagen_url}" alt="" style="max-width:100%;max-height:100%;">` : '📦';
+        const selTec = document.getElementById('promoTecnica');
+        const availables = promoTecnicasCache.filter(t => (p.tecnicas_codigos || []).includes(t.codigo));
+        if (!availables.length) {
+            selTec.innerHTML = '<option value="">Sin técnica</option>';
+            document.getElementById('promoSinImp').checked = true;
+        } else {
+            selTec.innerHTML = availables.map(t => `<option value="${t.codigo}">${t.nombre} ($${(+t.precio_default).toFixed(2)})</option>`).join('');
+            document.getElementById('promoSinImp').checked = false;
+        }
+        document.getElementById('promoCantidad').value = 50;
+        document.getElementById('promoMarkup').value = 35;
+        document.getElementById('promoDescuento').value = 0;
+        const primeraTec = availables[0];
+        if (primeraTec) document.getElementById('promoPrecioImpresion').value = (+primeraTec.precio_default).toFixed(2);
+        promoCalcular();
+        // Update add-to-proforma button visibility
+        const addBtn = document.querySelector('#promoModal .btn-add-proforma');
+        if (addBtn) addBtn.style.display = proformaActiva ? 'block' : 'none';
+        document.getElementById('promoModal').style.display = 'flex';
+    }
+
+    function promoCerrarModal() {
+        document.getElementById('promoModal').style.display = 'none';
+        promoProductoActivo = null;
+    }
+
+    function promoCalcular() {
+        const p = promoProductoActivo;
+        if (!p) return;
+        const cantidad = Math.max(0, parseInt(document.getElementById('promoCantidad').value) || 0);
+        const sinImp = document.getElementById('promoSinImp').checked;
+        const tecCodigo = document.getElementById('promoTecnica').value;
+        const tec = promoTecnicasCache.find(t => t.codigo === tecCodigo);
+
+        // Auto-cargar precio impresion de la tecnica (salvo que el usuario haya editado manual)
+        if (!window._promoManualImp && tec) {
+            document.getElementById('promoPrecioImpresion').value = (+tec.precio_default).toFixed(2);
+        }
+        const precioImpUnit = sinImp ? 0 : (parseFloat(document.getElementById('promoPrecioImpresion').value) || 0);
+        const costoProdUnit = +p.costo;
+        const costoProd = costoProdUnit * cantidad;
+        const costoImp = precioImpUnit * cantidad;
+        const costoTotal = costoProd + costoImp;
+
+        const markup = parseFloat(document.getElementById('promoMarkup').value) || 0;
+        const utilidad = costoTotal * (markup / 100);
+        const subtotalSinIVA = costoTotal + utilidad;
+
+        const descPct = parseFloat(document.getElementById('promoDescuento').value) || 0;
+        const descMonto = subtotalSinIVA * (descPct / 100);
+        const subtotalDesc = subtotalSinIVA - descMonto;
+
+        const ivaPct = parseFloat(document.getElementById('promoIVA').value) || 0;
+        const montoIVA = subtotalDesc * (ivaPct / 100);
+        const totalConIVA = subtotalDesc + montoIVA;
+        const precioUnit = cantidad > 0 ? subtotalDesc / cantidad : 0;
+        const margenVenta = subtotalDesc > 0 ? (utilidad - descMonto) / subtotalDesc * 100 : 0;
+
+        // Render
+        document.getElementById('promoCantDisp').textContent = cantidad;
+        document.getElementById('promoCostoProdUnit').textContent = costoProdUnit.toFixed(2);
+        document.getElementById('promoCostoProd').textContent = fmtN(costoProd, 2);
+        document.getElementById('promoCostoImpRow').style.display = (sinImp || costoImp === 0) ? 'none' : '';
+        document.getElementById('promoCostoImpLabel').textContent = tec && !sinImp
+            ? `Impresión ${tec.nombre} (${cantidad} × $${precioImpUnit.toFixed(2)})` : 'Impresión';
+        document.getElementById('promoCostoImp').textContent = fmtN(costoImp, 2);
+        document.getElementById('promoCostoTotal').textContent = fmtN(costoTotal, 2);
+        document.getElementById('promoUtilidad').textContent = fmtN(utilidad, 2);
+        document.getElementById('promoMarkupDisp').textContent = markup;
+        document.getElementById('promoSubtotalSinIVA').textContent = fmtN(subtotalSinIVA, 2);
+        if (descPct > 0) {
+            document.getElementById('promoDescRow').style.display = '';
+            document.getElementById('promoDescPct').textContent = descPct;
+            document.getElementById('promoDescMonto').textContent = fmtN(descMonto, 2);
+        } else {
+            document.getElementById('promoDescRow').style.display = 'none';
+        }
+        document.getElementById('promoIvaPct').textContent = ivaPct;
+        document.getElementById('promoMontoIVA').textContent = fmtN(montoIVA, 2);
+        document.getElementById('promoTotal').textContent = fmtN(totalConIVA, 2);
+        document.getElementById('promoPrecioUnit').textContent = fmtN(precioUnit, 2);
+        document.getElementById('promoMargenVenta').textContent = fmtN(margenVenta, 1);
+
+        // Alerta de stock
+        const stockDisp = (+p.stock || 0);
+        const alertEl = document.getElementById('promoStockAlert');
+        if (cantidad > stockDisp) {
+            alertEl.style.display = '';
+            alertEl.innerHTML = `⚠️ Cantidad (${cantidad}) excede stock actual (${stockDisp}). Confirmar con proveedor.`;
+        } else {
+            alertEl.style.display = 'none';
+        }
+        document.getElementById('promoTecnicaInfo').textContent = tec ? (tec.descripcion || '') : '';
+    }
+
+    function _promoBuildDescripcion() {
+        const p = promoProductoActivo;
+        if (!p) return 'Promocional';
+        const partes = [p.nombre, `código ${p.codigo_proveedor}`];
+        const sinImp = document.getElementById('promoSinImp').checked;
+        if (!sinImp) {
+            const tecCodigo = document.getElementById('promoTecnica').value;
+            const tec = promoTecnicasCache.find(t => t.codigo === tecCodigo);
+            if (tec) partes.push(`Impresión ${tec.nombre}`);
+        } else {
+            partes.push('Sin impresión');
+        }
+        return partes.join(' | ');
+    }
+
+    function _promoCaptureSnapshot() {
+        const p = promoProductoActivo;
+        const sinImp = document.getElementById('promoSinImp').checked;
+        const tecCodigo = document.getElementById('promoTecnica').value;
+        const tec = promoTecnicasCache.find(t => t.codigo === tecCodigo);
+        return {
+            tipo: 'promocional',
+            producto: p ? { id: p.id, codigo: p.codigo_proveedor, nombre: p.nombre, proveedor_id: p.proveedor_id, costo: +p.costo } : null,
+            cantidad: parseInt(document.getElementById('promoCantidad').value) || 0,
+            tecnica: sinImp ? null : (tec ? { codigo: tec.codigo, nombre: tec.nombre, precio_default: +tec.precio_default } : null),
+            precio_impresion_unit: sinImp ? 0 : parseFloat(document.getElementById('promoPrecioImpresion').value) || 0,
+            sin_impresion: sinImp,
+            markup_pct: parseFloat(document.getElementById('promoMarkup').value) || 0,
+            descuento_pct: parseFloat(document.getElementById('promoDescuento').value) || 0,
+            iva_pct: parseFloat(document.getElementById('promoIVA').value) || 0,
+            costo_total: parseFloat(document.getElementById('promoCostoTotal').textContent.replace(',', '.')) || 0,
+            precio_unit: parseFloat(document.getElementById('promoPrecioUnit').textContent.replace(',', '.')) || 0,
+            subtotal_sin_iva: parseFloat(document.getElementById('promoSubtotalSinIVA').textContent.replace(',', '.')) || 0,
+            total_con_iva: parseFloat(document.getElementById('promoTotal').textContent.replace(',', '.')) || 0
+        };
+    }
+
+    function _promoCapturarDatosItem() {
+        if (!promoProductoActivo) { alert('Elegí un producto primero'); return null; }
+        const cantidad = parseInt(document.getElementById('promoCantidad').value) || 0;
+        if (cantidad <= 0) { alert('Cantidad debe ser mayor a 0'); return null; }
+        return {
+            userText: '',
+            descripcion: _promoBuildDescripcion(),
+            cantidad,
+            precioUnit: parseFloat(document.getElementById('promoPrecioUnit').textContent.replace(',', '.')) || 0,
+            itemIvaPct: parseFloat(document.getElementById('promoIVA').value) || 0,
+            snapshot: _promoCaptureSnapshot()
+        };
+    }
+
+    function addItemToProformaPromo() {
+        if (!proformaActiva) return;
+        const d = _promoCapturarDatosItem();
+        if (!d) return;
+        proformaActiva.items.push({
+            orden: proformaActiva.items.length + 1,
+            descripcion: d.descripcion, cantidad: d.cantidad, precio_unitario: d.precioUnit,
+            iva_pct: d.itemIvaPct, imagen_url: promoProductoActivo?.imagen_url || null,
+            metodo_impresion: 'promocional',
+            datos_cotizacion: d.snapshot
+        });
+        promoCerrarModal();
+        switchTab('proformas');
+        renderProformaItems();
+    }
+
+    // ===== Admin promocionales =====
+    async function promoProveedoresAdminLoad() {
+        const [{data: provs}, {data: counts}] = await Promise.all([
+            db.from('promocionales_proveedores').select('*').order('nombre'),
+            db.from('promocionales_productos').select('proveedor_id')
+        ]);
+        const cnt = {};
+        (counts || []).forEach(c => { cnt[c.proveedor_id] = (cnt[c.proveedor_id] || 0) + 1; });
+        promoProveedoresCache = provs || [];
+        const tbody = document.getElementById('promoProveedoresBody');
+        tbody.innerHTML = (provs || []).map((p, i) => `<tr style="${p.activo ? '' : 'opacity:0.5;'}">
+            <td><input type="text" value="${(p.nombre||'').replace(/"/g,'&quot;')}" onchange="promoProvUpdate(${i},'nombre',this.value)"></td>
+            <td><input type="text" value="${(p.contacto||'').replace(/"/g,'&quot;')}" onchange="promoProvUpdate(${i},'contacto',this.value)"></td>
+            <td><input type="email" value="${(p.email||'').replace(/"/g,'&quot;')}" onchange="promoProvUpdate(${i},'email',this.value)"></td>
+            <td><input type="text" value="${(p.telefono||'').replace(/"/g,'&quot;')}" onchange="promoProvUpdate(${i},'telefono',this.value)"></td>
+            <td style="text-align:center;font-weight:600;color:#0891b2;">${cnt[p.id] || 0}</td>
+            <td style="text-align:center;"><input type="checkbox" ${p.activo ? 'checked' : ''} onchange="promoProvUpdate(${i},'activo',this.checked)"></td>
+            <td><button class="btn btn-danger btn-sm" onclick="promoProvDelete(${i})">X</button></td>
+        </tr>`).join('');
+    }
+
+    async function promoProvUpdate(i, field, val) {
+        promoProveedoresCache[i][field] = val;
+        const p = promoProveedoresCache[i];
+        const { error } = await db.from('promocionales_proveedores').update({ [field]: val }).eq('id', p.id);
+        if (error) alert('Error: ' + error.message);
+    }
+
+    async function promoProvDelete(i) {
+        const p = promoProveedoresCache[i];
+        if (!confirm('Eliminar proveedor "' + p.nombre + '"? Esto eliminará también todos sus productos.')) return;
+        const { error } = await db.from('promocionales_proveedores').delete().eq('id', p.id);
+        if (error) { alert('Error: ' + error.message); return; }
+        promoProveedoresCache.splice(i, 1);
+        promoProveedoresAdminLoad();
+    }
+
+    async function addPromoProveedor() {
+        const nombre = prompt('Nombre del proveedor:');
+        if (!nombre) return;
+        const { error } = await db.from('promocionales_proveedores').insert({ nombre, activo: true });
+        if (error) { alert('Error: ' + error.message); return; }
+        promoProveedoresAdminLoad();
+    }
+
+    async function promoTecnicasAdminLoad() {
+        const { data } = await db.from('promocionales_tecnicas').select('*').order('orden');
+        promoTecnicasCache = data || [];
+        const tbody = document.getElementById('promoTecnicasBody');
+        tbody.innerHTML = (data || []).map((t, i) => `<tr style="${t.activo ? '' : 'opacity:0.5;'}">
+            <td style="font-family:monospace;font-size:0.8rem;">${t.codigo}</td>
+            <td><input type="text" value="${(t.nombre||'').replace(/"/g,'&quot;')}" onchange="promoTecUpdate(${i},'nombre',this.value)"></td>
+            <td><input type="number" step="0.01" min="0" value="${+t.precio_default}" style="width:90px" onchange="promoTecUpdate(${i},'precio_default',+this.value)"></td>
+            <td><input type="text" value="${(t.descripcion||'').replace(/"/g,'&quot;')}" onchange="promoTecUpdate(${i},'descripcion',this.value)"></td>
+            <td><input type="number" value="${+t.orden}" style="width:65px" onchange="promoTecUpdate(${i},'orden',+this.value)"></td>
+            <td style="text-align:center;"><input type="checkbox" ${t.activo ? 'checked' : ''} onchange="promoTecUpdate(${i},'activo',this.checked)"></td>
+            <td><button class="btn btn-danger btn-sm" onclick="promoTecDelete(${i})">X</button></td>
+        </tr>`).join('');
+    }
+
+    async function promoTecUpdate(i, field, val) {
+        promoTecnicasCache[i][field] = val;
+        const t = promoTecnicasCache[i];
+        const { error } = await db.from('promocionales_tecnicas').update({ [field]: val }).eq('id', t.id);
+        if (error) alert('Error: ' + error.message);
+    }
+
+    async function promoTecDelete(i) {
+        const t = promoTecnicasCache[i];
+        if (!confirm('Eliminar técnica "' + t.nombre + '"?')) return;
+        const { error } = await db.from('promocionales_tecnicas').delete().eq('id', t.id);
+        if (error) { alert('Error: ' + error.message); return; }
+        promoTecnicasCache.splice(i, 1);
+        promoTecnicasAdminLoad();
+    }
+
+    async function addPromoTecnica() {
+        const codigo = prompt('Código (ej. "transfer"):');
+        if (!codigo) return;
+        const nombre = prompt('Nombre:');
+        if (!nombre) return;
+        const maxOrden = promoTecnicasCache.reduce((mx, t) => Math.max(mx, +t.orden || 0), 0);
+        const { error } = await db.from('promocionales_tecnicas')
+            .insert({ codigo: codigo.toLowerCase(), nombre, precio_default: 0.40, activo: true, orden: maxOrden + 10 });
+        if (error) { alert('Error: ' + error.message); return; }
+        promoTecnicasAdminLoad();
     }
 
     // =====================================================
