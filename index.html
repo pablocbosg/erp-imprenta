@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
     <style>
         :root {
@@ -3571,7 +3572,7 @@
                         <div style="overflow-x:auto;max-height:70vh;overflow-y:auto;">
                             <table class="data-table">
                                 <thead style="position:sticky;top:0;background:white;z-index:1;">
-                                    <tr><th>Código</th><th>Nombre</th><th>Proveedor</th><th>Cat.</th><th>Costo</th><th>Stock</th><th>Técnicas</th><th>Activo</th><th></th></tr>
+                                    <tr><th>Foto</th><th>Código</th><th>Nombre</th><th>Proveedor</th><th>Cat.</th><th>Costo</th><th>Stock</th><th>Técnicas</th><th>Activo</th><th></th></tr>
                                 </thead>
                                 <tbody id="promoAdminProductosBody"></tbody>
                             </table>
@@ -9827,7 +9828,11 @@
         tbody.innerHTML = pagProds.map(p => {
             const idx = promoAdminProductosCache.findIndex(x => x.id === p.id);
             const tecStr = (p.tecnicas_codigos || []).join(', ') || '—';
+            const fotoCell = p.imagen_url
+                ? `<img src="${p.imagen_url}" alt="" style="width:48px;height:48px;object-fit:contain;background:#f1f5f9;border-radius:4px;cursor:pointer;" onclick="promoProdAbrirFoto(${idx})" title="Click para cambiar">`
+                : `<button class="btn btn-secondary btn-sm" style="padding:0.2rem 0.4rem;font-size:0.7rem;" onclick="promoProdAbrirFoto(${idx})">📷 Subir</button>`;
             return `<tr style="${p.activo ? '' : 'opacity:0.5;'}">
+                <td>${fotoCell}</td>
                 <td style="font-family:monospace;font-size:0.75rem;">${p.codigo_proveedor}</td>
                 <td><input type="text" value="${(p.nombre||'').replace(/"/g,'&quot;')}" style="min-width:180px" onchange="promoProdUpdate(${idx},'nombre',this.value)"></td>
                 <td style="font-size:0.8rem;">${provMap[p.proveedor_id] || '—'}</td>
@@ -9838,7 +9843,7 @@
                 <td style="text-align:center;"><input type="checkbox" ${p.activo ? 'checked' : ''} onchange="promoProdUpdate(${idx},'activo',this.checked)"></td>
                 <td><button class="btn btn-danger btn-sm" onclick="promoProdDelete(${idx})">X</button></td>
             </tr>`;
-        }).join('') || '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--gray-400);">Sin resultados</td></tr>';
+        }).join('') || '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--gray-400);">Sin resultados</td></tr>';
 
         if (totalPag > 1) {
             pag.innerHTML = `
@@ -9864,6 +9869,33 @@
         if (error) { alert('Error: ' + error.message); return; }
         promoAdminProductosCache.splice(i, 1);
         promoAdminRender();
+    }
+
+    function promoProdAbrirFoto(i) {
+        const p = promoAdminProductosCache[i];
+        if (!p) return;
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const prov = promoProveedoresCache.find(x => x.id === p.proveedor_id);
+            const subfolder = (prov?.nombre || 'proveedor').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+            const safeCod = p.codigo_proveedor.replace(/[\/\s]/g, '_');
+            const dest = `${subfolder}/${safeCod}.${ext}`;
+            const { error: upErr } = await db.storage.from('promocional-imagenes')
+                .upload(dest, file, { contentType: file.type || 'image/jpeg', upsert: true });
+            if (upErr) { alert('Error subiendo imagen: ' + upErr.message); return; }
+            const { data: pub } = db.storage.from('promocional-imagenes').getPublicUrl(dest);
+            const url = pub.publicUrl + '?t=' + Date.now(); // cache bust
+            const { error } = await db.from('promocionales_productos').update({ imagen_url: url }).eq('id', p.id);
+            if (error) { alert('Error: ' + error.message); return; }
+            promoAdminProductosCache[i].imagen_url = url;
+            promoAdminRender();
+        };
+        input.click();
     }
 
     // ===== Import Excel de promocionales =====
@@ -9945,13 +9977,16 @@
             }
 
             const productos = [];
+            const rowToCodigo = {};
             for (let i = headerRow + 1; i < rows.length; i++) {
                 const row = rows[i];
                 if (!row || !row[mapa.codigo] || !row[mapa.nombre]) continue;
                 const pvp = parseFloat(row[mapa.pvp]);
                 if (isNaN(pvp)) continue;
+                const codigo = String(row[mapa.codigo]).trim().substring(0, 100);
+                rowToCodigo[i] = codigo;
                 productos.push({
-                    codigo_proveedor: String(row[mapa.codigo]).trim().substring(0, 100),
+                    codigo_proveedor: codigo,
                     nombre: String(row[mapa.nombre]).trim().substring(0, 200),
                     descripcion: mapa.descripcion !== null ? String(row[mapa.descripcion] || '').replace(/[\r\n]+/g, ' ').substring(0, 800) : null,
                     categoria: mapa.categoria !== null ? String(row[mapa.categoria] || '').substring(0, 30) : null,
@@ -9963,7 +9998,7 @@
             }
             if (!productos.length) throw new Error('No se encontraron filas válidas con código+nombre+PVP');
 
-            _promoImportBuffer = { productos };
+            _promoImportBuffer = { productos, rowToCodigo };
 
             // Render mapeo
             document.getElementById('promoImportMapeo').style.display = '';
@@ -10005,6 +10040,95 @@
         document.getElementById('promoImportBtnConfirm').disabled = !(proveedorOk && datosOk);
     }
 
+    // Extraer imagenes embebidas del xlsx y subirlas a Storage. Devuelve {codigo: url}
+    async function _promoExtraerImagenes(file, rowToCodigo, proveedorId) {
+        if (typeof JSZip === 'undefined') return {};
+        try {
+            const zip = await JSZip.loadAsync(file);
+            const drawingEntry = zip.file('xl/drawings/drawing1.xml');
+            const relsEntry = zip.file('xl/drawings/_rels/drawing1.xml.rels');
+            if (!drawingEntry || !relsEntry) return {};
+            const drawing = await drawingEntry.async('string');
+            const rels = await relsEntry.async('string');
+
+            // Parsear rels: rId -> path
+            const relMap = {};
+            const relRe = /<Relationship[^>]+Id="([^"]+)"[^>]+Target="([^"]+)"/g;
+            let m;
+            while ((m = relRe.exec(rels)) !== null) {
+                relMap[m[1]] = m[2].replace('../', 'xl/');
+            }
+
+            // Parsear anchors (twoCell y oneCell)
+            const anchors = [];
+            const anchorRe = /<xdr:(twoCellAnchor|oneCellAnchor)>[\s\S]*?<xdr:from>[\s\S]*?<xdr:row>(\d+)<\/xdr:row>[\s\S]*?<a:blip[^>]+r:embed="([^"]+)"/g;
+            while ((m = anchorRe.exec(drawing)) !== null) {
+                const row = parseInt(m[2]);
+                const rid = m[3];
+                const path = relMap[rid];
+                if (path && rowToCodigo[row]) {
+                    anchors.push({ row, codigo: rowToCodigo[row], path });
+                }
+            }
+
+            if (!anchors.length) return {};
+
+            // Deduplicar por codigo (primera imagen gana)
+            const seen = new Set();
+            const queue = [];
+            for (const a of anchors) {
+                if (seen.has(a.codigo)) continue;
+                seen.add(a.codigo);
+                queue.push(a);
+            }
+
+            const prog = document.getElementById('promoImportProgreso');
+            prog.innerHTML = `🖼️ Subiendo imágenes... 0 / ${queue.length}`;
+
+            const mapping = {};
+            const subfolder = (promoProveedoresCache.find(p => p.id === proveedorId)?.nombre || 'proveedor')
+                .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+            // Subida concurrente con limite
+            const CONC = 8;
+            let done = 0;
+            async function upload(item) {
+                try {
+                    const entry = zip.file(item.path);
+                    if (!entry) return null;
+                    const blob = await entry.async('blob');
+                    const ext = item.path.split('.').pop().toLowerCase();
+                    const contentType = (ext === 'png') ? 'image/png' : 'image/jpeg';
+                    const safeCod = item.codigo.replace(/[\/\s]/g, '_');
+                    const dest = `${subfolder}/${safeCod}.${ext}`;
+                    const { error } = await db.storage.from('promocional-imagenes')
+                        .upload(dest, blob, { contentType, upsert: true });
+                    if (!error) {
+                        const { data: pub } = db.storage.from('promocional-imagenes').getPublicUrl(dest);
+                        mapping[item.codigo] = pub.publicUrl;
+                    }
+                } catch (e) { /* silencioso, seguimos con la siguiente */ }
+                done++;
+                if (done % 20 === 0 || done === queue.length) {
+                    prog.innerHTML = `🖼️ Subiendo imágenes... ${done} / ${queue.length}`;
+                }
+            }
+
+            const workers = Array.from({ length: CONC }, async () => {
+                while (queue.length) {
+                    const item = queue.shift();
+                    if (item) await upload(item);
+                }
+            });
+            await Promise.all(workers);
+
+            return mapping;
+        } catch (e) {
+            console.warn('Error extrayendo imagenes:', e);
+            return {};
+        }
+    }
+
     async function promoImportEjecutar() {
         const proveedorId = +document.getElementById('promoImportProveedor').value;
         if (!proveedorId || !_promoImportBuffer) return;
@@ -10020,23 +10144,38 @@
         const BATCH = 200;
         let insertados = 0;
         try {
+            // 1. Upsert productos
             for (let i = 0; i < productos.length; i += BATCH) {
                 const batch = productos.slice(i, i + BATCH);
                 const { error } = await db.rpc('promocionales_bulk_insert', { data: batch });
                 if (error) throw error;
                 insertados += batch.length;
-                prog.innerHTML = `⏳ Procesando... ${insertados} / ${productos.length} productos`;
+                prog.innerHTML = `⏳ Procesando productos... ${insertados} / ${productos.length}`;
             }
-            prog.innerHTML = `✅ Importación completa. ${insertados} productos insertados/actualizados.`;
+
+            // 2. Extraer y subir imagenes
+            const file = document.getElementById('promoImportArchivo').files[0];
+            const rowToCodigo = _promoImportBuffer.rowToCodigo || {};
+            let imgsMsg = '';
+            if (file && Object.keys(rowToCodigo).length) {
+                const urls = await _promoExtraerImagenes(file, rowToCodigo, proveedorId);
+                const cantUrls = Object.keys(urls).length;
+                if (cantUrls > 0) {
+                    prog.innerHTML = `🔗 Vinculando ${cantUrls} imágenes a productos...`;
+                    await db.rpc('promocionales_update_imagenes', { proveedor_id_in: proveedorId, urls });
+                    imgsMsg = ` + ${cantUrls} imágenes vinculadas`;
+                }
+            }
+
+            prog.innerHTML = `✅ Importación completa. ${insertados} productos${imgsMsg}.`;
             btn.textContent = 'Listo';
             setTimeout(() => {
                 promoImportCerrar();
                 btn.textContent = 'Importar';
                 btn.disabled = false;
-                // Refrescar caches
                 promoProductosCache = [];
                 promoProductosAdminLoad();
-            }, 1600);
+            }, 2500);
         } catch (e) {
             errEl.style.display = '';
             errEl.textContent = '⚠️ Error: ' + (e.message || e);
