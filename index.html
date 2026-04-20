@@ -65,6 +65,29 @@
         .proforma-locked input:not([type="checkbox"]), .proforma-locked select, .proforma-locked textarea { pointer-events:none; background:#f8fafc !important; color:#6b7280; }
         .proforma-locked .btn-hide-on-lock, .proforma-locked button.btn-primary, .proforma-locked button.btn-success, .proforma-locked .btn-add-proforma { display:none !important; }
         .proforma-locked .item-row-edit, .proforma-locked .btn-eliminar-item { display:none !important; }
+        .dash-layout { padding:0.5rem 0.25rem; }
+        .dash-hero { display:flex; align-items:center; padding:0.75rem 1rem; background:linear-gradient(135deg,#eff6ff,#dbeafe); border-radius:10px; margin-bottom:1rem; }
+        .dash-stats-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem; margin-bottom:1rem; }
+        .dash-stat { background:white; border:1px solid var(--gray-200); border-radius:10px; padding:1rem; }
+        .dash-stat-value { font-size:1.5rem; font-weight:700; color:#0891b2; line-height:1.1; }
+        .dash-stat-label { font-size:0.75rem; color:var(--gray-500); text-transform:uppercase; letter-spacing:0.5px; margin-top:0.3rem; }
+        .dash-stat-sub { font-size:0.72rem; color:var(--gray-400); margin-top:0.2rem; }
+        .dash-main-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+        @media (max-width: 900px) { .dash-main-grid { grid-template-columns: 1fr; } }
+        .dash-col { display:flex; flex-direction:column; gap:1rem; }
+        .dash-item { padding:0.6rem 0.75rem; border-radius:6px; border:1px solid var(--gray-200); margin-bottom:0.4rem; cursor:pointer; transition:0.15s; background:white; display:flex; align-items:center; gap:0.75rem; }
+        .dash-item:hover { background:#f0f9ff; border-color:#67e8f9; }
+        .dash-item-title { font-weight:600; font-size:0.85rem; color:var(--gray-800); }
+        .dash-item-sub { font-size:0.72rem; color:var(--gray-500); }
+        .dash-item-badge { margin-left:auto; font-size:0.7rem; font-weight:600; padding:0.15rem 0.5rem; border-radius:10px; }
+        .dash-empty { text-align:center; padding:1.5rem; color:var(--gray-400); font-size:0.85rem; }
+        .dash-reportes-grid { display:grid; grid-template-columns: 2fr 1fr 1fr; gap:1.5rem; }
+        @media (max-width: 900px) { .dash-reportes-grid { grid-template-columns: 1fr; } }
+        .dash-bar { display:flex; align-items:center; gap:0.5rem; font-size:0.78rem; margin-bottom:0.35rem; }
+        .dash-bar-label { flex:0 0 130px; color:var(--gray-700); }
+        .dash-bar-fill-bg { flex:1; height:14px; background:#f1f5f9; border-radius:3px; overflow:hidden; }
+        .dash-bar-fill { height:100%; background:linear-gradient(90deg,#0891b2,#0e7490); border-radius:3px; }
+        .dash-bar-val { flex:0 0 auto; color:var(--gray-600); font-weight:600; }
 
         /* Panels */
         .panel { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
@@ -416,6 +439,7 @@
             <button onclick="doLogout()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;">Cerrar Sesion</button>
         </div>
         <div class="tabs">
+            <button class="tab-btn" onclick="switchTab('inicio')">Inicio</button>
             <button class="tab-btn active" onclick="switchTab('cotizador')">Impresion Offset</button>
             <button class="tab-btn" onclick="switchTab('digital')">Imp. Digital</button>
             <button class="tab-btn" onclick="switchTab('gigantografia')">Gigantografia</button>
@@ -431,6 +455,112 @@
     </header>
 
     <!-- ==================== TAB 1: COTIZADOR ==================== -->
+    <!-- ==================== TAB: INICIO (dashboard) ==================== -->
+    <div id="tab-inicio" class="tab-content">
+        <div class="dash-layout">
+            <!-- Hero / greeting -->
+            <div class="dash-hero">
+                <div>
+                    <h2 id="dashSaludo" style="margin:0;color:#111827;font-size:1.2rem;">Buen día</h2>
+                    <div style="color:var(--gray-500);font-size:0.85rem;" id="dashFechaHoy"></div>
+                </div>
+                <div style="margin-left:auto;display:flex;gap:0.5rem;">
+                    <button class="btn btn-secondary btn-sm" onclick="dashLoad()">↻ Actualizar</button>
+                </div>
+            </div>
+
+            <!-- Stats row -->
+            <div class="dash-stats-grid">
+                <div class="dash-stat">
+                    <div class="dash-stat-value" id="dashStatVentasMes">$0</div>
+                    <div class="dash-stat-label">Ventas del mes</div>
+                    <div class="dash-stat-sub" id="dashStatVentasMesSub"></div>
+                </div>
+                <div class="dash-stat">
+                    <div class="dash-stat-value" id="dashStatProformasMes">0</div>
+                    <div class="dash-stat-label">Proformas del mes</div>
+                    <div class="dash-stat-sub" id="dashStatProformasMesSub"></div>
+                </div>
+                <div class="dash-stat">
+                    <div class="dash-stat-value" id="dashStatOrdenesActivas">0</div>
+                    <div class="dash-stat-label">Órdenes activas</div>
+                    <div class="dash-stat-sub">en producción</div>
+                </div>
+                <div class="dash-stat">
+                    <div class="dash-stat-value" id="dashStatTrabajosActivos">0</div>
+                    <div class="dash-stat-label">Trabajos activos</div>
+                    <div class="dash-stat-sub">kanban</div>
+                </div>
+            </div>
+
+            <!-- Main 2-col -->
+            <div class="dash-main-grid">
+                <!-- Col izq: Mis tareas + Stock bajo -->
+                <div class="dash-col">
+                    <div class="panel">
+                        <div class="panel-header">👤 Mis tareas <span id="dashMisTareasContador" style="font-size:0.78rem;color:var(--gray-500);font-weight:400;margin-left:0.5rem;"></span></div>
+                        <div class="panel-body" style="padding:0.5rem;">
+                            <div id="dashMisTareasLista"></div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">⚠️ Alertas de stock</div>
+                        <div class="panel-body" style="padding:0.5rem;">
+                            <div id="dashAlertasStock"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Col der: Proformas pendientes + ordenes + reportes -->
+                <div class="dash-col">
+                    <div class="panel">
+                        <div class="panel-header">📄 Proformas pendientes <span id="dashProfPendContador" style="font-size:0.78rem;color:var(--gray-500);font-weight:400;margin-left:0.5rem;"></span></div>
+                        <div class="panel-body" style="padding:0.5rem;">
+                            <div id="dashProfPendLista"></div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">🔨 Órdenes en producción</div>
+                        <div class="panel-body" style="padding:0.5rem;">
+                            <div id="dashOrdenesLista"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reportes -->
+            <div class="panel" style="margin-top:1rem;">
+                <div class="panel-header" style="justify-content:space-between;">
+                    <span>📈 Reportes</span>
+                    <select id="dashReportePeriodo" onchange="dashCargarReportes()" style="padding:0.3rem 0.5rem;font-size:0.8rem;border-radius:5px;border:1px solid var(--gray-300);">
+                        <option value="3">Últimos 3 meses</option>
+                        <option value="6" selected>Últimos 6 meses</option>
+                        <option value="12">Últimos 12 meses</option>
+                    </select>
+                </div>
+                <div class="panel-body">
+                    <div class="dash-reportes-grid">
+                        <div>
+                            <h4 style="font-size:0.78rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Ventas por mes</h4>
+                            <canvas id="dashVentasChart" style="width:100%;height:220px;"></canvas>
+                            <div id="dashVentasTotal" style="text-align:right;font-size:0.8rem;color:var(--gray-500);margin-top:0.25rem;"></div>
+                        </div>
+                        <div>
+                            <h4 style="font-size:0.78rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Por método de impresión</h4>
+                            <div id="dashPorMetodo"></div>
+                        </div>
+                        <div>
+                            <h4 style="font-size:0.78rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Top 10 clientes</h4>
+                            <div id="dashTopClientes"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="tab-cotizador" class="tab-content active">
         <div class="cot-layout">
             <div class="cot-sidebar">
@@ -2662,6 +2792,17 @@
         </div>
     </div>
 
+    <!-- MODAL HISTORIAL DE CONSUMOS -->
+    <div id="consumosModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+        <div style="background:white;border-radius:12px;max-width:760px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.3);">
+            <div style="padding:1rem 1.5rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:white;z-index:2;">
+                <h3 id="consumosModalTitulo" style="margin:0;">Historial de consumos</h3>
+                <button onclick="cerrarConsumosModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#6b7280;">×</button>
+            </div>
+            <div id="consumosModalBody" style="padding:1rem 1.5rem;"></div>
+        </div>
+    </div>
+
     <!-- MODAL IMPORT EXCEL PROMOCIONALES -->
     <div id="promoImportModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
         <div style="background:white;border-radius:12px;max-width:720px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 20px 40px rgba(0,0,0,0.3);">
@@ -4650,6 +4791,7 @@
         if (tab === 'digital') { digPopulateMaterials(); digCalc(); updateAddToProformaBtn(); }
         if (tab === 'gigantografia') { gigaInitTab(); updateAddToProformaBtn(); }
         if (tab === 'promocionales') { promoInitTab(); }
+        if (tab === 'inicio') { dashLoad(); }
         if (tab === 'conciliacion') { concInit(); }
         if (tab === 'proformas') cargarProformas();
         if (tab === 'trabajos') cargarTrabajos();
@@ -8592,6 +8734,413 @@
     }
 
     // =====================================================
+    // HISTORIAL DE CONSUMOS
+    // =====================================================
+    function cerrarConsumosModal() { document.getElementById('consumosModal').style.display = 'none'; }
+
+    async function verConsumosRollo(rolloId) {
+        const { data: rollo } = await db.from('gigantografia_rollos')
+            .select('*, materiales_gigantografia(nombre)').eq('id', rolloId).maybeSingle();
+        const { data: consumos } = await db.from('gigantografia_consumos')
+            .select('*, ordenes_produccion(numero)')
+            .eq('rollo_id', rolloId).order('created_at', { ascending: false }).limit(100);
+        document.getElementById('consumosModalTitulo').textContent =
+            `Historial · ${rollo?.materiales_gigantografia?.nombre || '—'} ${+rollo?.ancho_cm || ''} cm`;
+        const total = (consumos || []).reduce((s, c) => s + (+c.m2_consumidos || 0), 0);
+        let html = `<div style="background:#f8fafc;padding:0.75rem;border-radius:6px;margin-bottom:0.75rem;font-size:0.85rem;">
+            <strong>Stock:</strong> ${(+rollo?.m2_restantes || 0).toFixed(1)} m² restantes de ${(+rollo?.m2_iniciales || 0).toFixed(1)} m² iniciales ·
+            <strong>Total consumido histórico:</strong> ${total.toFixed(1)} m²
+        </div>`;
+        if (!consumos?.length) {
+            html += '<div style="padding:1rem;text-align:center;color:var(--gray-400);">Sin consumos registrados todavía</div>';
+        } else {
+            html += `<table class="data-table"><thead><tr><th>Fecha</th><th>Orden</th><th>m lineales</th><th>m² consumidos</th><th>m² desperdicio</th></tr></thead><tbody>`;
+            html += consumos.map(c => `<tr>
+                <td style="font-size:0.8rem;">${new Date(c.created_at).toLocaleString('es-EC')}</td>
+                <td>${c.ordenes_produccion?.numero ? '#'+c.ordenes_produccion.numero : '—'}</td>
+                <td>${(+c.metros_lineales || 0).toFixed(2)}</td>
+                <td style="font-weight:600;">${(+c.m2_consumidos || 0).toFixed(2)}</td>
+                <td style="color:#b45309;">${(+c.m2_desperdicio || 0).toFixed(2)}</td>
+            </tr>`).join('');
+            html += '</tbody></table>';
+        }
+        document.getElementById('consumosModalBody').innerHTML = html;
+        document.getElementById('consumosModal').style.display = 'flex';
+    }
+
+    async function verConsumosProducto(productoId) {
+        const { data: prod } = await db.from('promocionales_productos').select('*').eq('id', productoId).maybeSingle();
+        const { data: consumos } = await db.from('promocionales_consumos')
+            .select('*, ordenes_produccion(numero)')
+            .eq('producto_id', productoId).order('created_at', { ascending: false }).limit(100);
+        document.getElementById('consumosModalTitulo').textContent =
+            `Historial · ${prod?.nombre || ''} (${prod?.codigo_proveedor || ''})`;
+        const total = (consumos || []).reduce((s, c) => s + (+c.cantidad || 0), 0);
+        let html = `<div style="background:#f8fafc;padding:0.75rem;border-radius:6px;margin-bottom:0.75rem;font-size:0.85rem;">
+            <strong>Stock actual:</strong> ${+prod?.stock || 0} unidades ·
+            <strong>Total consumido histórico:</strong> ${total} unidades
+        </div>`;
+        if (!consumos?.length) {
+            html += '<div style="padding:1rem;text-align:center;color:var(--gray-400);">Sin consumos registrados todavía</div>';
+        } else {
+            html += `<table class="data-table"><thead><tr><th>Fecha</th><th>Orden</th><th>Cantidad</th><th>Stock antes</th><th>Stock después</th></tr></thead><tbody>`;
+            html += consumos.map(c => `<tr>
+                <td style="font-size:0.8rem;">${new Date(c.created_at).toLocaleString('es-EC')}</td>
+                <td>${c.ordenes_produccion?.numero ? '#'+c.ordenes_produccion.numero : '—'}</td>
+                <td style="font-weight:600;">${c.cantidad}</td>
+                <td>${c.stock_antes ?? '—'}</td>
+                <td>${c.stock_despues ?? '—'}</td>
+            </tr>`).join('');
+            html += '</tbody></table>';
+        }
+        document.getElementById('consumosModalBody').innerHTML = html;
+        document.getElementById('consumosModal').style.display = 'flex';
+    }
+
+    // =====================================================
+    // DASHBOARD (tab Inicio)
+    // =====================================================
+    async function dashLoad() {
+        const now = new Date();
+        const saludo = now.getHours() < 12 ? 'Buen día' : now.getHours() < 19 ? 'Buenas tardes' : 'Buenas noches';
+        const nombre = currentUser?.nombre || currentUser?.email?.split('@')[0] || '';
+        document.getElementById('dashSaludo').textContent = `${saludo}${nombre ? ', ' + nombre : ''}`;
+        document.getElementById('dashFechaHoy').textContent = now.toLocaleDateString('es-EC', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+        await Promise.all([
+            dashCargarStats(),
+            dashCargarMisTareas(),
+            dashCargarAlertas(),
+            dashCargarProformasPendientes(),
+            dashCargarOrdenesActivas(),
+            dashCargarReportes()
+        ]);
+    }
+
+    async function dashCargarStats() {
+        const now = new Date();
+        const ini = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const iniMesPrev = new Date(now.getFullYear(), now.getMonth()-1, 1).toISOString();
+        const finMesPrev = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+        // Ventas del mes (sum de totales de proformas aprobadas)
+        const [{data: profMes}, {data: profPrev}, {data: ordenesAct}, {data: trabsAct}] = await Promise.all([
+            db.from('proformas').select('id, numero, estado, fecha, iva_porcentaje, proforma_items(cantidad, precio_unitario)').gte('fecha', ini).eq('estado', 'aprobada'),
+            db.from('proformas').select('id, proforma_items(cantidad, precio_unitario)').gte('fecha', iniMesPrev).lt('fecha', finMesPrev).eq('estado', 'aprobada'),
+            db.from('ordenes_produccion').select('id', {count:'exact', head:true}).not('estado', 'in', '(finalizada,entregada,cancelada)'),
+            db.from('trabajos').select('id', {count:'exact', head:true}).not('estado', 'in', '(completado,perdido)')
+        ]);
+
+        const sumarTotal = (profs) => (profs || []).reduce((s, p) => {
+            const items = p.proforma_items || [];
+            const subtotal = items.reduce((a, it) => a + (+it.cantidad || 0) * (+it.precio_unitario || 0), 0);
+            return s + subtotal; // sin IVA para mayor estabilidad comparativa
+        }, 0);
+
+        const ventasMes = sumarTotal(profMes);
+        const ventasPrev = sumarTotal(profPrev);
+        document.getElementById('dashStatVentasMes').textContent = '$' + fmtN(ventasMes, 2);
+        const cantMes = (profMes || []).length;
+        document.getElementById('dashStatVentasMesSub').textContent = `${cantMes} proformas aprobadas`;
+
+        // Proformas del mes (todas)
+        const { count: profMesCount } = await db.from('proformas').select('id', {count:'exact', head:true}).gte('fecha', ini);
+        document.getElementById('dashStatProformasMes').textContent = profMesCount || 0;
+        if (ventasPrev > 0) {
+            const delta = ((ventasMes - ventasPrev) / ventasPrev * 100);
+            const sign = delta >= 0 ? '▲' : '▼';
+            const color = delta >= 0 ? '#15803d' : '#dc2626';
+            document.getElementById('dashStatProformasMesSub').innerHTML = `<span style="color:${color};">${sign} ${Math.abs(delta).toFixed(1)}%</span> vs mes pasado`;
+        } else {
+            document.getElementById('dashStatProformasMesSub').textContent = '';
+        }
+
+        document.getElementById('dashStatOrdenesActivas').textContent = ordenesAct || 0;
+        document.getElementById('dashStatTrabajosActivos').textContent = trabsAct || 0;
+    }
+
+    async function dashCargarMisTareas() {
+        const cont = document.getElementById('dashMisTareasLista');
+        const badge = document.getElementById('dashMisTareasContador');
+        if (!currentUser?.email) {
+            cont.innerHTML = '<div class="dash-empty">Iniciá sesión para ver tus tareas</div>';
+            badge.textContent = '';
+            return;
+        }
+        // Buscar staff_id por email
+        const { data: staffMatch } = await db.from('staff').select('id, nombre').eq('email', currentUser.email).maybeSingle();
+        const staffId = staffMatch?.id;
+
+        // Tareas asignadas a este staff (orden_tareas.asignado_a) - pendiente / en_proceso
+        // Trabajos donde encargados jsonb contiene este staff.id - no completado/perdido
+        const [tareas, trabajos] = await Promise.all([
+            staffId
+                ? db.from('orden_tareas').select('id, paso, estado, orden_id, proforma_item_id, ordenes_produccion(numero)').eq('asignado_a', staffId).in('estado', ['pendiente','en_proceso','bloqueado']).order('orden_seq').limit(30)
+                : Promise.resolve({data: []}),
+            staffId
+                ? db.from('trabajos').select('id, numero, titulo, estado, prioridad').contains('encargados', [staffId]).not('estado', 'in', '(completado,perdido)').order('prioridad', {ascending: false}).limit(20)
+                : Promise.resolve({data: []})
+        ]);
+
+        const tareasData = tareas.data || [];
+        const trabsData = trabajos.data || [];
+        const total = tareasData.length + trabsData.length;
+        badge.textContent = total > 0 ? `(${total})` : '';
+        if (!total) {
+            cont.innerHTML = `<div class="dash-empty">${staffId ? 'Sin tareas asignadas 🎉' : 'Tu email no está en el equipo. Agregalo en Admin → Equipo.'}</div>`;
+            return;
+        }
+        let html = '';
+        trabsData.forEach(t => {
+            const prio = (t.prioridad === 'alta') ? '🔴' : (t.prioridad === 'media') ? '🟡' : '⚪';
+            html += `<div class="dash-item" onclick="switchTab('trabajos')">
+                <span style="font-size:1.1rem;">${prio}</span>
+                <div style="flex:1;min-width:0;">
+                    <div class="dash-item-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(t.titulo||'').replace(/</g,'&lt;') || `Trabajo #${t.numero}`}</div>
+                    <div class="dash-item-sub">Trabajo #${t.numero} · ${t.estado}</div>
+                </div>
+            </div>`;
+        });
+        tareasData.forEach(t => {
+            const color = t.estado === 'en_proceso' ? '#fbbf24' : t.estado === 'bloqueado' ? '#fca5a5' : '#d1d5db';
+            const bg = t.estado === 'en_proceso' ? '#fef3c7' : t.estado === 'bloqueado' ? '#fee2e2' : '#f3f4f6';
+            html += `<div class="dash-item" onclick="switchTab('ordenes');setTimeout(()=>abrirOrden(${t.orden_id}),400)">
+                <span style="flex:0 0 auto;width:8px;height:40px;background:${color};border-radius:3px;"></span>
+                <div style="flex:1;min-width:0;">
+                    <div class="dash-item-title">${t.paso}</div>
+                    <div class="dash-item-sub">Orden #${t.ordenes_produccion?.numero || '?'}</div>
+                </div>
+                <span class="dash-item-badge" style="background:${bg};color:${t.estado === 'en_proceso' ? '#92400e' : t.estado === 'bloqueado' ? '#991b1b' : '#4b5563'};">${t.estado}</span>
+            </div>`;
+        });
+        cont.innerHTML = html;
+    }
+
+    async function dashCargarAlertas() {
+        const cont = document.getElementById('dashAlertasStock');
+        const [rollos, promos] = await Promise.all([
+            db.from('gigantografia_rollos')
+                .select('id, ancho_cm, m2_restantes, m2_iniciales, activo, inventario_activo, materiales_gigantografia(nombre)')
+                .eq('activo', true).eq('inventario_activo', true),
+            db.from('promocionales_productos')
+                .select('id, codigo_proveedor, nombre, stock, proveedor_id, promocionales_proveedores(nombre)')
+                .eq('activo', true).lt('stock', 10).gt('stock', 0).order('stock').limit(10)
+        ]);
+        const rollosBajos = (rollos.data || [])
+            .filter(r => (+r.m2_restantes) / (+r.m2_iniciales || 1) < 0.15 && +r.m2_restantes < 10)
+            .sort((a,b) => +a.m2_restantes - +b.m2_restantes)
+            .slice(0, 8);
+        const promosBajos = promos.data || [];
+        const sinStock = await db.from('promocionales_productos').select('id', {count:'exact', head:true}).eq('activo', true).eq('stock', 0);
+
+        let html = '';
+        if (rollosBajos.length) {
+            html += '<div style="font-size:0.72rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.35rem;">🧻 Rollos bajos</div>';
+            rollosBajos.forEach(r => {
+                html += `<div class="dash-item" onclick="switchTab('admin');setTimeout(()=>switchAdminTab('rollos'),100)">
+                    <span style="width:8px;height:32px;background:#ef4444;border-radius:3px;"></span>
+                    <div style="flex:1;min-width:0;">
+                        <div class="dash-item-title">${r.materiales_gigantografia?.nombre || '—'} · ${+r.ancho_cm} cm</div>
+                        <div class="dash-item-sub">${(+r.m2_restantes).toFixed(1)} m² restantes</div>
+                    </div>
+                </div>`;
+            });
+        }
+        if (promosBajos.length) {
+            html += '<div style="font-size:0.72rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.5px;margin:0.6rem 0 0.35rem;">🎁 Promocionales bajos (< 10 u)</div>';
+            promosBajos.forEach(p => {
+                html += `<div class="dash-item" onclick="switchTab('admin');setTimeout(()=>switchAdminTab('promoproductos'),100)">
+                    <span style="width:8px;height:32px;background:#f59e0b;border-radius:3px;"></span>
+                    <div style="flex:1;min-width:0;">
+                        <div class="dash-item-title">${(p.nombre||'').replace(/</g,'&lt;')}</div>
+                        <div class="dash-item-sub">${p.codigo_proveedor} · ${p.promocionales_proveedores?.nombre || '—'}</div>
+                    </div>
+                    <span class="dash-item-badge" style="background:#fee2e2;color:#991b1b;">${p.stock} u</span>
+                </div>`;
+            });
+        }
+        if (sinStock.count) {
+            html += `<div class="dash-item" onclick="switchTab('admin');setTimeout(()=>switchAdminTab('promoproductos'),100)" style="background:#fef2f2;border-color:#fca5a5;">
+                <span style="font-size:1.1rem;">🚫</span>
+                <div style="flex:1;">
+                    <div class="dash-item-title">${sinStock.count} productos sin stock</div>
+                    <div class="dash-item-sub">Desactivar o reponer</div>
+                </div>
+            </div>`;
+        }
+        cont.innerHTML = html || '<div class="dash-empty">Todo en orden 👌</div>';
+    }
+
+    async function dashCargarProformasPendientes() {
+        const cont = document.getElementById('dashProfPendLista');
+        const badge = document.getElementById('dashProfPendContador');
+        const { data } = await db.from('proformas')
+            .select('id, numero, estado, fecha, clientes(nombre)')
+            .in('estado', ['borrador','enviada'])
+            .order('fecha', {ascending: false}).limit(10);
+        const items = data || [];
+        badge.textContent = items.length > 0 ? `(${items.length})` : '';
+        if (!items.length) { cont.innerHTML = '<div class="dash-empty">Sin proformas pendientes</div>'; return; }
+        cont.innerHTML = items.map(p => {
+            const bg = p.estado === 'enviada' ? '#fef3c7' : '#e0e7ff';
+            const fg = p.estado === 'enviada' ? '#92400e' : '#3730a3';
+            return `<div class="dash-item" onclick="switchTab('proformas');setTimeout(()=>abrirProforma(${p.id}),400)">
+                <div style="flex:1;min-width:0;">
+                    <div class="dash-item-title">Proforma #${p.numero}</div>
+                    <div class="dash-item-sub">${(p.clientes?.nombre||'Sin cliente').replace(/</g,'&lt;')} · ${new Date(p.fecha).toLocaleDateString('es-EC')}</div>
+                </div>
+                <span class="dash-item-badge" style="background:${bg};color:${fg};">${p.estado}</span>
+            </div>`;
+        }).join('');
+    }
+
+    async function dashCargarOrdenesActivas() {
+        const cont = document.getElementById('dashOrdenesLista');
+        const { data } = await db.from('ordenes_produccion')
+            .select('id, numero, estado, fecha_creacion, clientes(nombre), proforma_id, orden_tareas(estado)')
+            .not('estado', 'in', '(finalizada,entregada,cancelada)')
+            .order('fecha_creacion', {ascending: false}).limit(10);
+        const items = data || [];
+        if (!items.length) { cont.innerHTML = '<div class="dash-empty">Sin órdenes activas</div>'; return; }
+        cont.innerHTML = items.map(o => {
+            const tareas = o.orden_tareas || [];
+            const total = tareas.length;
+            const comp = tareas.filter(t => t.estado === 'completado' || t.estado === 'saltado').length;
+            const pct = total > 0 ? Math.round(comp / total * 100) : 0;
+            return `<div class="dash-item" onclick="switchTab('ordenes');setTimeout(()=>abrirOrden(${o.id}),400)">
+                <div style="flex:1;min-width:0;">
+                    <div class="dash-item-title">Orden #${o.numero} · ${(o.clientes?.nombre||'—').replace(/</g,'&lt;')}</div>
+                    <div class="dash-bar" style="margin-top:0.2rem;">
+                        <div class="dash-bar-fill-bg" style="flex:1;"><div class="dash-bar-fill" style="width:${pct}%;"></div></div>
+                        <span class="dash-bar-val" style="font-size:0.7rem;">${comp}/${total}</span>
+                    </div>
+                </div>
+                <span class="dash-item-badge" style="background:#dbeafe;color:#1e40af;">${o.estado}</span>
+            </div>`;
+        }).join('');
+    }
+
+    async function dashCargarReportes() {
+        const meses = +document.getElementById('dashReportePeriodo').value || 6;
+        const now = new Date();
+        const desde = new Date(now.getFullYear(), now.getMonth() - meses + 1, 1);
+        const { data: profs } = await db.from('proformas')
+            .select('id, numero, fecha, estado, clientes(nombre), proforma_items(cantidad, precio_unitario, metodo_impresion)')
+            .gte('fecha', desde.toISOString())
+            .eq('estado', 'aprobada');
+        const arr = profs || [];
+
+        // Ventas por mes
+        const porMes = {};
+        for (let i = 0; i < meses; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - (meses-1-i), 1);
+            const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+            porMes[key] = { total: 0, cant: 0, label: d.toLocaleDateString('es-EC', {month:'short'}) };
+        }
+        let totalPeriodo = 0;
+        arr.forEach(p => {
+            const d = new Date(p.fecha);
+            const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+            if (!porMes[key]) return;
+            const sub = (p.proforma_items||[]).reduce((s, it) => s + (+it.cantidad||0)*(+it.precio_unitario||0), 0);
+            porMes[key].total += sub;
+            porMes[key].cant += 1;
+            totalPeriodo += sub;
+        });
+
+        dashDibujarVentasChart(porMes);
+        document.getElementById('dashVentasTotal').textContent = `Total ${meses} meses: $${fmtN(totalPeriodo, 2)} · ${arr.length} proformas aprobadas`;
+
+        // Por metodo
+        const metodos = {};
+        arr.forEach(p => {
+            (p.proforma_items||[]).forEach(it => {
+                const m = it.metodo_impresion || 'otro';
+                const v = (+it.cantidad||0)*(+it.precio_unitario||0);
+                metodos[m] = (metodos[m] || 0) + v;
+            });
+        });
+        const mEntries = Object.entries(metodos).sort((a,b) => b[1]-a[1]);
+        const mMax = Math.max(1, ...mEntries.map(e => e[1]));
+        const metodoColors = {offset:'#7c3aed', digital:'#0369a1', gigantografia:'#0891b2', promocional:'#059669', otro:'#6b7280'};
+        const metodoLabels = {offset:'Offset', digital:'Digital', gigantografia:'Gigantografía', promocional:'Promocionales', otro:'Otros'};
+        document.getElementById('dashPorMetodo').innerHTML = mEntries.map(([k, v]) => `
+            <div class="dash-bar">
+                <span class="dash-bar-label">${metodoLabels[k] || k}</span>
+                <div class="dash-bar-fill-bg"><div class="dash-bar-fill" style="width:${(v/mMax*100).toFixed(1)}%;background:${metodoColors[k] || '#6b7280'};"></div></div>
+                <span class="dash-bar-val">$${fmtN(v, 0)}</span>
+            </div>
+        `).join('') || '<div class="dash-empty" style="padding:0.75rem;">Sin datos</div>';
+
+        // Top clientes
+        const clients = {};
+        arr.forEach(p => {
+            const nombre = p.clientes?.nombre || '— sin cliente —';
+            const sub = (p.proforma_items||[]).reduce((s, it) => s + (+it.cantidad||0)*(+it.precio_unitario||0), 0);
+            clients[nombre] = (clients[nombre] || 0) + sub;
+        });
+        const topClients = Object.entries(clients).sort((a,b) => b[1]-a[1]).slice(0, 10);
+        const cMax = Math.max(1, ...topClients.map(e => e[1]));
+        document.getElementById('dashTopClientes').innerHTML = topClients.map(([k, v]) => `
+            <div class="dash-bar">
+                <span class="dash-bar-label" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${k.replace(/</g,'&lt;')}</span>
+                <div class="dash-bar-fill-bg"><div class="dash-bar-fill" style="width:${(v/cMax*100).toFixed(1)}%;"></div></div>
+                <span class="dash-bar-val">$${fmtN(v, 0)}</span>
+            </div>
+        `).join('') || '<div class="dash-empty" style="padding:0.75rem;">Sin datos</div>';
+    }
+
+    function dashDibujarVentasChart(porMes) {
+        const cv = document.getElementById('dashVentasChart');
+        if (!cv) return;
+        const ctx = cv.getContext('2d');
+        const cssW = cv.clientWidth || 600;
+        const cssH = 220;
+        const dpr = window.devicePixelRatio || 1;
+        cv.width = cssW * dpr; cv.height = cssH * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssW, cssH);
+        const keys = Object.keys(porMes);
+        if (!keys.length) return;
+        const max = Math.max(1, ...keys.map(k => porMes[k].total));
+        const pad = { l: 50, r: 10, t: 20, b: 30 };
+        const w = cssW - pad.l - pad.r;
+        const h = cssH - pad.t - pad.b;
+        const bw = w / keys.length;
+        // ejes
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.t + h * (i / 4);
+            ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(cssW - pad.r, y); ctx.stroke();
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = '10px -apple-system, system-ui, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('$' + fmtN(max * (1 - i/4), 0), pad.l - 4, y + 3);
+        }
+        // barras
+        keys.forEach((k, i) => {
+            const v = porMes[k].total;
+            const bh = (v / max) * h;
+            const x = pad.l + i * bw + bw * 0.15;
+            const y = pad.t + h - bh;
+            const bwFill = bw * 0.7;
+            ctx.fillStyle = '#0891b2';
+            ctx.fillRect(x, y, bwFill, bh);
+            if (v > 0) {
+                ctx.fillStyle = '#0e7490';
+                ctx.font = 'bold 10px -apple-system, system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('$' + fmtN(v, 0), x + bwFill/2, y - 4);
+            }
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '10px -apple-system, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(porMes[k].label, x + bwFill/2, cssH - pad.b + 14);
+        });
+    }
+
+    // =====================================================
     // GIGANTOGRAFIA (VersaExpress RF-640)
     // =====================================================
     const GIGA_ANCHO_MAX_CM = 160;
@@ -9325,7 +9874,10 @@
                 <td style="text-align:center;"><input type="checkbox" ${r.inventario_activo ? 'checked' : ''} onchange="gigaRolloUpdate(${i},'inventario_activo',this.checked)"></td>
                 <td style="text-align:center;"><input type="checkbox" ${r.activo ? 'checked' : ''} onchange="gigaRolloUpdate(${i},'activo',this.checked)"></td>
                 <td><input type="text" value="${(r.factura||'').replace(/"/g,'&quot;')}" style="width:120px" onchange="gigaRolloUpdate(${i},'factura',this.value)" placeholder="# factura"></td>
-                <td><button class="btn btn-danger btn-sm" onclick="gigaRolloDelete(${i})">X</button></td>
+                <td style="white-space:nowrap;">
+                    <button class="btn btn-secondary btn-sm" style="padding:0.2rem 0.4rem;font-size:0.7rem;" title="Historial" onclick="verConsumosRollo(${r.id})">📜</button>
+                    <button class="btn btn-danger btn-sm" onclick="gigaRolloDelete(${i})">X</button>
+                </td>
             </tr>`;
         }).join('');
     }
@@ -9863,7 +10415,10 @@
                 <td><input type="number" step="1" value="${+p.stock}" style="width:70px" onchange="promoProdUpdate(${idx},'stock',+this.value)"></td>
                 <td style="font-size:0.72rem;color:#0369a1;">${tecStr}</td>
                 <td style="text-align:center;"><input type="checkbox" ${p.activo ? 'checked' : ''} onchange="promoProdUpdate(${idx},'activo',this.checked)"></td>
-                <td><button class="btn btn-danger btn-sm" onclick="promoProdDelete(${idx})">X</button></td>
+                <td style="white-space:nowrap;">
+                    <button class="btn btn-secondary btn-sm" style="padding:0.2rem 0.4rem;font-size:0.7rem;" title="Historial" onclick="verConsumosProducto(${p.id})">📜</button>
+                    <button class="btn btn-danger btn-sm" onclick="promoProdDelete(${idx})">X</button>
+                </td>
             </tr>`;
         }).join('') || '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--gray-400);">Sin resultados</td></tr>';
 
