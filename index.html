@@ -3518,6 +3518,7 @@
                 <button class="admin-tab-btn" onclick="switchAdminTab('promoproveedores')">Promo Proveedores</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('promoproductos')">Promo Productos</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('promotecnicas')">Promo Tecnicas</button>
+                <button class="admin-tab-btn" onclick="switchAdminTab('contifico')">Contifico Sync</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('parametros')">Parametros</button>
                 <button class="admin-tab-btn" onclick="switchAdminTab('staff')">Equipo</button>
             </div>
@@ -3749,6 +3750,48 @@
                             <thead><tr><th>Código</th><th>Nombre</th><th>Precio default ($)</th><th>Descripción</th><th>Orden</th><th>Activo</th><th></th></tr></thead>
                             <tbody id="promoTecnicasBody"></tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contifico Sync -->
+            <div id="admin-contifico" class="admin-content">
+                <div class="panel">
+                    <div class="panel-header">Sincronización con Contifico</div>
+                    <div class="panel-body">
+                        <p class="text-sm text-muted" style="margin-bottom:0.75rem;">Importa productos, clientes y proveedores desde tu cuenta de Contifico. Los registros existentes se actualizan (match por contifico_id o RFC/cédula).</p>
+
+                        <div id="contSyncEstado" style="margin-bottom:0.75rem;"></div>
+
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:0.75rem;margin-bottom:1rem;">
+                            <div class="panel" style="box-shadow:none;border:1px solid var(--gray-200);">
+                                <div class="panel-body" style="padding:0.75rem;">
+                                    <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.3rem;">📦 Productos</div>
+                                    <div style="font-size:0.72rem;color:var(--gray-500);margin-bottom:0.5rem;" id="contSyncProductosInfo">—</div>
+                                    <button class="btn btn-primary btn-sm" style="width:100%;" onclick="contificoSync('productos')">Sincronizar productos</button>
+                                </div>
+                            </div>
+                            <div class="panel" style="box-shadow:none;border:1px solid var(--gray-200);">
+                                <div class="panel-body" style="padding:0.75rem;">
+                                    <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.3rem;">👥 Clientes</div>
+                                    <div style="font-size:0.72rem;color:var(--gray-500);margin-bottom:0.5rem;" id="contSyncClientesInfo">—</div>
+                                    <button class="btn btn-primary btn-sm" style="width:100%;" onclick="contificoSync('clientes')">Sincronizar clientes</button>
+                                </div>
+                            </div>
+                            <div class="panel" style="box-shadow:none;border:1px solid var(--gray-200);">
+                                <div class="panel-body" style="padding:0.75rem;">
+                                    <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.3rem;">🏢 Proveedores</div>
+                                    <div style="font-size:0.72rem;color:var(--gray-500);margin-bottom:0.5rem;" id="contSyncProveedoresInfo">—</div>
+                                    <button class="btn btn-primary btn-sm" style="width:100%;" onclick="contificoSync('proveedores')">Sincronizar proveedores</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-success btn-sm" onclick="contificoSyncTodo()">▶ Sincronizar todo</button>
+
+                        <div class="separator"></div>
+                        <h4 style="font-size:0.85rem;color:var(--gray-700);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Últimas sincronizaciones</h4>
+                        <div id="contSyncHistorial" style="max-height:300px;overflow-y:auto;"></div>
                     </div>
                 </div>
             </div>
@@ -4812,6 +4855,7 @@
         if (tab === 'promoproveedores') promoProveedoresAdminLoad();
         if (tab === 'promoproductos') promoProductosAdminLoad();
         if (tab === 'promotecnicas') promoTecnicasAdminLoad();
+        if (tab === 'contifico') contificoAdminLoad();
     }
 
     // =====================================================
@@ -8731,6 +8775,126 @@
 
         switchTab('proformas');
         renderProformaItems();
+    }
+
+    // =====================================================
+    // CONTIFICO SYNC (productos + clientes + proveedores)
+    // =====================================================
+    const CONTIFICO_PROXY_URL = 'https://ekrdnfecegwfavdgtgsa.supabase.co/functions/v1/contifico-proxy';
+
+    async function _contificoApiKey() {
+        const { data } = await db.from('config').select('valor').eq('clave', 'contifico_api_key').maybeSingle();
+        return data ? data.valor : null;
+    }
+
+    async function _contificoFetch(endpoint) {
+        const apiKey = await _contificoApiKey();
+        if (!apiKey) throw new Error('API Key de Contifico no configurada (tabla config)');
+        const resp = await fetch(CONTIFICO_PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+            body: JSON.stringify({ endpoint, apiKey })
+        });
+        if (!resp.ok) throw new Error('Proxy error ' + resp.status + ': ' + await resp.text());
+        return await resp.json();
+    }
+
+    async function contificoAdminLoad() {
+        // Mostrar estado actual
+        await contificoActualizarInfo();
+        await contificoCargarHistorial();
+    }
+
+    async function contificoActualizarInfo() {
+        const [prodCont, cli, prov] = await Promise.all([
+            db.from('productos_contifico').select('id, sync_at', {count:'exact'}).order('sync_at', {ascending:false}).limit(1),
+            db.from('clientes').select('id, sync_contifico_at', {count:'exact'}).eq('es_cliente', true).order('sync_contifico_at', {ascending:false, nullsFirst:false}).limit(1),
+            db.from('clientes').select('id, sync_contifico_at', {count:'exact'}).eq('es_proveedor', true).order('sync_contifico_at', {ascending:false, nullsFirst:false}).limit(1)
+        ]);
+        const fmtFecha = d => d ? new Date(d).toLocaleString('es-EC') : 'nunca';
+        document.getElementById('contSyncProductosInfo').innerHTML = `${prodCont.count || 0} productos · Última sync: ${fmtFecha(prodCont.data?.[0]?.sync_at)}`;
+        document.getElementById('contSyncClientesInfo').innerHTML = `${cli.count || 0} clientes · Última sync: ${fmtFecha(cli.data?.[0]?.sync_contifico_at)}`;
+        document.getElementById('contSyncProveedoresInfo').innerHTML = `${prov.count || 0} proveedores · Última sync: ${fmtFecha(prov.data?.[0]?.sync_contifico_at)}`;
+    }
+
+    async function contificoCargarHistorial() {
+        const { data } = await db.from('contifico_sync_log').select('*').order('inicio', {ascending:false}).limit(12);
+        const items = data || [];
+        if (!items.length) {
+            document.getElementById('contSyncHistorial').innerHTML = '<div style="padding:1rem;color:var(--gray-400);text-align:center;font-size:0.85rem;">Sin sincronizaciones todavía</div>';
+            return;
+        }
+        document.getElementById('contSyncHistorial').innerHTML = `<table class="data-table" style="font-size:0.8rem;">
+            <thead><tr><th>Fecha</th><th>Tipo</th><th>Nuevos</th><th>Actualizados</th><th>Estado</th></tr></thead>
+            <tbody>${items.map(l => `<tr>
+                <td>${new Date(l.inicio).toLocaleString('es-EC')}</td>
+                <td style="text-transform:capitalize;">${l.tipo}</td>
+                <td style="color:#15803d;font-weight:600;">${l.registros_nuevos || 0}</td>
+                <td style="color:#0891b2;">${l.registros_actualizados || 0}</td>
+                <td>${l.error_mensaje ? '<span style="color:#dc2626;">❌ '+l.error_mensaje.substring(0,60)+'</span>' : '<span style="color:#15803d;">✅</span>'}</td>
+            </tr>`).join('')}</tbody></table>`;
+    }
+
+    async function contificoSync(tipo) {
+        const estadoEl = document.getElementById('contSyncEstado');
+        const setStatus = (txt, color='#0891b2') => {
+            estadoEl.innerHTML = `<div style="padding:0.6rem 0.85rem;background:#ecfeff;border:1px solid #67e8f9;border-radius:6px;font-size:0.85rem;color:${color};">${txt}</div>`;
+        };
+        const setError = (txt) => {
+            estadoEl.innerHTML = `<div style="padding:0.6rem 0.85rem;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;font-size:0.85rem;color:#991b1b;">⚠️ ${txt}</div>`;
+        };
+        try {
+            if (tipo === 'productos') {
+                setStatus('🔄 Descargando productos desde Contifico...');
+                const prods = await _contificoFetch('producto/');
+                const arr = Array.isArray(prods) ? prods : (prods.results || []);
+                setStatus(`⏳ Procesando ${arr.length} productos...`);
+                // Upsert en batches de 200
+                let nuevos = 0, actualizados = 0;
+                for (let i = 0; i < arr.length; i += 200) {
+                    const { data, error } = await db.rpc('contifico_upsert_productos', { productos: arr.slice(i, i+200) });
+                    if (error) throw error;
+                    nuevos += data?.nuevos || 0;
+                    actualizados += data?.actualizados || 0;
+                    setStatus(`⏳ ${Math.min(i+200, arr.length)} / ${arr.length} productos...`);
+                }
+                await db.rpc('contifico_log_sync', { p_tipo: 'productos', p_nuevos: nuevos, p_actualizados: actualizados });
+                setStatus(`✅ Productos sincronizados: ${nuevos} nuevos, ${actualizados} actualizados`, '#15803d');
+            } else if (tipo === 'clientes' || tipo === 'proveedores') {
+                setStatus(`🔄 Descargando ${tipo} desde Contifico...`);
+                const filtro = tipo === 'clientes' ? 'persona/?tipo=N,J&es_cliente=true' : 'persona/?tipo=N,J&es_proveedor=true';
+                // Contifico API v1 acepta filtros en query string.
+                const personas = await _contificoFetch(filtro);
+                const arr = Array.isArray(personas) ? personas : (personas.results || []);
+                setStatus(`⏳ Procesando ${arr.length} ${tipo}...`);
+                let nuevos = 0, actualizados = 0;
+                for (let i = 0; i < arr.length; i += 200) {
+                    const { data, error } = await db.rpc('contifico_upsert_personas', { personas: arr.slice(i, i+200) });
+                    if (error) throw error;
+                    nuevos += data?.nuevos || 0;
+                    actualizados += data?.actualizados || 0;
+                    setStatus(`⏳ ${Math.min(i+200, arr.length)} / ${arr.length} ${tipo}...`);
+                }
+                await db.rpc('contifico_log_sync', { p_tipo: tipo, p_nuevos: nuevos, p_actualizados: actualizados });
+                setStatus(`✅ ${tipo}: ${nuevos} nuevos, ${actualizados} actualizados`, '#15803d');
+            } else {
+                setError('Tipo desconocido: ' + tipo);
+                return;
+            }
+            await contificoActualizarInfo();
+            await contificoCargarHistorial();
+        } catch (e) {
+            setError(e.message || e);
+            await db.rpc('contifico_log_sync', { p_tipo: tipo, p_nuevos: 0, p_actualizados: 0, p_error: (e.message || String(e)).substring(0, 300) });
+            contificoCargarHistorial();
+        }
+    }
+
+    async function contificoSyncTodo() {
+        if (!confirm('Se sincronizarán productos, clientes y proveedores de Contifico. Puede tardar 1-2 minutos. ¿Continuar?')) return;
+        await contificoSync('productos');
+        await contificoSync('clientes');
+        await contificoSync('proveedores');
     }
 
     // =====================================================
