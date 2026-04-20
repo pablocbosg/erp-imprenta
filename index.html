@@ -2619,8 +2619,8 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Markup sobre costo %</label>
-                            <input type="number" id="promoMarkup" step="1" min="0" max="200" value="35" oninput="promoCalcular()" style="font-weight:700;border-color:#0891b2;">
+                            <label>Margen sobre venta %</label>
+                            <input type="number" id="promoMarkup" step="1" min="0" max="99" value="35" oninput="promoCalcular()" style="font-weight:700;border-color:#0891b2;">
                         </div>
                         <div class="form-group">
                             <label>Descuento %</label>
@@ -2640,7 +2640,7 @@
                             <div class="cost-row" id="promoCostoImpRow"><span class="cost-label"><span id="promoCostoImpLabel">Impresión</span></span><span class="cost-value">$<span id="promoCostoImp">0,00</span></span></div>
                             <div class="cost-row subtotal"><span class="cost-label">Costo total</span><span class="cost-value">$<span id="promoCostoTotal">0,00</span></span></div>
                             <div class="separator"></div>
-                            <div class="cost-row"><span class="cost-label">Utilidad (<span id="promoMarkupDisp">35</span>%)</span><span class="cost-value" style="color:#15803d;">$<span id="promoUtilidad">0,00</span></span></div>
+                            <div class="cost-row"><span class="cost-label">Utilidad (margen <span id="promoMarkupDisp">35</span>%)</span><span class="cost-value" style="color:#15803d;">$<span id="promoUtilidad">0,00</span></span></div>
                             <div class="cost-row subtotal"><span class="cost-label">Subtotal sin IVA</span><span class="cost-value">$<span id="promoSubtotalSinIVA">0,00</span></span></div>
                             <div class="cost-row" id="promoDescRow" style="display:none;color:#dc2626;"><span class="cost-label">Descuento <span id="promoDescPct">0</span>%</span><span class="cost-value">-$<span id="promoDescMonto">0,00</span></span></div>
                             <div class="cost-row"><span class="cost-label">IVA <span id="promoIvaPct">15</span>%</span><span class="cost-value">$<span id="promoMontoIVA">0,00</span></span></div>
@@ -9485,9 +9485,10 @@
         const costoImp = precioImpUnit * cantidad;
         const costoTotal = costoProd + costoImp;
 
-        const markup = parseFloat(document.getElementById('promoMarkup').value) || 0;
-        const utilidad = costoTotal * (markup / 100);
-        const subtotalSinIVA = costoTotal + utilidad;
+        const margenPct = parseFloat(document.getElementById('promoMarkup').value) || 0;
+        // Margen sobre venta: precio = costo / (1 - margen/100)
+        const subtotalSinIVA = margenPct < 100 ? costoTotal / (1 - margenPct / 100) : costoTotal;
+        const utilidad = subtotalSinIVA - costoTotal;
 
         const descPct = parseFloat(document.getElementById('promoDescuento').value) || 0;
         const descMonto = subtotalSinIVA * (descPct / 100);
@@ -9497,7 +9498,8 @@
         const montoIVA = subtotalDesc * (ivaPct / 100);
         const totalConIVA = subtotalDesc + montoIVA;
         const precioUnit = cantidad > 0 ? subtotalDesc / cantidad : 0;
-        const margenVenta = subtotalDesc > 0 ? (utilidad - descMonto) / subtotalDesc * 100 : 0;
+        const utilidadFinal = subtotalDesc - costoTotal;
+        const margenVenta = subtotalDesc > 0 ? utilidadFinal / subtotalDesc * 100 : 0;
 
         // Render
         document.getElementById('promoCantDisp').textContent = cantidad;
@@ -9509,7 +9511,7 @@
         document.getElementById('promoCostoImp').textContent = fmtN(costoImp, 2);
         document.getElementById('promoCostoTotal').textContent = fmtN(costoTotal, 2);
         document.getElementById('promoUtilidad').textContent = fmtN(utilidad, 2);
-        document.getElementById('promoMarkupDisp').textContent = markup;
+        document.getElementById('promoMarkupDisp').textContent = margenPct;
         document.getElementById('promoSubtotalSinIVA').textContent = fmtN(subtotalSinIVA, 2);
         if (descPct > 0) {
             document.getElementById('promoDescRow').style.display = '';
@@ -9563,7 +9565,7 @@
             tecnica: sinImp ? null : (tec ? { codigo: tec.codigo, nombre: tec.nombre, precio_default: +tec.precio_default } : null),
             precio_impresion_unit: sinImp ? 0 : parseFloat(document.getElementById('promoPrecioImpresion').value) || 0,
             sin_impresion: sinImp,
-            markup_pct: parseFloat(document.getElementById('promoMarkup').value) || 0,
+            margen_venta_pct: parseFloat(document.getElementById('promoMarkup').value) || 0,
             descuento_pct: parseFloat(document.getElementById('promoDescuento').value) || 0,
             iva_pct: parseFloat(document.getElementById('promoIVA').value) || 0,
             costo_total: parseFloat(document.getElementById('promoCostoTotal').textContent.replace(',', '.')) || 0,
