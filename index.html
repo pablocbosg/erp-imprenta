@@ -3266,6 +3266,7 @@
                                     <th>Precio venta ($)</th>
                                     <th>Costo real ($)</th>
                                     <th>Margen %</th>
+                                    <th>Hereda rollos de</th>
                                     <th>Activo</th>
                                     <th></th>
                                 </tr>
@@ -8963,17 +8964,29 @@
 
     // ===== Admin Materiales Gigantografia =====
     async function gigaAdminLoad() {
-        await gigaLoadMateriales({ force: true });
+        await Promise.all([gigaLoadMateriales({ force: true }), gigaLoadRollos({ force: true })]);
         gigaAdminRender();
     }
 
     function gigaAdminRender() {
         const tbody = document.getElementById('gigaMaterialesBody');
         if (!tbody) return;
+        // Materiales que tienen rollos propios (candidatos para herencia)
+        const matsConRollos = gigaMaterialesCache.filter(m =>
+            m.tipo === 'm2' && gigaRollosCache.some(r => r.material_id === m.id)
+        );
         tbody.innerHTML = gigaMaterialesCache.map((m, i) => {
             const pv = +m.precio_venta, cr = +m.costo_real;
             const margen = pv > 0 && cr > 0 ? (((pv - cr) / pv) * 100).toFixed(1) : '-';
             const margenColor = margen === '-' ? 'var(--gray-400)' : (+margen < 15 ? '#dc2626' : (+margen < 30 ? '#d97706' : '#15803d'));
+            const heredaSelect = m.tipo === 'm2' ? `
+                <select style="width:140px" onchange="gigaAdminUpdate(${i},'rollo_de_material_id',this.value === '' ? null : +this.value)">
+                    <option value="">— propios —</option>
+                    ${matsConRollos.filter(x => x.id !== m.id).map(x =>
+                        `<option value="${x.id}" ${m.rollo_de_material_id === x.id ? 'selected' : ''}>${x.nombre}</option>`
+                    ).join('')}
+                </select>
+            ` : '<span style="color:var(--gray-400);font-size:0.75rem;">—</span>';
             return `<tr style="${m.activo ? '' : 'opacity:0.5;'}">
                 <td><input type="text" value="${(m.nombre || '').replace(/"/g, '&quot;')}" onchange="gigaAdminUpdate(${i},'nombre',this.value)"></td>
                 <td><select style="width:120px" onchange="gigaAdminUpdate(${i},'tipo',this.value)">
@@ -8986,6 +8999,7 @@
                 <td><input type="number" value="${pv}" step="0.01" min="0" style="width:85px" onchange="gigaAdminUpdate(${i},'precio_venta',+this.value)"></td>
                 <td><input type="number" value="${cr}" step="0.01" min="0" style="width:85px" onchange="gigaAdminUpdate(${i},'costo_real',+this.value)"></td>
                 <td style="color:${margenColor};font-weight:600;">${margen === '-' ? '-' : margen + '%'}</td>
+                <td>${heredaSelect}</td>
                 <td style="text-align:center;"><input type="checkbox" ${m.activo ? 'checked' : ''} onchange="gigaAdminUpdate(${i},'activo',this.checked)"></td>
                 <td><button class="btn btn-danger btn-sm" onclick="gigaAdminDelete(${i})">X</button></td>
             </tr>`;
