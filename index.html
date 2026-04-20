@@ -62,6 +62,9 @@
         .promo-card-stock.sin { color:#991b1b; font-weight:600; }
         .promo-card-tec { display:flex; gap:0.2rem; flex-wrap:wrap; margin-top:0.3rem; }
         .promo-chip { font-size:0.62rem; background:#e0f2fe; color:#0369a1; padding:0.1rem 0.35rem; border-radius:3px; text-transform:uppercase; letter-spacing:0.5px; }
+        .proforma-locked input:not([type="checkbox"]), .proforma-locked select, .proforma-locked textarea { pointer-events:none; background:#f8fafc !important; color:#6b7280; }
+        .proforma-locked .btn-hide-on-lock, .proforma-locked button.btn-primary, .proforma-locked button.btn-success, .proforma-locked .btn-add-proforma { display:none !important; }
+        .proforma-locked .item-row-edit, .proforma-locked .btn-eliminar-item { display:none !important; }
 
         /* Panels */
         .panel { background: white; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
@@ -2762,6 +2765,16 @@
                         <button class="btn btn-sm" style="background:#6366f1;color:#fff;" onclick="duplicarProforma()">⊕ Duplicar</button>
                         <button id="btnCrearOrden" class="btn btn-sm" style="background:#059669;color:#fff;display:none;" onclick="crearOrdenProduccion()">▶ Crear Orden de Produccion</button>
                     </div>
+                </div>
+
+                <!-- Banner bloqueo (proforma ya tiene orden creada) -->
+                <div id="proformaLockBanner" class="no-print" style="display:none;background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.9rem;color:#92400e;display:none;align-items:center;gap:0.75rem;">
+                    <span style="font-size:1.25rem;">🔒</span>
+                    <div style="flex:1;">
+                        <strong>Proforma bloqueada para edición.</strong>
+                        <span id="proformaLockDetalle"></span>
+                    </div>
+                    <button id="proformaUnlockBtn" class="btn btn-sm" style="border:1px solid #fbbf24;background:white;color:#92400e;" onclick="desbloquearProforma()">Desbloquear igual</button>
                 </div>
 
                 <!-- Cliente -->
@@ -8053,10 +8066,12 @@
             .eq('id', id).single();
         if (error) { alert('Error: ' + error.message); return; }
 
-        const { data: items } = await db.from('proforma_items')
-            .select('*').eq('proforma_id', id).order('orden');
+        const [{ data: items }, { data: ordenInfo }] = await Promise.all([
+            db.from('proforma_items').select('*').eq('proforma_id', id).order('orden'),
+            db.from('ordenes_produccion').select('id, numero, estado').eq('proforma_id', id).maybeSingle()
+        ]);
 
-        proformaActiva = { ...prof, items: items || [] };
+        proformaActiva = { ...prof, items: items || [], orden_vinculada: ordenInfo || null };
 
         // Switch to editor view
         document.getElementById('proformasLista').style.display = 'none';
@@ -8084,6 +8099,7 @@
         // Fill items
         renderProformaItems();
         updateAddToProformaBtn();
+        aplicarBloqueoProforma();
     }
 
     function mostrarClienteProforma(c) {
@@ -8202,8 +8218,13 @@
         document.getElementById('profTotal').textContent = fmtN(total, 2);
     }
 
+    function _proformaBloqueada() {
+        return proformaActiva && proformaActiva.orden_vinculada && !proformaActiva._unlock_override;
+    }
+
     function agregarItemDesdeEditor() {
         if (!proformaActiva) return;
+        if (_proformaBloqueada()) { alert('Proforma bloqueada por orden #' + proformaActiva.orden_vinculada.numero); return; }
         proformaActiva.items.push({
             orden: proformaActiva.items.length + 1,
             codigo: '',
@@ -8218,6 +8239,7 @@
 
     function eliminarItemProforma(index) {
         if (!proformaActiva) return;
+        if (_proformaBloqueada()) { alert('Proforma bloqueada por orden #' + proformaActiva.orden_vinculada.numero); return; }
         proformaActiva.items.splice(index, 1);
         proformaActiva.items.forEach((it, i) => it.orden = i + 1);
         renderProformaItems();
@@ -10400,6 +10422,11 @@
 
     async function guardarProforma() {
         if (!proformaActiva) return;
+        // Bloqueo: no permitir guardar si hay orden vinculada y no se hizo override
+        if (proformaActiva.orden_vinculada && !proformaActiva._unlock_override) {
+            alert('Esta proforma tiene la orden #' + proformaActiva.orden_vinculada.numero + ' vinculada. Desbloqueá primero para guardar cambios.');
+            return;
+        }
 
         // Update proforma record
         const { error: profErr } = await db.from('proformas').update({
@@ -10520,7 +10547,47 @@
     function actualizarBotonCrearOrden() {
         const btn = document.getElementById('btnCrearOrden');
         if (!btn) return;
-        btn.style.display = (proformaActiva && proformaActiva.estado === 'aprobada') ? 'inline-block' : 'none';
+        const bloqueada = proformaActiva && proformaActiva.orden_vinculada && !proformaActiva._unlock_override;
+        btn.style.display = (proformaActiva && proformaActiva.estado === 'aprobada' && !bloqueada) ? 'inline-block' : 'none';
+    }
+
+    function aplicarBloqueoProforma() {
+        const editor = document.getElementById('proformaEditor');
+        const banner = document.getElementById('proformaLockBanner');
+        const det = document.getElementById('proformaLockDetalle');
+        if (!editor || !banner) return;
+        const orden = proformaActiva && proformaActiva.orden_vinculada;
+        const bloquear = !!orden && !proformaActiva._unlock_override;
+        editor.classList.toggle('proforma-locked', bloquear);
+        banner.style.display = bloquear ? 'flex' : 'none';
+        if (bloquear && orden) {
+            det.innerHTML = ` Orden de producción #${orden.numero} en estado <strong>${orden.estado}</strong>. Los cambios pueden desincronizar la producción.`;
+        }
+        // Si la proforma esta desbloqueada pero tiene orden vinculada, mostrar aviso sutil
+        if (orden && proformaActiva._unlock_override && det) {
+            banner.style.display = 'flex';
+            banner.style.background = '#fee2e2';
+            banner.style.borderColor = '#fca5a5';
+            banner.style.color = '#991b1b';
+            det.innerHTML = ` Edición desbloqueada manualmente. Orden #${orden.numero} activa — guardá con cuidado.`;
+            document.getElementById('proformaUnlockBtn').textContent = 'Rebloquear';
+            document.getElementById('proformaUnlockBtn').onclick = () => { proformaActiva._unlock_override = false; aplicarBloqueoProforma(); };
+        } else {
+            banner.style.background = '#fef3c7';
+            banner.style.borderColor = '#fbbf24';
+            banner.style.color = '#92400e';
+            document.getElementById('proformaUnlockBtn').textContent = 'Desbloquear igual';
+            document.getElementById('proformaUnlockBtn').onclick = desbloquearProforma;
+        }
+    }
+
+    function desbloquearProforma() {
+        if (!proformaActiva || !proformaActiva.orden_vinculada) return;
+        const n = proformaActiva.orden_vinculada.numero;
+        if (!confirm(`¿Desbloquear la proforma? La orden #${n} ya está en producción. Cambios pueden desincronizarla.`)) return;
+        proformaActiva._unlock_override = true;
+        aplicarBloqueoProforma();
+        actualizarBotonCrearOrden();
     }
 
     // =====================================================
@@ -10612,20 +10679,36 @@
             }
         }
 
+        // Mapear a ids frescos de la DB (para ambos descuentos)
+        const freshByOrden = {};
+        (itemsFrescos || []).forEach(it => { freshByOrden[it.orden] = it; });
+
         // Descuento de inventario para items de gigantografia
         try {
             const itemsGiga = (proformaActiva.items || []).filter(it => it.metodo_impresion === 'gigantografia' && it.datos_cotizacion);
-            if (itemsGiga.length) {
-                // Mapear a ids frescos de la DB
-                const freshByOrden = {};
-                (itemsFrescos || []).forEach(it => { freshByOrden[it.orden] = it; });
-                for (const it of itemsGiga) {
-                    const fresh = freshByOrden[it.orden];
-                    const trabajoId = null; // se puede enriquecer con linkOrdenATrabajo
-                    await gigaDescontarInventario(it.datos_cotizacion, trabajoId, orden.id, fresh ? fresh.id : null);
-                }
+            for (const it of itemsGiga) {
+                const fresh = freshByOrden[it.orden];
+                await gigaDescontarInventario(it.datos_cotizacion, null, orden.id, fresh ? fresh.id : null);
             }
         } catch (e) { console.error('Error descontando inventario giga:', e); }
+
+        // Descuento de stock para items de promocionales
+        try {
+            const itemsPromo = (proformaActiva.items || []).filter(it => it.metodo_impresion === 'promocional' && it.datos_cotizacion);
+            for (const it of itemsPromo) {
+                const fresh = freshByOrden[it.orden];
+                const snap = it.datos_cotizacion;
+                const prodId = snap?.producto?.id;
+                const cantidad = +it.cantidad || 0;
+                if (prodId && cantidad > 0) {
+                    await db.rpc('promocionales_descontar_stock', {
+                        p_producto_id: prodId, p_cantidad: cantidad,
+                        p_orden_id: orden.id, p_trabajo_id: null,
+                        p_proforma_item_id: fresh ? fresh.id : null
+                    });
+                }
+            }
+        } catch (e) { console.error('Error descontando stock promocionales:', e); }
 
         // Linkar orden al trabajo correspondiente (si existe)
         try { await linkOrdenATrabajo(orden.id, proformaActiva.id); } catch (e) { console.error(e); }
@@ -10894,6 +10977,16 @@
         await db.from('orden_tareas').update(updates).eq('id', tareaId);
         Object.assign(tarea, updates);
         renderOrdenTareas();
+        // El trigger SQL auto-refresca el estado de la orden. Releer para sincronizar UI.
+        if (field === 'estado' && ordenActiva) {
+            const { data: ordenFresh } = await db.from('ordenes_produccion')
+                .select('estado').eq('id', ordenActiva.id).maybeSingle();
+            if (ordenFresh && ordenFresh.estado !== ordenActiva.estado) {
+                ordenActiva.estado = ordenFresh.estado;
+                const sel = document.getElementById('ordenEditorEstado');
+                if (sel) sel.value = ordenFresh.estado;
+            }
+        }
     }
 
     async function cambiarEstadoOrden() {
