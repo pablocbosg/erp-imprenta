@@ -8395,28 +8395,45 @@
     function gigaRenderAditivos() {
         const cont = document.getElementById('gigaAditivosList');
         if (!cont) return;
-        const aditivos = gigaMaterialesCache.filter(m => m.activo && ['aditivo_m2','aditivo_ml'].includes(m.tipo));
+        const matIdPrincipal = +document.getElementById('gigaMaterial').value;
+        // Aditivos: aditivo_m2, aditivo_ml, Y planchas rigidas (m2 de categoria "Plancha rigida")
+        // excluyendo el material principal para no duplicar
+        const aditivos = gigaMaterialesCache.filter(m =>
+            m.activo && m.id !== matIdPrincipal &&
+            (['aditivo_m2','aditivo_ml'].includes(m.tipo) || (m.tipo === 'm2' && m.categoria === 'Plancha rigida'))
+        );
         if (!aditivos.length) {
             cont.innerHTML = '<div style="font-size:0.8rem;color:var(--gray-400);">No hay aditivos configurados.</div>';
             return;
         }
-        cont.innerHTML = aditivos.map(a => {
-            const state = gigaAditivosSeleccionados[a.id] || {};
-            const checked = state.checked ? 'checked' : '';
-            const esML = a.tipo === 'aditivo_ml';
-            // aditivo_ml = auto-calculado del layout
-            const metersDisplay = esML ? `
-                <span style="font-size:0.78rem;color:#0e7490;font-weight:600;margin-left:0.5rem;">
-                    <span data-giga-ml-display="${a.id}">${(+state.meters || 0).toFixed(2)}</span> m lineales (auto)
-                </span>
-            ` : '';
-            const unit = esML ? '/m lineal' : '/m²';
-            return `<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-bottom:0.3rem;flex-wrap:wrap;">
-                <input type="checkbox" data-giga-aditivo="${a.id}" ${checked} onchange="gigaOnAditivoToggle(${a.id}, this.checked)">
-                ${a.nombre} <span style="color:var(--gray-500);font-size:0.78rem;">(+$${(+a.precio_venta).toFixed(2)}${unit})</span>
-                ${metersDisplay}
-            </label>`;
-        }).join('');
+        // Agrupar por categoria
+        const grupos = {};
+        aditivos.forEach(a => {
+            const cat = a.categoria || 'Otros';
+            (grupos[cat] = grupos[cat] || []).push(a);
+        });
+        let html = '';
+        Object.keys(grupos).forEach(cat => {
+            html += `<div style="font-size:0.72rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:0.5px;margin:0.5rem 0 0.25rem 0;">${cat}</div>`;
+            grupos[cat].forEach(a => {
+                const state = gigaAditivosSeleccionados[a.id] || {};
+                const checked = state.checked ? 'checked' : '';
+                const esML = a.tipo === 'aditivo_ml';
+                const esPlancha = a.tipo === 'm2' && a.categoria === 'Plancha rigida';
+                const metersDisplay = esML ? `
+                    <span style="font-size:0.78rem;color:#0e7490;font-weight:600;margin-left:0.5rem;">
+                        <span data-giga-ml-display="${a.id}">${(+state.meters || 0).toFixed(2)}</span> m lineales (auto)
+                    </span>` : '';
+                const unit = esML ? '/m lineal' : '/m²';
+                const hint = esPlancha ? ' <span style="font-size:0.7rem;color:#0e7490;">(se pega encima)</span>' : '';
+                html += `<label style="display:flex;align-items:center;gap:0.4rem;font-size:0.85rem;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer;margin-bottom:0.3rem;flex-wrap:wrap;">
+                    <input type="checkbox" data-giga-aditivo="${a.id}" ${checked} onchange="gigaOnAditivoToggle(${a.id}, this.checked)">
+                    ${a.nombre} <span style="color:var(--gray-500);font-size:0.78rem;">(+$${(+a.precio_venta).toFixed(2)}${unit})</span>${hint}
+                    ${metersDisplay}
+                </label>`;
+            });
+        });
+        cont.innerHTML = html;
     }
 
     function gigaOnAditivoToggle(id, checked) {
@@ -8450,18 +8467,23 @@
             document.getElementById('gigaPanelRollo').style.display = '';
             document.getElementById('gigaPanelUnidad').style.display = 'none';
             document.getElementById('gigaPanelAditivos').style.display = '';
+            gigaRenderAditivos();
             gigaCalc(); return;
         }
         const esM2 = mat.tipo === 'm2';
+        const esPlancha = mat.categoria === 'Plancha rigida';
         document.getElementById('gigaPanelM2').style.display = esM2 ? '' : 'none';
         document.getElementById('gigaPanelRollo').style.display = esM2 ? '' : 'none';
         document.getElementById('gigaPanelUnidad').style.display = esM2 ? 'none' : '';
         document.getElementById('gigaPanelAditivos').style.display = esM2 ? '' : 'none';
-        info.textContent = esM2
+        let infoTxt = esM2
             ? `Precio lista $${(+mat.precio_venta).toFixed(2)}/m²`
             : `Precio $${(+mat.precio_venta).toFixed(2)}/unidad`;
+        if (esPlancha) infoTxt += ' · plancha 120×240 cm (sin impresión directa)';
+        info.textContent = infoTxt;
         window._gigaManualPrecio = false;
         window._gigaRolloManual = false;
+        gigaRenderAditivos();
         gigaCalc();
     }
 
@@ -8492,7 +8514,9 @@
     function gigaEvaluarRollos(mat, piezaWcm, piezaHcm, cantidad, permitirRotar) {
         if (!mat) return [];
         const rollos = gigaRollosDelMaterial(mat.id);
-        const desp = (gigaConfig.desperdicio_inicio_cm || 0) + (gigaConfig.desperdicio_fin_cm || 0);
+        // Planchas rigidas no tienen desperdicio lineal (no es rollo continuo)
+        const esPlanchaRigida = mat.categoria === 'Plancha rigida';
+        const desp = esPlanchaRigida ? 0 : ((gigaConfig.desperdicio_inicio_cm || 0) + (gigaConfig.desperdicio_fin_cm || 0));
         const m2_utiles = (piezaWcm * piezaHcm * cantidad) / 10000;
 
         return rollos.map(r => {
@@ -8502,14 +8526,18 @@
             const largoNecesarioM = largoNecesarioCm / 100;
             const m2_facturados = (+r.ancho_cm / 100) * largoNecesarioM;
             const costoPorM2Rollo = +r.costo_rollo / ((+r.ancho_cm / 100) * +r.largo_total_m);
-            const costoMaterial = m2_facturados * costoPorM2Rollo;
-            const rendimiento = m2_utiles / m2_facturados;
+            // Plancha rigida: corte preciso, cobra solo m² útiles (sobrante se reutiliza)
+            // Rollo: cobra m² facturados (sobrante lateral se descarta)
+            const costoMaterial = esPlanchaRigida ? (m2_utiles * costoPorM2Rollo) : (m2_facturados * costoPorM2Rollo);
+            const rendimiento = esPlanchaRigida ? 1 : m2_utiles / m2_facturados;
             const cabeLargo = largoNecesarioM <= +r.largo_total_m;
             const cabeInventario = !r.inventario_activo || (+r.m2_restantes >= m2_facturados);
             return {
-                rollo: r, ok: true, pack, largoNecesarioCm, largoNecesarioM, m2_facturados, m2_utiles,
-                costoPorM2Rollo, costoMaterial, rendimiento, cabeLargo, cabeInventario,
-                desperdicio_cm: desp, desperdicio_m2: (+r.ancho_cm/100) * (desp/100)
+                rollo: r, ok: true, pack, largoNecesarioCm, largoNecesarioM,
+                m2_facturados: esPlanchaRigida ? m2_utiles : m2_facturados,
+                m2_utiles, costoPorM2Rollo, costoMaterial, rendimiento, cabeLargo, cabeInventario,
+                desperdicio_cm: desp, desperdicio_m2: (+r.ancho_cm/100) * (desp/100),
+                esPlanchaRigida
             };
         }).filter(x => x.ok && x.cabeLargo).sort((a, b) => a.m2_facturados - b.m2_facturados);
     }
@@ -8592,20 +8620,23 @@
                 document.getElementById('gigaRecomendacionInfo').style.display = 'none';
             }
 
-            // Tinta
-            const tintaMlPorM2 = gigaConfig.tinta_ml_por_m2_100pct * (cobertura / 100);
-            const costoTinta = tintaMlPorM2 * gigaConfig.tinta_costo_ml * area_util_total;
+            // Plancha rigida como material principal: no se imprime sobre ella (sin tinta/mant)
+            const matEsPlancha = mat.categoria === 'Plancha rigida';
 
-            // Mantenimiento: (mant_anual + cabezal/vida) / m2_anuales * m2_utiles
+            // Tinta (0 si es plancha rigida)
+            const tintaMlPorM2 = matEsPlancha ? 0 : gigaConfig.tinta_ml_por_m2_100pct * (cobertura / 100);
+            const costoTinta = matEsPlancha ? 0 : tintaMlPorM2 * gigaConfig.tinta_costo_ml * area_util_total;
+
+            // Mantenimiento (0 si es plancha rigida)
             const costoFijoAnual = (+gigaConfig.mantenimiento_anual) + ((+gigaConfig.cabezal_costo) / Math.max(1,+gigaConfig.cabezal_vida_anios));
-            const mantPorM2 = costoFijoAnual / Math.max(1, +gigaConfig.m2_anuales_est);
-            const costoMant = mantPorM2 * area_util_total;
+            const mantPorM2 = matEsPlancha ? 0 : costoFijoAnual / Math.max(1, +gigaConfig.m2_anuales_est);
+            const costoMant = matEsPlancha ? 0 : mantPorM2 * area_util_total;
 
             // Metros lineales de cortes (auto-calculado del layout)
             const cols = chosen ? chosen.pack.cols : 0;
             const metrosCorteAuto = cols ? _gigaMetrosCorteImposicion(cols, cantidad, anchoCm, altoCm) : 0;
 
-            // Aditivos
+            // Aditivos (incluye aditivo_m2, aditivo_ml, y planchas rigidas como extra pegado encima)
             const costoAditivos = [], precioAditivos = [];
             Object.keys(gigaAditivosSeleccionados).forEach(id => {
                 const st = gigaAditivosSeleccionados[id];
@@ -8613,17 +8644,19 @@
                 const ad = gigaMaterialesCache.find(m => m.id === +id);
                 if (!ad) return;
                 if (ad.tipo === 'aditivo_ml') {
-                    // Auto-calcular metros desde la imposicion
                     gigaAditivosSeleccionados[id].meters = metrosCorteAuto;
-                    // Actualizar display en vivo
                     const disp = document.querySelector(`[data-giga-ml-display="${id}"]`);
                     if (disp) disp.textContent = metrosCorteAuto.toFixed(2);
                     const meters = metrosCorteAuto;
                     costoAditivos.push({ nombre: `${ad.nombre} (${meters.toFixed(2)} m)`, costo: (+ad.costo_real) * meters });
                     precioAditivos.push({ nombre: `${ad.nombre} (${meters.toFixed(2)} m)`, precio: (+ad.precio_venta) * meters });
                 } else {
-                    costoAditivos.push({ nombre: ad.nombre, costo: (+ad.costo_real) * area_util_total });
-                    precioAditivos.push({ nombre: ad.nombre, precio: (+ad.precio_venta) * area_util_total });
+                    // aditivo_m2 y planchas rigidas (m2) se cobran por m² del trabajo
+                    const etiqueta = ad.tipo === 'm2' && ad.categoria === 'Plancha rigida'
+                        ? `${ad.nombre} (pegado encima)`
+                        : ad.nombre;
+                    costoAditivos.push({ nombre: etiqueta, costo: (+ad.costo_real) * area_util_total });
+                    precioAditivos.push({ nombre: etiqueta, precio: (+ad.precio_venta) * area_util_total });
                 }
             });
 
@@ -8658,10 +8691,10 @@
         document.getElementById('gigaCostoMatLabel').textContent = r.labelRollo || 'Material';
         document.getElementById('gigaCostoMat').textContent = fmtN(r.costoMaterial || 0, 2);
 
+        document.getElementById('gigaCostoDesp').textContent = fmtN(r.costoDesp || 0, 2);
         if (esM2 && r.costoDesp > 0) {
             document.getElementById('gigaCostoDespRow').style.display = '';
             document.getElementById('gigaCostoDespLabel').textContent = `(${(gigaConfig.desperdicio_inicio_cm+gigaConfig.desperdicio_fin_cm)} cm lineales)`;
-            document.getElementById('gigaCostoDesp').textContent = fmtN(r.costoDesp, 2);
         } else { document.getElementById('gigaCostoDespRow').style.display = 'none'; }
 
         if (esM2) {
