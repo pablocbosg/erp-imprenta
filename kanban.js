@@ -379,7 +379,7 @@ async function cargarArchivosTrabajo(trabajoId) {
 }
 
 let _tmArchivosById = {};
-function renderArchivosTrabajo(archivos) {
+async function renderArchivosTrabajo(archivos) {
     const cont = document.getElementById('tmFilesList');
     _tmArchivosById = {};
     if (!archivos.length) {
@@ -387,9 +387,17 @@ function renderArchivosTrabajo(archivos) {
         return;
     }
     archivos.forEach(a => _tmArchivosById[a.id] = a);
+
+    // Bucket trabajo-archivos es privado: generar signed URLs (validez 1h) en batch
+    let signedByPath = {};
+    if (archivos.length) {
+        const paths = archivos.map(a => a.path);
+        const { data: signedList } = await db.storage.from('trabajo-archivos').createSignedUrls(paths, 3600);
+        (signedList || []).forEach(s => { if (s.path) signedByPath[s.path] = s.signedUrl; });
+    }
+
     cont.innerHTML = archivos.map(a => {
-        const { data: urlData } = db.storage.from('trabajo-archivos').getPublicUrl(a.path);
-        const url = urlData.publicUrl;
+        const url = signedByPath[a.path] || '';
         const ico = _iconForMime(a.tipo, a.nombre);
         const preview = ico
             ? `<div class="tm-file-preview" data-action="view"><span class="ico">${ico}</span></div>`
@@ -423,8 +431,10 @@ function renderArchivosTrabajo(archivos) {
         } else if (action === 'delete') {
             await eliminarArchivoTrabajo(a.id, a.path);
         } else if (action === 'view') {
-            const { data: u } = db.storage.from('trabajo-archivos').getPublicUrl(a.path);
-            window.open(u.publicUrl, '_blank');
+            // Signed URL fresco (por si el listado original tiene >1h)
+            const { data: u } = await db.storage.from('trabajo-archivos').createSignedUrl(a.path, 3600);
+            if (u?.signedUrl) window.open(u.signedUrl, '_blank');
+            else alert('No se pudo generar la URL del archivo');
         }
     };
 }
