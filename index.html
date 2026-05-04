@@ -5011,9 +5011,9 @@
         }
         empty.style.display = 'none';
         tbody.innerHTML = staffCache.map((s, i) => `<tr style="${s.activo ? '' : 'opacity:0.5;'}">
-            <td><input type="text" value="${s.nombre || ''}" onchange="updateStaff(${i},'nombre',this.value)"></td>
-            <td><input type="text" value="${s.rol || ''}" style="width:120px" onchange="updateStaff(${i},'rol',this.value)" placeholder="Diseñador, Prensista..."></td>
-            <td><input type="email" value="${s.email || ''}" onchange="updateStaff(${i},'email',this.value)"></td>
+            <td><input type="text" value="${escapeHtml(s.nombre || '')}" onchange="updateStaff(${i},'nombre',this.value)"></td>
+            <td><input type="text" value="${escapeHtml(s.rol || '')}" style="width:120px" onchange="updateStaff(${i},'rol',this.value)" placeholder="Diseñador, Prensista..."></td>
+            <td><input type="email" value="${escapeHtml(s.email || '')}" onchange="updateStaff(${i},'email',this.value)"></td>
             <td style="text-align:center;"><input type="checkbox" ${s.activo ? 'checked' : ''} onchange="updateStaff(${i},'activo',this.checked)"></td>
             <td><button class="btn btn-danger btn-sm" onclick="deleteStaff(${i})">X</button></td>
         </tr>`).join('');
@@ -5748,6 +5748,7 @@
     }
 
     // Scan: cruza trabajos con facturas Contifico para mover estados
+    // OPTIMIZADO: pre-carga facturas + items en batch (antes era N+1: 2-4 queries x trabajo)
     async function kanbanScanContifico() {
         let movidosACobro = 0, movidosAPostventa = 0;
 
@@ -5758,58 +5759,85 @@
             .is('factura_id', null)
             .in('estado', estadosFac);
 
-        const desde = new Date(Date.now() - 120 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+        const lista = (trabajos || []).filter(t => t.cliente_id && (t.clientes?.empresa || t.clientes?.nombre || t.clientes?.rfc));
+        if (!lista.length) {
+            // pasar al paso 2 directamente
+        } else {
+            const desde = new Date(Date.now() - 120 * 24 * 3600 * 1000).toISOString().slice(0, 10);
 
-        for (const t of (trabajos || [])) {
-            if (!t.cliente_id) continue;
-            const nombre = t.clientes?.empresa || t.clientes?.nombre || '';
-            const rfc = t.clientes?.rfc;
-            if (!nombre && !rfc) continue;
+            // BATCH 1: traer TODAS las facturas activas del rango (no anuladas, ultimos 120 dias)
+            // Antes: 1-2 queries POR trabajo. Ahora: 1 sola query total.
+            const { data: facsAll } = await db.from('facturas')
+                .select('id, total, saldo, estado_pago, cliente, identificacion, fecha, estado')
+                .gte('fecha', desde)
+                .neq('estado', 'Anulada');
 
-            // Buscar facturas candidatas por RFC primero (mas preciso), luego por nombre aproximado
-            let facs = [];
-            if (rfc) {
-                const { data } = await db.from('facturas')
-                    .select('id, total, saldo, estado_pago, cliente, identificacion, fecha, estado')
-                    .eq('identificacion', rfc)
-                    .gte('fecha', desde)
-                    .neq('estado', 'Anulada');
-                facs = data || [];
+            // Indexar facturas por identificacion (RFC) para lookup O(1)
+            const facsPorRfc = {};
+            (facsAll || []).forEach(f => {
+                const k = (f.identificacion || '').trim();
+                if (!k) return;
+                if (!facsPorRfc[k]) facsPorRfc[k] = [];
+                facsPorRfc[k].push(f);
+            });
+
+            // BATCH 2: pre-cargar items + iva_porcentaje de todas las proformas relevantes
+            const proformaIds = [...new Set(lista.map(t => t.proforma_id).filter(Boolean))];
+            const totalesProforma = {};
+            if (proformaIds.length) {
+                const [itemsRes, profRes] = await Promise.all([
+                    db.from('proforma_items').select('proforma_id, cantidad, precio_unitario').in('proforma_id', proformaIds),
+                    db.from('proformas').select('id, iva_porcentaje').in('id', proformaIds)
+                ]);
+                const subPorProf = {};
+                (itemsRes.data || []).forEach(i => {
+                    subPorProf[i.proforma_id] = (subPorProf[i.proforma_id] || 0) + ((+i.cantidad || 0) * (+i.precio_unitario || 0));
+                });
+                (profRes.data || []).forEach(p => {
+                    const sub = subPorProf[p.id] || 0;
+                    totalesProforma[p.id] = sub + (sub * ((p.iva_porcentaje ?? 15) / 100));
+                });
             }
-            if (!facs.length && nombre) {
-                const like = '%' + nombre.slice(0, Math.min(30, nombre.length)) + '%';
-                const { data } = await db.from('facturas')
-                    .select('id, total, saldo, estado_pago, cliente, identificacion, fecha, estado')
-                    .ilike('cliente', like)
-                    .gte('fecha', desde)
-                    .neq('estado', 'Anulada');
-                facs = data || [];
-                // filtro extra con matcher fuzzy por nombre
-                facs = facs.filter(f => _kanbanNombreCoincide(nombre, f.cliente));
-            }
-            if (!facs.length) continue;
 
-            // Match por total esperado si hay proforma
-            let candidatas = facs;
-            if (t.proforma_id) {
-                const total = await _kanbanTotalProforma(t.proforma_id);
-                if (total > 0) {
+            // Procesar in-memory: ya no hay queries dentro del loop
+            for (const t of lista) {
+                const nombre = t.clientes?.empresa || t.clientes?.nombre || '';
+                const rfc = (t.clientes?.rfc || '').trim();
+
+                // Buscar facturas candidatas: por RFC primero (preciso), luego por nombre aproximado
+                let facs = [];
+                if (rfc && facsPorRfc[rfc]) {
+                    facs = facsPorRfc[rfc];
+                }
+                if (!facs.length && nombre) {
+                    const nlow = nombre.toLowerCase();
+                    facs = (facsAll || []).filter(f =>
+                        (f.cliente || '').toLowerCase().includes(nlow.slice(0, Math.min(30, nlow.length)))
+                        && _kanbanNombreCoincide(nombre, f.cliente)
+                    );
+                }
+                if (!facs.length) continue;
+
+                // Match por total esperado si hay proforma
+                let candidatas = facs;
+                if (t.proforma_id && totalesProforma[t.proforma_id] > 0) {
+                    const total = totalesProforma[t.proforma_id];
                     const tol = Math.max(1.0, total * 0.005); // 0.5% o $1, lo que sea mayor
                     candidatas = facs.filter(f => Math.abs(+f.total - total) <= tol);
                 }
-            }
-            // Si multiples, tomar la mas reciente no anulada; si sigue siendo 1+, saltar
-            if (candidatas.length !== 1) continue;
+                // Si multiples, saltar (necesita revision manual)
+                if (candidatas.length !== 1) continue;
 
-            const fac = candidatas[0];
-            const nuevoEstado = (fac.estado_pago === 'pagada') ? 'postventa' : 'cobro';
-            const hist = _pushHistorial(t.historial, t.estado, nuevoEstado);
-            const { error } = await db.from('trabajos').update({
-                factura_id: fac.id, estado: nuevoEstado, historial: hist
-            }).eq('id', t.id);
-            if (!error) {
-                if (nuevoEstado === 'cobro') movidosACobro++;
-                else movidosAPostventa++;
+                const fac = candidatas[0];
+                const nuevoEstado = (fac.estado_pago === 'pagada') ? 'postventa' : 'cobro';
+                const hist = _pushHistorial(t.historial, t.estado, nuevoEstado);
+                const { error } = await db.from('trabajos').update({
+                    factura_id: fac.id, estado: nuevoEstado, historial: hist
+                }).eq('id', t.id);
+                if (!error) {
+                    if (nuevoEstado === 'cobro') movidosACobro++;
+                    else movidosAPostventa++;
+                }
             }
         }
 
@@ -6109,8 +6137,8 @@
             const matName = getMaterialName(p.material_id);
             const detail = p.ancho + 'x' + p.alto + ' cm | ' + (p.lados === 2 ? 'T/R' : '1 lado') + (matName !== '-' ? ' | ' + matName : '');
             html += '<div class="product-option" onmousedown="selectProductPub(' + p.id + ')">'
-                + '<div><div class="prod-name">' + p.nombre + '</div><div class="prod-detail">' + detail + '</div></div>'
-                + '<span class="prod-badge">' + (p.categoria || '') + '</span></div>';
+                + '<div><div class="prod-name">' + escapeHtml(p.nombre) + '</div><div class="prod-detail">' + escapeHtml(detail) + '</div></div>'
+                + '<span class="prod-badge">' + escapeHtml(p.categoria || '') + '</span></div>';
         });
         dropdown.innerHTML = html;
         dropdown.classList.add('open');
@@ -6823,8 +6851,8 @@
             const matName = getMaterialName(p.material_id);
             const detail = p.ancho + 'x' + p.alto + ' cm | ' + (p.lados === 2 ? 'T/R' : '1 lado') + (matName !== '-' ? ' | ' + matName : '');
             html += '<div class="product-option" onmousedown="selectProductDig(' + p.id + ')">'
-                + '<div><div class="prod-name">' + p.nombre + '</div><div class="prod-detail">' + detail + '</div></div>'
-                + '<span class="prod-badge">' + (p.categoria || '') + '</span>'
+                + '<div><div class="prod-name">' + escapeHtml(p.nombre) + '</div><div class="prod-detail">' + escapeHtml(detail) + '</div></div>'
+                + '<span class="prod-badge">' + escapeHtml(p.categoria || '') + '</span>'
                 + '</div>';
         });
         dropdown.innerHTML = html;
@@ -6895,8 +6923,8 @@
         matches.forEach(p => {
             const dims = p.ancho && p.alto ? p.ancho + 'x' + p.alto + ' cm' : '';
             html += '<div class="product-option" onmousedown="selectProductDigPub(' + p.id + ')">'
-                + '<div><div class="prod-name">' + p.nombre + '</div><div class="prod-detail">' + dims + '</div></div>'
-                + '<span class="prod-badge">' + (p.categoria || 'publicacion') + '</span>'
+                + '<div><div class="prod-name">' + escapeHtml(p.nombre) + '</div><div class="prod-detail">' + escapeHtml(dims) + '</div></div>'
+                + '<span class="prod-badge">' + escapeHtml(p.categoria || 'publicacion') + '</span>'
                 + '</div>';
         });
         dropdown.innerHTML = html;
@@ -8459,7 +8487,7 @@
             const importe = (item.cantidad || 0) * (item.precio_unitario || 0);
             return `<tr>
                 <td style="text-align:center;color:var(--gray-400);">${i + 1}</td>
-                <td><input type="text" placeholder="COD" value="${item.codigo || ''}" onchange="updateProformaItem(${i},'codigo',this.value)" style="width:80px;font-size:0.8rem;"></td>
+                <td><input type="text" placeholder="COD" value="${escapeHtml(item.codigo || '')}" onchange="updateProformaItem(${i},'codigo',this.value)" style="width:80px;font-size:0.8rem;"></td>
                 <td><textarea onchange="updateProformaItem(${i},'descripcion',this.value)">${escapeHtml(item.descripcion || '')}</textarea></td>
                 <td><input type="number" min="0" value="${item.cantidad || 0}" onchange="updateProformaItem(${i},'cantidad',parseFloat(this.value)||0)"></td>
                 <td><input type="number" min="0" step="0.001" value="${(item.precio_unitario || 0).toFixed(3)}" onchange="updateProformaItem(${i},'precio_unitario',parseFloat(this.value)||0)"></td>
@@ -13054,8 +13082,8 @@
             const matName = getMaterialName(p.material_id);
             const detail = p.ancho + 'x' + p.alto + ' cm | ' + (p.lados === 2 ? 'T/R' : '1 lado') + (matName !== '-' ? ' | ' + matName : '');
             html += '<div class="product-option" onmousedown="selectProductCot(' + p.id + ')">'
-                + '<div><div class="prod-name">' + p.nombre + '</div><div class="prod-detail">' + detail + '</div></div>'
-                + '<span class="prod-badge">' + (p.categoria || '') + '</span>'
+                + '<div><div class="prod-name">' + escapeHtml(p.nombre) + '</div><div class="prod-detail">' + escapeHtml(detail) + '</div></div>'
+                + '<span class="prod-badge">' + escapeHtml(p.categoria || '') + '</span>'
                 + '</div>';
         });
         dropdown.innerHTML = html;
