@@ -3518,12 +3518,12 @@
         <div id="relojVistaTrabajador">
             <div class="panel" style="max-width:560px;margin:0 auto;">
                 <div class="panel-body" style="padding:1.5rem;text-align:center;">
-                    <div id="relojStaffSelector" style="margin-bottom:1rem;">
-                        <label style="font-size:0.85rem;color:var(--gray-500);display:block;margin-bottom:0.3rem;">Trabajador:</label>
-                        <select id="relojStaffSelect" onchange="relojCargarEstado()" style="padding:0.5rem;font-size:1rem;border-radius:6px;border:1px solid var(--gray-300);min-width:240px;"></select>
-                    </div>
+                    <select id="relojStaffSelect" style="display:none;"></select>
 
-                    <div id="relojSaludo" style="font-size:1.05rem;color:var(--gray-600);margin-bottom:0.5rem;"></div>
+                    <div id="relojSaludo" style="font-size:1.15rem;color:var(--gray-600);margin-bottom:0.5rem;font-weight:600;"></div>
+                    <div id="relojSinStaffMsg" style="display:none;padding:1rem;background:#fef2f2;color:#991b1b;border-radius:8px;margin-bottom:1rem;font-size:0.9rem;">
+                        ⚠️ Tu usuario no está vinculado a un trabajador en el sistema. Pedile a un administrador que te dé de alta en Administración → Equipo.
+                    </div>
 
                     <div id="relojHora" style="font-size:3.5rem;font-weight:700;color:var(--gray-800);font-variant-numeric:tabular-nums;letter-spacing:-1px;margin-bottom:0.25rem;">--:--:--</div>
                     <div id="relojFecha" style="font-size:0.95rem;color:var(--gray-500);margin-bottom:1.5rem;text-transform:capitalize;"></div>
@@ -3547,7 +3547,17 @@
         <!-- Vista admin -->
         <div id="relojVistaAdmin" style="display:none;">
             <div class="panel" style="margin-bottom:1rem;">
-                <div class="panel-header">Filtros</div>
+                <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>📍 Estado de hoy <small id="relojEstadoHoyFecha" style="color:var(--gray-500);font-weight:400;"></small></span>
+                    <button class="btn" onclick="relojAdminCargarEstadoHoy()" style="padding:0.3rem 0.6rem;font-size:0.8rem;border:1px solid var(--gray-300);">🔄 Refrescar</button>
+                </div>
+                <div class="panel-body" id="relojEstadoHoyCont" style="padding:0.75rem;">
+                    <div style="color:var(--gray-400);text-align:center;padding:1rem;">Cargando…</div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-bottom:1rem;">
+                <div class="panel-header">Reportes por rango</div>
                 <div class="panel-body" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:end;">
                     <div>
                         <label style="font-size:0.8rem;color:var(--gray-500);display:block;">Trabajador</label>
@@ -9125,17 +9135,38 @@
         sel.innerHTML = activos.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
         adminSel.innerHTML = '<option value="">Todos</option>' + activos.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
 
-        // Auto-seleccionar staff que matchea el currentUser por email
+        // Buscar el staff vinculado al usuario logueado
         const meStaff = activos.find(s => (s.email||'').toLowerCase() === (currentUser?.email||'').toLowerCase());
-        if (meStaff) sel.value = meStaff.id;
+        const esAdmin = !!meStaff?.es_admin;
 
-        // Default rango admin: este mes
-        relojAdminRangoMes();
+        // Mostrar/ocultar boton de vista admin segun permisos
+        document.getElementById('relojBtnVistaAdmin').style.display = esAdmin ? '' : 'none';
 
-        // Reloj que tickea cada segundo
+        // Reloj que tickea cada segundo (siempre)
         if (_relojClockInterval) clearInterval(_relojClockInterval);
         _relojClockInterval = setInterval(relojTick, 1000);
         relojTick();
+
+        if (!meStaff) {
+            // Usuario sin staff vinculado: bloquear todo
+            document.getElementById('relojSinStaffMsg').style.display = 'block';
+            document.getElementById('relojBtnTimbrar').style.display = 'none';
+            document.getElementById('relojSaludo').textContent = '';
+            document.getElementById('relojEstado').style.display = 'none';
+            document.getElementById('relojResumenHoy').style.display = 'none';
+            document.getElementById('relojTimbradasHoy').style.display = 'none';
+            return;
+        }
+
+        sel.value = meStaff.id;
+        document.getElementById('relojSinStaffMsg').style.display = 'none';
+        document.getElementById('relojBtnTimbrar').style.display = '';
+        document.getElementById('relojEstado').style.display = '';
+        document.getElementById('relojResumenHoy').style.display = '';
+        document.getElementById('relojTimbradasHoy').style.display = '';
+
+        // Default rango admin: este mes
+        if (esAdmin) relojAdminRangoMes();
 
         await relojCargarEstado();
     }
@@ -9159,11 +9190,19 @@
     }
 
     function relojSwitchVista(v) {
+        // Bloquear vista admin para no-admins
+        if (v === 'admin') {
+            const meStaff = staffCache.find(s => (s.email||'').toLowerCase() === (currentUser?.email||'').toLowerCase());
+            if (!meStaff?.es_admin) { alert('Solo administradores pueden ver este resumen.'); return; }
+        }
         document.getElementById('relojVistaTrabajador').style.display = v === 'trabajador' ? '' : 'none';
         document.getElementById('relojVistaAdmin').style.display = v === 'admin' ? '' : 'none';
         document.getElementById('relojBtnVistaTrabajador').classList.toggle('active', v === 'trabajador');
         document.getElementById('relojBtnVistaAdmin').classList.toggle('active', v === 'admin');
-        if (v === 'admin') relojAdminCargar();
+        if (v === 'admin') {
+            relojAdminCargarEstadoHoy();
+            relojAdminCargar();
+        }
     }
 
     async function relojCargarEstado() {
@@ -9371,6 +9410,60 @@
             <div style="font-size:0.7rem;color:${color};text-transform:uppercase;font-weight:600;">${label}</div>
             <div style="font-size:1.1rem;font-weight:700;color:${color};font-variant-numeric:tabular-nums;">${value}</div>
         </div>`;
+    }
+
+    async function relojAdminCargarEstadoHoy() {
+        const cont = document.getElementById('relojEstadoHoyCont');
+        const { data, error } = await db.rpc('fichajes_estado_hoy_todos');
+        if (error) { cont.innerHTML = '<div style="color:#dc2626;">Error: ' + error.message + '</div>'; return; }
+        const hoy = new Date().toLocaleDateString('es-EC', { weekday:'long', day:'numeric', month:'long' });
+        document.getElementById('relojEstadoHoyFecha').textContent = '· ' + hoy;
+
+        const trabajando = data.filter(p => p.ultimo_tipo === 'entrada');
+        const yaSalieron = data.filter(p => p.ultimo_tipo === 'salida');
+        const sinTimbrar = data.filter(p => !p.ultimo_tipo);
+
+        const tarjeta = (p) => {
+            const ent = p.primera_entrada ? new Date(p.primera_entrada) : null;
+            const sal = p.ultima_salida ? new Date(p.ultima_salida) : null;
+            const ult = p.ultimo_ts ? new Date(p.ultimo_ts) : null;
+            let bg, border, badge;
+            if (p.ultimo_tipo === 'entrada') {
+                bg = '#dcfce7'; border = '#16a34a'; badge = `🟢 Trabajando · desde ${relojFmtHora(ult)}`;
+            } else if (p.ultimo_tipo === 'salida') {
+                bg = '#fef3c7'; border = '#d97706'; badge = `🟡 Salió · ${relojFmtHora(ult)}`;
+            } else {
+                bg = '#f3f4f6'; border = '#9ca3af'; badge = '⚪ Sin timbradas hoy';
+            }
+            return `<div style="background:${bg};border-left:4px solid ${border};padding:0.7rem 0.9rem;border-radius:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                    <strong style="font-size:0.95rem;">${p.nombre}</strong>
+                    ${p.es_admin ? '<span style="font-size:0.65rem;background:#ddd6fe;color:#5b21b6;padding:0.1rem 0.4rem;border-radius:3px;font-weight:600;">ADMIN</span>' : ''}
+                </div>
+                <div style="font-size:0.85rem;color:var(--gray-600);margin-top:0.2rem;">${badge}</div>
+                <div style="font-size:0.75rem;color:var(--gray-500);margin-top:0.3rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
+                    ${ent ? `<span>📥 Entró: <strong>${relojFmtHora(ent)}</strong></span>` : ''}
+                    ${sal ? `<span>📤 Salió: <strong>${relojFmtHora(sal)}</strong></span>` : ''}
+                    <span>⏱ <strong>${relojFmtHorasMin(+p.horas_hoy)}</strong></span>
+                    ${p.total_eventos > 0 ? `<span style="color:var(--gray-400);">(${p.total_eventos} timbradas)</span>` : ''}
+                </div>
+            </div>`;
+        };
+
+        let html = '';
+        if (trabajando.length) {
+            html += `<div style="font-size:0.75rem;font-weight:700;color:#15803d;text-transform:uppercase;margin-bottom:0.4rem;">🟢 Trabajando ahora (${trabajando.length})</div>`;
+            html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.5rem;margin-bottom:1rem;">${trabajando.map(tarjeta).join('')}</div>`;
+        }
+        if (yaSalieron.length) {
+            html += `<div style="font-size:0.75rem;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:0.4rem;">🟡 Ya salieron (${yaSalieron.length})</div>`;
+            html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.5rem;margin-bottom:1rem;">${yaSalieron.map(tarjeta).join('')}</div>`;
+        }
+        if (sinTimbrar.length) {
+            html += `<div style="font-size:0.75rem;font-weight:700;color:var(--gray-500);text-transform:uppercase;margin-bottom:0.4rem;">⚪ Sin timbradas hoy (${sinTimbrar.length})</div>`;
+            html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0.5rem;">${sinTimbrar.map(tarjeta).join('')}</div>`;
+        }
+        cont.innerHTML = html || '<div style="color:var(--gray-400);text-align:center;padding:1rem;">Sin trabajadores activos</div>';
     }
 
     function relojVerDetalleDia(staffId, eventos) {
