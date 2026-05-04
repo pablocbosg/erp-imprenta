@@ -8441,7 +8441,7 @@
                 <td style="text-align:right;font-weight:600;">$${fmtN(importe, 2)}</td>
                 <!-- metodo_impresion se asigna automaticamente -->
                 <td>${item.imagen_url
-                    ? `<img src="${item.imagen_url}" class="item-img" onclick="cambiarImagenItem(${i})" title="Click para cambiar">`
+                    ? `<img src="${item.imagen_url}" class="item-img" loading="lazy" decoding="async" onclick="cambiarImagenItem(${i})" title="Click para cambiar">`
                     : `<div class="item-img-placeholder" onclick="cambiarImagenItem(${i})" title="Subir imagen">+</div>`
                 }</td>
                 <td class="no-print"><button class="btn btn-danger btn-sm" onclick="eliminarItemProforma(${i})" title="Eliminar">×</button></td>
@@ -10730,7 +10730,7 @@
                 return `<span class="promo-chip">${tec ? tec.nombre.split(' ')[0] : t}</span>`;
             }).join('');
             const img = p.imagen_url
-                ? `<img src="${p.imagen_url}" alt="${(p.nombre||'').replace(/"/g,'&quot;')}">` : '📦';
+                ? `<img src="${p.imagen_url}" loading="lazy" decoding="async" alt="${(p.nombre||'').replace(/"/g,'&quot;')}">` : '📦';
             return `<div class="promo-card" onclick="promoAbrirModal(${p.id})">
                 <div class="promo-card-img">${img}</div>
                 <div class="promo-card-nombre">${(p.nombre||'').replace(/</g,'&lt;')}</div>
@@ -10772,7 +10772,7 @@
         document.getElementById('promoModalCategoria').textContent = p.categoria || '—';
         document.getElementById('promoModalDesc').textContent = p.descripcion || '';
         const imgEl = document.getElementById('promoModalImg');
-        imgEl.innerHTML = p.imagen_url ? `<img src="${p.imagen_url}" alt="" style="max-width:100%;max-height:100%;">` : '📦';
+        imgEl.innerHTML = p.imagen_url ? `<img src="${p.imagen_url}" loading="lazy" decoding="async" alt="" style="max-width:100%;max-height:100%;">` : '📦';
         const selTec = document.getElementById('promoTecnica');
         const availables = promoTecnicasCache.filter(t => (p.tecnicas_codigos || []).includes(t.codigo));
         if (!availables.length) {
@@ -11081,7 +11081,7 @@
             const idx = promoAdminProductosCache.findIndex(x => x.id === p.id);
             const tecStr = (p.tecnicas_codigos || []).join(', ') || '—';
             const fotoCell = p.imagen_url
-                ? `<img src="${p.imagen_url}" alt="" style="width:48px;height:48px;object-fit:contain;background:#f1f5f9;border-radius:4px;cursor:pointer;" onclick="promoProdAbrirFoto(${idx})" title="Click para cambiar">`
+                ? `<img src="${p.imagen_url}" loading="lazy" decoding="async" alt="" style="width:48px;height:48px;object-fit:contain;background:#f1f5f9;border-radius:4px;cursor:pointer;" onclick="promoProdAbrirFoto(${idx})" title="Click para cambiar">`
                 : `<button class="btn btn-secondary btn-sm" style="padding:0.2rem 0.4rem;font-size:0.7rem;" onclick="promoProdAbrirFoto(${idx})">📷 Subir</button>`;
             return `<tr style="${p.activo ? '' : 'opacity:0.5;'}">
                 <td>${fotoCell}</td>
