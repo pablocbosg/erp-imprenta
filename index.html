@@ -4455,6 +4455,8 @@
         clearTimeout(clientSearchTimeout);
         clientSearchTimeout = setTimeout(async () => {
             const { data } = await db.from('clientes').select('*').or(`nombre.ilike.%${q}%,empresa.ilike.%${q}%,rfc.ilike.%${q}%`).order('nombre').limit(10);
+            // Mergear en cache para que selectClient(id) pueda resolver desde cache
+            (data || []).forEach(c => { if (!clientsCache.find(x => x.id === c.id)) clientsCache.push(c); });
             renderClientDropdown(data || [], q);
         }, 200);
     }
@@ -4466,9 +4468,10 @@
         if (clients.length > 0) {
             clients.forEach(c => {
                 const detail = [c.empresa, c.rfc, c.telefono].filter(Boolean).join(' | ');
-                html += `<div class="client-option" onmousedown="selectClient(${c.id}, '${c.nombre.replace(/'/g, "\\'")}', '${(detail).replace(/'/g, "\\'")}')">
-                    <div class="client-name">${c.nombre}</div>
-                    ${detail ? `<div class="client-detail">${detail}</div>` : ''}
+                // pasamos solo el id; selectClient busca el resto en cache (evita XSS por atributo)
+                html += `<div class="client-option" onmousedown="selectClient(${c.id})">
+                    <div class="client-name">${escapeHtml(c.nombre)}</div>
+                    ${detail ? `<div class="client-detail">${escapeHtml(detail)}</div>` : ''}
                 </div>`;
             });
         } else if (query.length > 0) {
@@ -4482,12 +4485,20 @@
 
     function selectClient(id, nombre, detail) {
         selectedClient = id;
+        // Resolver nombre/detail desde cache si no vinieron como argumentos (signature retro-compatible)
+        if (nombre === undefined) {
+            const c = (clientsCache || []).find(x => x.id === id);
+            if (c) {
+                nombre = c.nombre || '';
+                detail = [c.empresa, c.rfc, c.telefono].filter(Boolean).join(' | ');
+            }
+        }
         document.getElementById('cotCliente').style.display = 'none';
         document.getElementById('clientDropdown').classList.remove('open');
         const selDiv = document.getElementById('clientSelected');
         selDiv.style.display = 'flex';
-        document.getElementById('clientSelectedName').textContent = nombre;
-        document.getElementById('clientSelectedDetail').textContent = detail;
+        document.getElementById('clientSelectedName').textContent = nombre || '';
+        document.getElementById('clientSelectedDetail').textContent = detail || '';
     }
 
     function clearClient() {
@@ -5054,10 +5065,13 @@
     const TRABAJOS_CACHE_MS = 30000;
     let activeTrabajo = null;
 
-    function kanbanEscape(s) {
+    // Escape HTML para prevenir XSS al interpolar datos de DB en innerHTML
+    function escapeHtml(s) {
         if (s === null || s === undefined) return '';
         return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+    // Alias historico
+    function kanbanEscape(s) { return escapeHtml(s); }
 
     function kanbanMyStaffId() {
         if (!currentUser) return null;
@@ -5946,7 +5960,7 @@
         const prev = sel.value;
         sel.innerHTML = '<option value="">-- Seleccionar material --</option>';
         appData.materiales.forEach((m, i) => {
-            sel.innerHTML += `<option value="${i}">${m.nombre} (${m.gramaje}g) - ${fmtN(m.ancho,1)}x${fmtN(m.alto,1)} - $${fmtN(m.precio,2)}</option>`;
+            sel.innerHTML += `<option value="${i}">${escapeHtml(m.nombre)} (${m.gramaje}g) - ${fmtN(m.ancho,1)}x${fmtN(m.alto,1)} - $${fmtN(m.precio,2)}</option>`;
         });
         sel.value = prev;
     }
@@ -8264,6 +8278,24 @@
             .limit(50);
         if (error) { console.error(error); return; }
         proformasCache = data || [];
+        // Batch: traer items de todas las proformas en UNA sola query (antes era N+1: 1 por proforma)
+        const ids = proformasCache.map(p => p.id);
+        if (ids.length) {
+            const { data: items } = await db.from('proforma_items')
+                .select('proforma_id, cantidad, precio_unitario')
+                .in('proforma_id', ids);
+            const map = {};
+            (items || []).forEach(it => {
+                if (!map[it.proforma_id]) map[it.proforma_id] = { count: 0, sub: 0 };
+                map[it.proforma_id].count++;
+                map[it.proforma_id].sub += (+it.cantidad || 0) * (+it.precio_unitario || 0);
+            });
+            proformasCache.forEach(p => {
+                const m = map[p.id] || { count: 0, sub: 0 };
+                p._itemsCount = m.count;
+                p._total = m.sub * (1 + (+p.iva_porcentaje || 15) / 100);
+            });
+        }
         renderProformasList(proformasCache);
     }
 
@@ -8285,28 +8317,21 @@
         empty.style.display = 'none';
         body.innerHTML = proformas.map(p => {
             const estadoClass = 'estado-' + (p.estado || 'borrador');
+            const itemsTxt = (p._itemsCount != null) ? p._itemsCount : '-';
+            const totalTxt = (p._total != null) ? '$' + fmtN(p._total, 2) : '-';
+            const empresaHtml = p.clientes?.empresa
+                ? `<span style="color:var(--gray-400);font-size:0.8rem;">(${escapeHtml(p.clientes.empresa)})</span>`
+                : '';
             return `<tr onclick="abrirProforma(${p.id})">
                 <td><strong>${p.numero}</strong></td>
-                <td>${p.clientes?.nombre || '-'} ${p.clientes?.empresa ? '<span style=\"color:var(--gray-400);font-size:0.8rem;\">(' + p.clientes.empresa + ')</span>' : ''}</td>
+                <td>${escapeHtml(p.clientes?.nombre || '-')} ${empresaHtml}</td>
                 <td>${new Date(p.fecha).toLocaleDateString('es-EC')}</td>
-                <td id="profListItems${p.id}">-</td>
-                <td id="profListTotal${p.id}">-</td>
-                <td><span class="estado-badge ${estadoClass}">${p.estado || 'borrador'}</span></td>
-                <td style="font-size:0.8rem;color:var(--gray-500);">${p.created_by_name || '-'}</td>
+                <td>${itemsTxt}</td>
+                <td>${totalTxt}</td>
+                <td><span class="estado-badge ${estadoClass}">${escapeHtml(p.estado || 'borrador')}</span></td>
+                <td style="font-size:0.8rem;color:var(--gray-500);">${escapeHtml(p.created_by_name || '-')}</td>
             </tr>`;
         }).join('');
-        // Load items count & totals
-        proformas.forEach(async p => {
-            const { data } = await db.from('proforma_items').select('cantidad, precio_unitario').eq('proforma_id', p.id);
-            if (data) {
-                const el1 = document.getElementById('profListItems' + p.id);
-                const el2 = document.getElementById('profListTotal' + p.id);
-                if (el1) el1.textContent = data.length;
-                const sub = data.reduce((s, i) => s + (i.cantidad * i.precio_unitario), 0);
-                const iva = sub * (p.iva_porcentaje || 15) / 100;
-                if (el2) el2.textContent = '$' + fmtN(sub + iva, 2);
-            }
-        });
     }
 
     async function nuevaProforma() {
@@ -8408,8 +8433,8 @@
             (data || []).forEach(c => {
                 const detail = [c.empresa, c.rfc, c.telefono].filter(Boolean).join(' | ');
                 html += `<div class="client-option" onmousedown="seleccionarClienteProforma(${c.id})">
-                    <div class="client-name">${c.nombre}</div>
-                    ${detail ? `<div class="client-detail">${detail}</div>` : ''}
+                    <div class="client-name">${escapeHtml(c.nombre)}</div>
+                    ${detail ? `<div class="client-detail">${escapeHtml(detail)}</div>` : ''}
                 </div>`;
             });
             html += `<div class="client-option new-client" onmousedown="openNewClientModal()">+ Crear nuevo cliente</div>`;
@@ -8435,7 +8460,7 @@
             return `<tr>
                 <td style="text-align:center;color:var(--gray-400);">${i + 1}</td>
                 <td><input type="text" placeholder="COD" value="${item.codigo || ''}" onchange="updateProformaItem(${i},'codigo',this.value)" style="width:80px;font-size:0.8rem;"></td>
-                <td><textarea onchange="updateProformaItem(${i},'descripcion',this.value)">${item.descripcion || ''}</textarea></td>
+                <td><textarea onchange="updateProformaItem(${i},'descripcion',this.value)">${escapeHtml(item.descripcion || '')}</textarea></td>
                 <td><input type="number" min="0" value="${item.cantidad || 0}" onchange="updateProformaItem(${i},'cantidad',parseFloat(this.value)||0)"></td>
                 <td><input type="number" min="0" step="0.001" value="${(item.precio_unitario || 0).toFixed(3)}" onchange="updateProformaItem(${i},'precio_unitario',parseFloat(this.value)||0)"></td>
                 <td style="text-align:right;font-weight:600;">$${fmtN(importe, 2)}</td>
@@ -9132,8 +9157,8 @@
         const sel = document.getElementById('relojStaffSelect');
         const adminSel = document.getElementById('relojAdminStaff');
         const activos = staffCache.filter(s => s.activo);
-        sel.innerHTML = activos.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
-        adminSel.innerHTML = '<option value="">Todos</option>' + activos.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+        sel.innerHTML = activos.map(s => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('');
+        adminSel.innerHTML = '<option value="">Todos</option>' + activos.map(s => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('');
 
         // Buscar el staff vinculado al usuario logueado
         const meStaff = activos.find(s => (s.email||'').toLowerCase() === (currentUser?.email||'').toLowerCase());
@@ -9437,7 +9462,7 @@
             }
             return `<div style="background:${bg};border-left:4px solid ${border};padding:0.7rem 0.9rem;border-radius:6px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                    <strong style="font-size:0.95rem;">${p.nombre}</strong>
+                    <strong style="font-size:0.95rem;">${escapeHtml(p.nombre)}</strong>
                     ${p.es_admin ? '<span style="font-size:0.65rem;background:#ddd6fe;color:#5b21b6;padding:0.1rem 0.4rem;border-radius:3px;font-weight:600;">ADMIN</span>' : ''}
                 </div>
                 <div style="font-size:0.85rem;color:var(--gray-600);margin-top:0.2rem;">${badge}</div>
@@ -9876,7 +9901,7 @@
             html += `<optgroup label="${cat}">`;
             grupos[cat].forEach(m => {
                 const un = m.tipo === 'unidad' ? '/u' : '/m²';
-                html += `<option value="${m.id}">${m.nombre} — $${(+m.precio_venta).toFixed(2)}${un}</option>`;
+                html += `<option value="${m.id}">${escapeHtml(m.nombre)} — $${(+m.precio_venta).toFixed(2)}${un}</option>`;
             });
             html += '</optgroup>';
         });
@@ -10473,7 +10498,7 @@
                 <select style="width:140px" onchange="gigaAdminUpdate(${i},'rollo_de_material_id',this.value === '' ? null : +this.value)">
                     <option value="">— propios —</option>
                     ${matsConRollos.filter(x => x.id !== m.id).map(x =>
-                        `<option value="${x.id}" ${m.rollo_de_material_id === x.id ? 'selected' : ''}>${x.nombre}</option>`
+                        `<option value="${x.id}" ${m.rollo_de_material_id === x.id ? 'selected' : ''}>${escapeHtml(x.nombre)}</option>`
                     ).join('')}
                 </select>
             ` : '<span style="color:var(--gray-400);font-size:0.75rem;">—</span>';
@@ -10541,7 +10566,7 @@
             const m2Ini = (+r.ancho_cm/100) * (+r.largo_total_m);
             return `<tr style="${r.activo ? '' : 'opacity:0.5;'}">
                 <td><select style="width:170px" onchange="gigaRolloUpdate(${i},'material_id',+this.value)">
-                    ${matsM2.map(m => `<option value="${m.id}" ${r.material_id === m.id ? 'selected' : ''}>${m.nombre}</option>`).join('')}
+                    ${matsM2.map(m => `<option value="${m.id}" ${r.material_id === m.id ? 'selected' : ''}>${escapeHtml(m.nombre)}</option>`).join('')}
                 </select></td>
                 <td><input type="number" step="1" min="1" value="${+r.ancho_cm}" style="width:70px" onchange="gigaRolloUpdate(${i},'ancho_cm',+this.value)"></td>
                 <td><input type="number" step="0.5" min="0.1" value="${+r.largo_total_m}" style="width:70px" onchange="gigaRolloUpdate(${i},'largo_total_m',+this.value)"></td>
@@ -10682,12 +10707,12 @@
         const selProv = document.getElementById('promoFiltroProveedor');
         if (selProv) {
             selProv.innerHTML = '<option value="">Todos los proveedores</option>' +
-                promoProveedoresCache.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+                promoProveedoresCache.map(p => `<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
         }
         const selTec = document.getElementById('promoFiltroTecnica');
         if (selTec) {
             selTec.innerHTML = '<option value="">Todas las técnicas</option>' +
-                promoTecnicasCache.map(t => `<option value="${t.codigo}">${t.nombre}</option>`).join('');
+                promoTecnicasCache.map(t => `<option value="${t.codigo}">${escapeHtml(t.nombre)}</option>`).join('');
         }
         promoPagina = 1;
         promoRender();
@@ -10779,7 +10804,7 @@
             selTec.innerHTML = '<option value="">Sin técnica</option>';
             document.getElementById('promoSinImp').checked = true;
         } else {
-            selTec.innerHTML = availables.map(t => `<option value="${t.codigo}">${t.nombre} ($${(+t.precio_default).toFixed(2)})</option>`).join('');
+            selTec.innerHTML = availables.map(t => `<option value="${t.codigo}">${escapeHtml(t.nombre)} ($${(+t.precio_default).toFixed(2)})</option>`).join('');
             document.getElementById('promoSinImp').checked = false;
         }
         document.getElementById('promoCantidad').value = 50;
@@ -11043,7 +11068,7 @@
         const selProv = document.getElementById('promoAdminFiltroProv');
         if (selProv) {
             selProv.innerHTML = '<option value="">Todos los proveedores</option>' +
-                (provs || []).map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+                (provs || []).map(p => `<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
         }
         promoAdminPagina = 1;
         promoAdminRender();
@@ -11085,10 +11110,10 @@
                 : `<button class="btn btn-secondary btn-sm" style="padding:0.2rem 0.4rem;font-size:0.7rem;" onclick="promoProdAbrirFoto(${idx})">📷 Subir</button>`;
             return `<tr style="${p.activo ? '' : 'opacity:0.5;'}">
                 <td>${fotoCell}</td>
-                <td style="font-family:monospace;font-size:0.75rem;">${p.codigo_proveedor}</td>
-                <td><input type="text" value="${(p.nombre||'').replace(/"/g,'&quot;')}" style="min-width:180px" onchange="promoProdUpdate(${idx},'nombre',this.value)"></td>
-                <td style="font-size:0.8rem;">${provMap[p.proveedor_id] || '—'}</td>
-                <td style="font-size:0.75rem;color:var(--gray-500);">${p.categoria || '—'}</td>
+                <td style="font-family:monospace;font-size:0.75rem;">${escapeHtml(p.codigo_proveedor)}</td>
+                <td><input type="text" value="${escapeHtml(p.nombre || '')}" style="min-width:180px" onchange="promoProdUpdate(${idx},'nombre',this.value)"></td>
+                <td style="font-size:0.8rem;">${escapeHtml(provMap[p.proveedor_id] || '—')}</td>
+                <td style="font-size:0.75rem;color:var(--gray-500);">${escapeHtml(p.categoria || '—')}</td>
                 <td><input type="number" step="0.01" min="0" value="${+p.costo}" style="width:75px" onchange="promoProdUpdate(${idx},'costo',+this.value)"></td>
                 <td><input type="number" step="1" value="${+p.stock}" style="width:70px" onchange="promoProdUpdate(${idx},'stock',+this.value)"></td>
                 <td style="font-size:0.72rem;color:#0369a1;">${tecStr}</td>
@@ -11160,7 +11185,7 @@
         const sel = document.getElementById('promoImportProveedor');
         sel.innerHTML = '<option value="">Elegir proveedor...</option>' +
             promoProveedoresCache.filter(p => p.activo)
-                .map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+                .map(p => `<option value="${p.id}">${escapeHtml(p.nombre)}</option>`).join('');
         document.getElementById('promoImportArchivo').value = '';
         document.getElementById('promoImportMapeo').style.display = 'none';
         document.getElementById('promoImportPreview').style.display = 'none';
@@ -11265,11 +11290,11 @@
             // Preview primeras 5 filas
             document.getElementById('promoImportPreview').style.display = '';
             document.getElementById('promoImportPreviewBody').innerHTML = productos.slice(0, 5).map(p => `<tr>
-                <td style="font-family:monospace;">${p.codigo_proveedor}</td>
-                <td>${p.nombre}</td>
+                <td style="font-family:monospace;">${escapeHtml(p.codigo_proveedor)}</td>
+                <td>${escapeHtml(p.nombre)}</td>
                 <td>$${p.costo.toFixed(2)}</td>
                 <td>${p.stock}</td>
-                <td style="font-size:0.7rem;color:#0369a1;">${p.tecnicas_codigos.join(', ') || '—'}</td>
+                <td style="font-size:0.7rem;color:#0369a1;">${escapeHtml(p.tecnicas_codigos.join(', ') || '—')}</td>
             </tr>`).join('');
 
             const tecStats = { uv:0, serigrafia:0, laser:0, sublimacion:0, transfer:0, sin:0 };
@@ -13154,12 +13179,12 @@
         body.innerHTML = clientes.map(c => {
             if (editingClienteId === c.id) {
                 return `<tr class="editing">
-                    <td><input type="text" id="editNombre${c.id}" value="${c.nombre || ''}"></td>
-                    <td><input type="text" id="editEmpresa${c.id}" value="${c.empresa || ''}"></td>
-                    <td><input type="text" id="editRFC${c.id}" value="${c.rfc || ''}"></td>
-                    <td><input type="email" id="editEmail${c.id}" value="${c.email || ''}"></td>
-                    <td><input type="text" id="editTelefono${c.id}" value="${c.telefono || ''}"></td>
-                    <td><input type="text" id="editDireccion${c.id}" value="${c.direccion || ''}"></td>
+                    <td><input type="text" id="editNombre${c.id}" value="${escapeHtml(c.nombre || '')}"></td>
+                    <td><input type="text" id="editEmpresa${c.id}" value="${escapeHtml(c.empresa || '')}"></td>
+                    <td><input type="text" id="editRFC${c.id}" value="${escapeHtml(c.rfc || '')}"></td>
+                    <td><input type="email" id="editEmail${c.id}" value="${escapeHtml(c.email || '')}"></td>
+                    <td><input type="text" id="editTelefono${c.id}" value="${escapeHtml(c.telefono || '')}"></td>
+                    <td><input type="text" id="editDireccion${c.id}" value="${escapeHtml(c.direccion || '')}"></td>
                     <td>
                         <button class="btn btn-success btn-sm" onclick="guardarClienteEdit(${c.id})">Guardar</button>
                         <button class="btn btn-sm" style="border:1px solid var(--gray-300);margin-top:0.25rem;" onclick="cancelarClienteEdit()">Cancelar</button>
@@ -13167,12 +13192,12 @@
                 </tr>`;
             }
             return `<tr>
-                <td><strong>${c.nombre || '-'}</strong></td>
-                <td>${c.empresa || '-'}</td>
-                <td>${c.rfc || '-'}</td>
-                <td>${c.email || '-'}</td>
-                <td>${c.telefono || '-'}</td>
-                <td>${c.direccion || '-'}</td>
+                <td><strong>${escapeHtml(c.nombre || '-')}</strong></td>
+                <td>${escapeHtml(c.empresa || '-')}</td>
+                <td>${escapeHtml(c.rfc || '-')}</td>
+                <td>${escapeHtml(c.email || '-')}</td>
+                <td>${escapeHtml(c.telefono || '-')}</td>
+                <td>${escapeHtml(c.direccion || '-')}</td>
                 <td>
                     <button class="btn btn-sm" style="border:1px solid var(--gray-300);" onclick="editarCliente(${c.id})">Editar</button>
                 </td>
