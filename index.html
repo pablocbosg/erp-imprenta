@@ -3439,16 +3439,35 @@
     <div id="tab-ordenes" class="tab-content">
         <div id="ordenesLista">
             <div class="panel" style="margin-bottom:1rem;">
-                <div class="panel-header">
-                    Ordenes de Produccion
-                    <div style="margin-left:auto;display:flex;gap:0.5rem;align-items:center;">
-                        <select id="ordenesFiltroEstado" onchange="cargarOrdenes()" style="padding:0.35rem 0.6rem;font-size:0.85rem;border-radius:6px;border:1px solid var(--gray-300);">
+                <div class="panel-header" style="flex-wrap:wrap;gap:0.5rem;">
+                    <span>Ordenes de Produccion</span>
+                    <div style="margin-left:auto;display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
+                        <input type="search" id="ordenesFiltroCliente" oninput="renderOrdenesFiltradas()" placeholder="Buscar cliente / # orden…" style="padding:0.35rem 0.55rem;font-size:0.85rem;border-radius:6px;border:1px solid var(--gray-300);min-width:200px;">
+                        <select id="ordenesFiltroEstado" onchange="cargarOrdenes()" style="padding:0.35rem 0.55rem;font-size:0.85rem;border-radius:6px;border:1px solid var(--gray-300);">
                             <option value="">Todos los estados</option>
+                            <option value="activas">🔵 Solo activas</option>
                             <option value="nueva">Nueva</option>
                             <option value="en_proceso">En proceso</option>
                             <option value="finalizada">Finalizada</option>
                             <option value="entregada">Entregada</option>
                             <option value="cancelada">Cancelada</option>
+                        </select>
+                        <select id="ordenesFiltroEntrega" onchange="renderOrdenesFiltradas()" style="padding:0.35rem 0.55rem;font-size:0.85rem;border-radius:6px;border:1px solid var(--gray-300);">
+                            <option value="">Toda entrega</option>
+                            <option value="atrasadas">🚨 Atrasadas</option>
+                            <option value="hoy">Entrega hoy</option>
+                            <option value="semana">Esta semana</option>
+                            <option value="mes">Este mes</option>
+                            <option value="sin_fecha">Sin fecha</option>
+                        </select>
+                        <select id="ordenesFiltroAsignado" onchange="renderOrdenesFiltradas()" style="padding:0.35rem 0.55rem;font-size:0.85rem;border-radius:6px;border:1px solid var(--gray-300);">
+                            <option value="">Todos los asignados</option>
+                            <option value="mis">👤 Mis ordenes</option>
+                        </select>
+                        <select id="ordenesOrden" onchange="renderOrdenesFiltradas()" style="padding:0.35rem 0.55rem;font-size:0.85rem;border-radius:6px;border:1px solid var(--gray-300);">
+                            <option value="recientes">↓ Mas recientes</option>
+                            <option value="entrega">📅 Por entrega</option>
+                            <option value="num">↑ Numero ascendente</option>
                         </select>
                     </div>
                 </div>
@@ -3459,8 +3478,9 @@
                             <th>Cliente</th>
                             <th style="width:120px;">Proforma</th>
                             <th style="width:110px;">Creada</th>
-                            <th style="width:110px;">Entrega</th>
+                            <th style="width:130px;">Entrega</th>
                             <th style="width:130px;">Estado</th>
+                            <th style="width:140px;">Asignado</th>
                             <th style="width:120px;">Progreso</th>
                         </tr></thead>
                         <tbody id="ordenesBody"></tbody>
@@ -9197,44 +9217,177 @@
         cancelada:   { bg: '#fee2e2', color: '#991b1b' }
     };
 
+    let ordenesProgresoCache = {};
+    let ordenesAsignadosCache = {};
+    let ordenesMiStaffId = null;
+
     async function cargarOrdenes() {
         // Ocultar editor, mostrar lista
         document.getElementById('ordenEditor').style.display = 'none';
         document.getElementById('ordenesLista').style.display = 'block';
 
         const filtroEstado = document.getElementById('ordenesFiltroEstado')?.value || '';
-        let q = db.from('ordenes_produccion').select('*, clientes(nombre, empresa), proformas(numero)').order('id', { ascending: false });
-        if (filtroEstado) q = q.eq('estado', filtroEstado);
-        const { data } = await q;
+        let q = db.from('ordenes_produccion').select('*, clientes(nombre, empresa), proformas(numero)');
+        if (filtroEstado === 'activas') {
+            q = q.not('estado', 'in', '(finalizada,entregada,cancelada)');
+        } else if (filtroEstado) {
+            q = q.eq('estado', filtroEstado);
+        }
+        const { data } = await q.order('id', { ascending: false });
         ordenesCache = data || [];
 
+        // Pre-cargar staff dropdown filter (solo activos)
+        if (staffCache.length === 0) await loadStaff();
+        const selAsign = document.getElementById('ordenesFiltroAsignado');
+        if (selAsign && selAsign.options.length <= 2) {
+            staffCache.filter(s => s.activo).forEach(s => {
+                const o = document.createElement('option');
+                o.value = s.id; o.textContent = s.nombre;
+                selAsign.appendChild(o);
+            });
+        }
+
+        // Resolver staff_id del usuario actual (para "mis ordenes")
+        if (!ordenesMiStaffId && currentUser?.email) {
+            const m = staffCache.find(s => s.email === currentUser.email);
+            ordenesMiStaffId = m?.id || null;
+        }
+
+        // Cargar progreso + asignados por orden en una sola query
+        ordenesProgresoCache = {};
+        ordenesAsignadosCache = {};
+        if (ordenesCache.length > 0) {
+            const ordenIds = ordenesCache.map(o => o.id);
+            const { data: tareas } = await db.from('orden_tareas')
+                .select('orden_id, estado, asignado_a')
+                .in('orden_id', ordenIds);
+            (tareas || []).forEach(t => {
+                if (!ordenesProgresoCache[t.orden_id]) ordenesProgresoCache[t.orden_id] = { total: 0, done: 0 };
+                ordenesProgresoCache[t.orden_id].total++;
+                if (t.estado === 'completado' || t.estado === 'saltado') ordenesProgresoCache[t.orden_id].done++;
+                if (t.asignado_a) {
+                    if (!ordenesAsignadosCache[t.orden_id]) ordenesAsignadosCache[t.orden_id] = new Set();
+                    ordenesAsignadosCache[t.orden_id].add(t.asignado_a);
+                }
+            });
+        }
+
+        renderOrdenesFiltradas();
+    }
+
+    function renderOrdenesFiltradas() {
         const body = document.getElementById('ordenesBody');
         const empty = document.getElementById('ordenesEmpty');
-        if (!ordenesCache.length) { body.innerHTML = ''; empty.style.display = 'block'; return; }
-        empty.style.display = 'none';
+        if (!body) return;
 
-        // Contar progreso por orden (tareas completadas / total)
-        const ordenIds = ordenesCache.map(o => o.id);
-        const { data: tareas } = await db.from('orden_tareas').select('orden_id, estado').in('orden_id', ordenIds);
-        const progreso = {};
-        (tareas || []).forEach(t => {
-            if (!progreso[t.orden_id]) progreso[t.orden_id] = { total: 0, done: 0 };
-            progreso[t.orden_id].total++;
-            if (t.estado === 'completado' || t.estado === 'saltado') progreso[t.orden_id].done++;
+        const qTexto = (document.getElementById('ordenesFiltroCliente')?.value || '').trim().toLowerCase();
+        const filtroEntrega = document.getElementById('ordenesFiltroEntrega')?.value || '';
+        const filtroAsign = document.getElementById('ordenesFiltroAsignado')?.value || '';
+        const orden = document.getElementById('ordenesOrden')?.value || 'recientes';
+
+        const hoy = new Date(); hoy.setHours(0,0,0,0);
+        const inicioSemana = new Date(hoy); inicioSemana.setDate(hoy.getDate() - hoy.getDay()); // domingo
+        const finSemana = new Date(inicioSemana); finSemana.setDate(inicioSemana.getDate() + 6); finSemana.setHours(23,59,59,999);
+        const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0, 23, 59, 59);
+
+        let lista = ordenesCache.filter(o => {
+            // Filtro texto (cliente nombre/empresa, # orden, # proforma)
+            if (qTexto) {
+                const cli = ((o.clientes?.nombre || '') + ' ' + (o.clientes?.empresa || '')).toLowerCase();
+                const num = String(o.numero || '');
+                const profNum = String(o.proformas?.numero || '');
+                if (!cli.includes(qTexto) && !num.includes(qTexto) && !profNum.includes(qTexto)) return false;
+            }
+            // Filtro entrega
+            if (filtroEntrega) {
+                const fe = o.fecha_entrega ? new Date(o.fecha_entrega) : null;
+                if (filtroEntrega === 'sin_fecha' && fe) return false;
+                if (filtroEntrega !== 'sin_fecha' && !fe) return false;
+                if (fe) {
+                    fe.setHours(0,0,0,0);
+                    const finalizada = ['entregada','cancelada','finalizada'].includes(o.estado);
+                    if (filtroEntrega === 'atrasadas' && (fe >= hoy || finalizada)) return false;
+                    if (filtroEntrega === 'hoy' && fe.getTime() !== hoy.getTime()) return false;
+                    if (filtroEntrega === 'semana' && (fe < inicioSemana || fe > finSemana)) return false;
+                    if (filtroEntrega === 'mes' && (fe < hoy || fe > finMes)) return false;
+                }
+            }
+            // Filtro asignado
+            if (filtroAsign) {
+                const asignados = ordenesAsignadosCache[o.id];
+                if (filtroAsign === 'mis') {
+                    if (!ordenesMiStaffId || !asignados || !asignados.has(ordenesMiStaffId)) return false;
+                } else {
+                    const id = +filtroAsign;
+                    if (!asignados || !asignados.has(id)) return false;
+                }
+            }
+            return true;
         });
 
-        body.innerHTML = ordenesCache.map(o => {
-            const p = progreso[o.id] || { total: 0, done: 0 };
+        // Orden
+        if (orden === 'entrega') {
+            lista.sort((a, b) => {
+                const fa = a.fecha_entrega ? new Date(a.fecha_entrega).getTime() : Infinity;
+                const fb = b.fecha_entrega ? new Date(b.fecha_entrega).getTime() : Infinity;
+                return fa - fb;
+            });
+        } else if (orden === 'num') {
+            lista.sort((a, b) => (a.numero || 0) - (b.numero || 0));
+        }
+        // 'recientes' es el default (ya viene desc por id)
+
+        if (!lista.length) {
+            body.innerHTML = '';
+            empty.style.display = 'block';
+            empty.textContent = ordenesCache.length ? 'No hay ordenes que coincidan con los filtros.' : 'No hay ordenes. Aprueba una proforma y crea la orden desde ahi.';
+            return;
+        }
+        empty.style.display = 'none';
+
+        const staffById = {};
+        staffCache.forEach(s => { staffById[s.id] = s.nombre; });
+
+        body.innerHTML = lista.map(o => {
+            const p = ordenesProgresoCache[o.id] || { total: 0, done: 0 };
             const pct = p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;
             const estCol = ORDEN_ESTADO_COLORS[o.estado] || ORDEN_ESTADO_COLORS.nueva;
-            const cliente = o.clientes ? (o.clientes.nombre + (o.clientes.empresa ? ' <span style="color:var(--gray-400);font-size:0.8rem;">(' + o.clientes.empresa + ')</span>' : '')) : '-';
+            const cliente = o.clientes ? (escapeHtml(o.clientes.nombre || '') + (o.clientes.empresa ? ' <span style="color:var(--gray-400);font-size:0.8rem;">(' + escapeHtml(o.clientes.empresa) + ')</span>' : '')) : '-';
+
+            // Badge entrega: atrasada / hoy / proxima
+            let entregaCell = '-';
+            if (o.fecha_entrega) {
+                const fe = new Date(o.fecha_entrega); fe.setHours(0,0,0,0);
+                const diff = Math.round((fe - hoy) / (1000*60*60*24));
+                const finalizada = ['entregada','cancelada','finalizada'].includes(o.estado);
+                let tag = '', color = 'var(--gray-600)';
+                if (!finalizada) {
+                    if (diff < 0) { tag = '🚨 atrasada ' + Math.abs(diff) + 'd'; color = '#991b1b'; }
+                    else if (diff === 0) { tag = '⏰ hoy'; color = '#92400e'; }
+                    else if (diff <= 3) { tag = '⚠️ ' + diff + 'd'; color = '#92400e'; }
+                }
+                entregaCell = fe.toLocaleDateString('es-EC') + (tag ? '<div style="font-size:0.7rem;font-weight:600;color:' + color + ';margin-top:0.1rem;">' + tag + '</div>' : '');
+            }
+
+            // Asignados (max 2 nombres + N mas)
+            const asignSet = ordenesAsignadosCache[o.id];
+            let asignCell = '<span style="color:var(--gray-400);">—</span>';
+            if (asignSet && asignSet.size > 0) {
+                const nombres = [...asignSet].map(id => staffById[id]).filter(Boolean);
+                if (nombres.length > 0) {
+                    const visibles = nombres.slice(0, 2).map(n => n.split(' ')[0]).join(', ');
+                    asignCell = escapeHtml(visibles) + (nombres.length > 2 ? ' <span style="color:var(--gray-400);">+' + (nombres.length - 2) + '</span>' : '');
+                }
+            }
+
             return `<tr onclick="abrirOrden(${o.id})" style="cursor:pointer;">
                 <td><strong>${o.numero || '-'}</strong></td>
                 <td>${cliente}</td>
                 <td>${o.proformas?.numero ? '#' + o.proformas.numero : '-'}</td>
                 <td>${o.created_at ? new Date(o.created_at).toLocaleDateString('es-EC') : '-'}</td>
-                <td>${o.fecha_entrega ? new Date(o.fecha_entrega).toLocaleDateString('es-EC') : '-'}</td>
+                <td>${entregaCell}</td>
                 <td><span style="background:${estCol.bg};color:${estCol.color};padding:0.2rem 0.5rem;border-radius:10px;font-size:0.78rem;font-weight:600;">${(o.estado || '').replace('_', ' ')}</span></td>
+                <td style="font-size:0.82rem;">${asignCell}</td>
                 <td>
                     <div style="background:#e5e7eb;border-radius:10px;height:8px;overflow:hidden;">
                         <div style="background:${pct === 100 ? '#059669' : '#2563eb'};height:100%;width:${pct}%;"></div>
@@ -9318,6 +9471,19 @@
         ).join('') + '</ul>';
     }
 
+    // Iconos por estado de tarea
+    const PASO_ESTADO_ICON = {
+        pendiente: '⚪', en_proceso: '🟡', bloqueado: '🔴', completado: '✅', saltado: '⏭️'
+    };
+
+    function _ordenFmtFecha(iso) {
+        if (!iso) return '—';
+        const d = new Date(iso);
+        if (isNaN(d)) return '—';
+        return d.toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit' }) + ' ' +
+               d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+
     function renderOrdenTareas() {
         const cont = document.getElementById('ordenTareas');
         if (!ordenActiva) { cont.innerHTML = ''; return; }
@@ -9325,16 +9491,82 @@
         const items = ordenActiva.items || [];
         if (!items.length) { cont.innerHTML = '<span style="color:var(--gray-400);">Sin items de produccion</span>'; return; }
 
+        const tareas = ordenActiva.tareas || [];
+        const tareasPorItem = {};
+        tareas.forEach(t => {
+            const k = t.proforma_item_id || 'sin_item';
+            if (!tareasPorItem[k]) tareasPorItem[k] = [];
+            tareasPorItem[k].push(t);
+        });
+        Object.values(tareasPorItem).forEach(arr => arr.sort((a, b) => (a.orden_seq || 0) - (b.orden_seq || 0)));
+
+        // Opciones de staff (helper que setea selected segun valor actual)
+        const staffActivos = staffCache.filter(s => s.activo);
+        const staffOpts = (sel) => '<option value="">— sin asignar —</option>' +
+            staffActivos.map(s => `<option value="${s.id}"${+sel === +s.id ? ' selected' : ''}>${escapeHtml(s.nombre || '')}</option>`).join('');
+
         let html = '';
         items.forEach((item, idx) => {
             const s = item.datos_cotizacion || {};
-            const itemLabel = (item.descripcion || '').split(' - ')[0] + ' — ' + item.cantidad + ' uds — ' + (item.metodo_impresion || '').toUpperCase();
+            const itemTitulo = (item.descripcion || '').split(' - ')[0] || 'Item';
+            const itemMetodo = (item.metodo_impresion || '').toUpperCase();
+            const itemLabel = itemTitulo + ' — ' + (item.cantidad || 0) + ' uds — ' + itemMetodo;
+            const itemTareas = tareasPorItem[item.id] || [];
+            const totalT = itemTareas.length;
+            const doneT = itemTareas.filter(t => t.estado === 'completado' || t.estado === 'saltado').length;
+            const pctT = totalT > 0 ? Math.round((doneT / totalT) * 100) : 0;
 
             html += '<div style="margin-bottom:1.5rem;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">';
-            html += '<div style="font-weight:700;color:#111827;padding:0.5rem 0.75rem;background:#f3f4f6;border-bottom:1px solid #e5e7eb;font-size:0.9rem;">' + (idx + 1) + '. ' + itemLabel + '</div>';
+            html += '<div style="font-weight:700;color:#111827;padding:0.5rem 0.75rem;background:#f3f4f6;border-bottom:1px solid #e5e7eb;font-size:0.9rem;display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">';
+            html += '<span>' + (idx + 1) + '. ' + escapeHtml(itemLabel) + '</span>';
+            html += '<span style="margin-left:auto;font-size:0.75rem;color:var(--gray-500);font-weight:500;">' + doneT + '/' + totalT + ' pasos</span>';
+            html += '<div style="width:90px;background:#e5e7eb;border-radius:8px;height:6px;overflow:hidden;"><div style="background:' + (pctT === 100 ? '#059669' : '#2563eb') + ';height:100%;width:' + pctT + '%;"></div></div>';
+            html += '</div>';
             html += '<div style="padding:0.75rem;font-size:0.85rem;">';
 
-            // Datos de produccion (como en el cotizador)
+            // ===== FLUJO DE PRODUCCION (checklist) =====
+            if (itemTareas.length > 0) {
+                html += '<div style="font-weight:700;font-size:0.78rem;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:0.4rem;">Flujo de produccion</div>';
+                html += '<div style="display:flex;flex-direction:column;gap:0.3rem;">';
+                itemTareas.forEach(t => {
+                    const col = PASO_ESTADO_COLORS[t.estado] || PASO_ESTADO_COLORS.pendiente;
+                    const ico = PASO_ESTADO_ICON[t.estado] || '⚪';
+                    const isDone = t.estado === 'completado' || t.estado === 'saltado';
+                    html += '<div style="display:grid;grid-template-columns:24px minmax(120px,1.5fr) 1fr 130px 120px;gap:0.4rem;align-items:center;padding:0.35rem 0.5rem;background:' + col.bg + ';border-left:3px solid ' + col.border + ';border-radius:6px;font-size:0.83rem;' + (isDone ? 'opacity:0.75;' : '') + '">';
+                    html += '<span style="font-size:1rem;text-align:center;">' + ico + '</span>';
+                    html += '<span style="font-weight:600;color:' + col.color + ';' + (isDone ? 'text-decoration:line-through;' : '') + '">' + escapeHtml(t.paso || '') + '</span>';
+                    // Asignado
+                    html += '<select onchange="updateOrdenTarea(' + t.id + ', \'asignado_a\', this.value ? +this.value : null)" style="padding:0.2rem 0.3rem;font-size:0.78rem;border:1px solid var(--gray-300);border-radius:4px;background:white;min-width:0;">' +
+                        staffOpts(t.asignado_a) + '</select>';
+                    // Fecha estimada
+                    html += '<input type="date" value="' + (t.fecha_estimada || '') + '" onchange="updateOrdenTarea(' + t.id + ', \'fecha_estimada\', this.value || null)" style="padding:0.2rem 0.3rem;font-size:0.78rem;border:1px solid var(--gray-300);border-radius:4px;background:white;min-width:0;">';
+                    // Estado select
+                    html += '<select onchange="updateOrdenTarea(' + t.id + ', \'estado\', this.value)" style="padding:0.2rem 0.3rem;font-size:0.78rem;font-weight:600;border:1px solid ' + col.border + ';border-radius:4px;background:white;color:' + col.color + ';">';
+                    ['pendiente','en_proceso','bloqueado','completado','saltado'].forEach(e => {
+                        html += '<option value="' + e + '"' + (t.estado === e ? ' selected' : '') + '>' + e.replace('_',' ') + '</option>';
+                    });
+                    html += '</select>';
+                    html += '</div>';
+                    // Subfila con fechas reales y notas
+                    if (t.fecha_inicio || t.fecha_fin || t.notas) {
+                        html += '<div style="padding:0.1rem 0.5rem 0.3rem 32px;font-size:0.72rem;color:var(--gray-500);display:flex;gap:0.8rem;flex-wrap:wrap;">';
+                        if (t.fecha_inicio) html += '<span>▶ ' + _ordenFmtFecha(t.fecha_inicio) + '</span>';
+                        if (t.fecha_fin) html += '<span>■ ' + _ordenFmtFecha(t.fecha_fin) + '</span>';
+                        if (t.notas) html += '<span>📝 ' + escapeHtml(t.notas) + '</span>';
+                        html += '</div>';
+                    }
+                });
+                html += '</div>';
+            } else {
+                html += '<div style="color:var(--gray-400);padding:0.5rem;">Sin tareas para este item</div>';
+            }
+
+            // ===== DETALLES TECNICOS (colapsable) =====
+            html += '<details style="margin-top:0.75rem;border-top:1px dashed var(--gray-200);padding-top:0.5rem;">';
+            html += '<summary style="cursor:pointer;font-weight:700;font-size:0.78rem;color:var(--gray-600);text-transform:uppercase;letter-spacing:0.4px;padding:0.25rem 0;user-select:none;">Detalles tecnicos / imposicion</summary>';
+            html += '<div style="margin-top:0.5rem;">';
+
+            // Datos de produccion
             const pW = s.producto?.w || '-', pH = s.producto?.h || '-';
             const sangrado = s.sangrado || '0';
             const lados = s.lados || '1';
@@ -9364,7 +9596,7 @@
             }
             html += '</table>';
 
-            // Terminados (como en el cotizador)
+            // Terminados
             const td = s.terminadosDetalle || {};
             const tieneTerminados = td.plastificado || td.barnizUV || td.uvSelectivo || td.guillotina || td.ensanduchado || td.troquelado || td.troquelPlotter;
             if (tieneTerminados) {
@@ -9392,15 +9624,18 @@
             html += '<canvas id="opPreviewPliego_' + idx + '" style="width:100%;border:1px solid var(--gray-200);border-radius:6px;background:var(--gray-50);"></canvas></div>';
             html += '</div>';
 
+            html += '</div></details>';
             html += '</div></div>';
         });
 
         cont.innerHTML = html;
 
-        // Draw imposition previews after DOM is ready
-        setTimeout(() => {
-            items.forEach((item, idx) => {
-                const s = item.datos_cotizacion || {};
+        // Draw imposition previews on demand cuando se abren los <details>
+        items.forEach((item, idx) => {
+            const det = cont.querySelectorAll('details')[idx];
+            if (!det) return;
+            const s = item.datos_cotizacion || {};
+            const draw = () => {
                 const hojaW = +(s.hoja?.w || 0), hojaH = +(s.hoja?.h || 0);
                 const sangrado = +(s.sangrado || 0);
                 const piezaW = +(s.producto?.w || 0) + sangrado * 2;
@@ -9409,15 +9644,15 @@
                 const margenMaq = +(s.margenMaq || 0.5);
                 const lados = +(s.lados || 1);
                 const esMismaPlaca = lados === 2 && s.placasTR === 'misma';
-
                 if (hojaW > 0 && hojaH > 0 && piezaW > 0 && piezaH > 0) {
                     cotDrawPreview('opPreviewHoja_' + idx, hojaW, hojaH, piezaW, piezaH, margenMaq, esMismaPlaca ? 'tiroretiro' : false, 1);
                 }
                 if (pliegoW > 0 && pliegoH > 0 && hojaW > 0 && hojaH > 0) {
                     cotDrawPreview('opPreviewPliego_' + idx, pliegoW, pliegoH, hojaW, hojaH, 0, false);
                 }
-            });
-        }, 50);
+            };
+            det.addEventListener('toggle', () => { if (det.open) draw(); }, { once: false });
+        });
     }
 
     async function updateOrdenTarea(tareaId, field, value) {
