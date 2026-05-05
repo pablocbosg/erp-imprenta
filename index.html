@@ -436,7 +436,22 @@
                 <p>Calcula costos, cortes y genera proformas</p>
                 <span id="headerMaquina" style="display:none;">SM52</span>
             </div>
-            <button onclick="doLogout()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;">Cerrar Sesion</button>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="position:relative;">
+                    <button id="notifBtn" onclick="toggleNotifDropdown()" title="Notificaciones" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:0.4rem 0.7rem;border-radius:6px;font-size:1rem;cursor:pointer;position:relative;">
+                        🔔
+                        <span id="notifBadge" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:white;font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:9px;min-width:16px;text-align:center;line-height:1.3;border:2px solid #1e3a8a;">0</span>
+                    </button>
+                    <div id="notifDropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:340px;max-height:480px;background:white;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.25);z-index:1000;overflow:hidden;color:var(--gray-800);">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.85rem;border-bottom:1px solid var(--gray-200);background:var(--gray-50);">
+                            <strong style="font-size:0.9rem;">Notificaciones</strong>
+                            <button onclick="marcarTodasLeidas()" style="background:none;border:none;color:var(--primary);font-size:0.78rem;cursor:pointer;padding:0;">Marcar todas leidas</button>
+                        </div>
+                        <div id="notifLista" style="max-height:400px;overflow-y:auto;"></div>
+                    </div>
+                </div>
+                <button onclick="doLogout()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;cursor:pointer;">Cerrar Sesion</button>
+            </div>
         </div>
         <div class="tabs">
             <button class="tab-btn" onclick="switchTab('inicio')">Inicio</button>
@@ -4149,6 +4164,125 @@
         renderTerminadosRef();
         cotCalc();
         calcCalc();
+        // Notificaciones in-app
+        await initNotificaciones();
+    }
+
+    // =====================================================
+    // NOTIFICACIONES IN-APP
+    // =====================================================
+    let notifStaffId = null;
+    let notifCache = [];
+    let notifPollTimer = null;
+
+    async function initNotificaciones() {
+        if (!currentUser?.email) return;
+        // Resolver staff_id propio
+        const { data: m } = await db.from('staff').select('id').eq('email', currentUser.email).maybeSingle();
+        notifStaffId = m?.id || null;
+        if (!notifStaffId) {
+            document.getElementById('notifBtn').style.display = 'none';
+            return;
+        }
+        await cargarNotificaciones();
+        if (notifPollTimer) clearInterval(notifPollTimer);
+        notifPollTimer = setInterval(cargarNotificaciones, 30000);
+
+        // Cerrar dropdown al click afuera
+        document.addEventListener('click', (e) => {
+            const dd = document.getElementById('notifDropdown');
+            const btn = document.getElementById('notifBtn');
+            if (!dd || dd.style.display === 'none') return;
+            if (btn?.contains(e.target) || dd.contains(e.target)) return;
+            dd.style.display = 'none';
+        });
+    }
+
+    async function cargarNotificaciones() {
+        if (!notifStaffId) return;
+        const { data, error } = await db.from('notificaciones')
+            .select('id, tipo, titulo, mensaje, link, leida, related_orden_id, created_at')
+            .eq('staff_id', notifStaffId)
+            .order('created_at', { ascending: false })
+            .limit(20);
+        if (error) { console.error('notif:', error); return; }
+        notifCache = data || [];
+        renderNotificaciones();
+    }
+
+    function _notifTimeAgo(iso) {
+        const d = new Date(iso);
+        const diff = (Date.now() - d.getTime()) / 1000;
+        if (diff < 60) return 'ahora';
+        if (diff < 3600) return Math.floor(diff/60) + ' min';
+        if (diff < 86400) return Math.floor(diff/3600) + ' h';
+        if (diff < 604800) return Math.floor(diff/86400) + ' d';
+        return d.toLocaleDateString('es-EC');
+    }
+
+    function renderNotificaciones() {
+        const noLeidas = notifCache.filter(n => !n.leida).length;
+        const badge = document.getElementById('notifBadge');
+        if (badge) {
+            if (noLeidas > 0) { badge.style.display = 'block'; badge.textContent = noLeidas > 99 ? '99+' : noLeidas; }
+            else badge.style.display = 'none';
+        }
+        const lista = document.getElementById('notifLista');
+        if (!lista) return;
+        if (!notifCache.length) {
+            lista.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--gray-400);font-size:0.85rem;">Sin notificaciones</div>';
+            return;
+        }
+        lista.innerHTML = notifCache.map(n => {
+            const bg = n.leida ? 'white' : '#eff6ff';
+            const dot = n.leida ? '' : '<span style="display:inline-block;width:8px;height:8px;background:#2563eb;border-radius:50%;margin-right:0.4rem;"></span>';
+            return `<div onclick="abrirNotif(${n.id})" style="padding:0.6rem 0.85rem;border-bottom:1px solid var(--gray-100);cursor:pointer;background:${bg};transition:background 0.1s;" onmouseover="this.style.background='var(--gray-100)'" onmouseout="this.style.background='${bg}'">
+                <div style="display:flex;justify-content:space-between;align-items:start;gap:0.4rem;">
+                    <div style="font-weight:600;font-size:0.85rem;color:var(--gray-800);flex:1;">${dot}${escapeHtml(n.titulo || '')}</div>
+                    <div style="font-size:0.72rem;color:var(--gray-400);white-space:nowrap;">${_notifTimeAgo(n.created_at)}</div>
+                </div>
+                ${n.mensaje ? `<div style="font-size:0.8rem;color:var(--gray-500);margin-top:0.15rem;margin-left:${n.leida ? '0' : '1rem'};">${escapeHtml(n.mensaje)}</div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    function toggleNotifDropdown() {
+        const dd = document.getElementById('notifDropdown');
+        if (!dd) return;
+        const opening = dd.style.display === 'none';
+        dd.style.display = opening ? 'block' : 'none';
+        if (opening) cargarNotificaciones();
+    }
+
+    async function abrirNotif(id) {
+        const n = notifCache.find(x => x.id === id);
+        if (!n) return;
+        // Marcar como leida (optimista)
+        if (!n.leida) {
+            n.leida = true;
+            renderNotificaciones();
+            db.from('notificaciones').update({ leida: true }).eq('id', id).then();
+        }
+        // Cerrar dropdown
+        document.getElementById('notifDropdown').style.display = 'none';
+        // Navegar al contexto
+        const link = n.link || {};
+        if (link.tab) {
+            switchTab(link.tab);
+            if (link.tab === 'ordenes' && link.orden_id) {
+                setTimeout(() => abrirOrden(link.orden_id), 400);
+            }
+        }
+    }
+
+    async function marcarTodasLeidas() {
+        if (!notifStaffId) return;
+        const noLeidas = notifCache.filter(n => !n.leida).map(n => n.id);
+        if (!noLeidas.length) return;
+        // Optimista
+        notifCache.forEach(n => n.leida = true);
+        renderNotificaciones();
+        await db.from('notificaciones').update({ leida: true }).in('id', noLeidas);
     }
 
     // =====================================================
