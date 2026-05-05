@@ -737,6 +737,7 @@ function gigaRollosAdminRender() {
             <td style="font-weight:600;color:#0e7490;">$${costoPorM2.toFixed(2)}</td>
             <td>${m2Ini.toFixed(1)}</td>
             <td><input type="number" step="0.1" min="0" value="${(+r.m2_restantes).toFixed(1)}" style="width:80px" onchange="gigaRolloUpdate(${i},'m2_restantes',+this.value)"></td>
+            <td><input type="number" step="0.1" min="0" value="${(+(r.m2_minimo || 0)).toFixed(1)}" style="width:70px" onchange="gigaRolloUpdate(${i},'m2_minimo',+this.value)" title="Avisa a admins cuando baja de este valor"></td>
             <td style="text-align:center;"><input type="checkbox" ${r.inventario_activo ? 'checked' : ''} onchange="gigaRolloUpdate(${i},'inventario_activo',this.checked)"></td>
             <td style="text-align:center;"><input type="checkbox" ${r.activo ? 'checked' : ''} onchange="gigaRolloUpdate(${i},'activo',this.checked)"></td>
             <td><input type="text" value="${(r.factura||'').replace(/"/g,'&quot;')}" style="width:120px" onchange="gigaRolloUpdate(${i},'factura',this.value)" placeholder="# factura"></td>

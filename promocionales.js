@@ -440,6 +440,7 @@ function promoAdminRender() {
             <td style="font-size:0.75rem;color:var(--gray-500);">${escapeHtml(p.categoria || '—')}</td>
             <td><input type="number" step="0.01" min="0" value="${+p.costo}" style="width:75px" onchange="promoProdUpdate(${idx},'costo',+this.value)"></td>
             <td><input type="number" step="1" value="${+p.stock}" style="width:70px" onchange="promoProdUpdate(${idx},'stock',+this.value)"></td>
+            <td><input type="number" step="1" min="0" value="${+(p.stock_minimo || 0)}" style="width:60px" onchange="promoProdUpdate(${idx},'stock_minimo',+this.value)" title="Avisa a admins cuando baja de este valor"></td>
             <td style="font-size:0.72rem;color:#0369a1;">${tecStr}</td>
             <td style="text-align:center;"><input type="checkbox" ${p.activo ? 'checked' : ''} onchange="promoProdUpdate(${idx},'activo',this.checked)"></td>
             <td style="white-space:nowrap;">
@@ -447,7 +448,7 @@ function promoAdminRender() {
                 <button class="btn btn-danger btn-sm" onclick="promoProdDelete(${idx})">X</button>
             </td>
         </tr>`;
-    }).join('') || '<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--gray-400);">Sin resultados</td></tr>';
+    }).join('') || '<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--gray-400);">Sin resultados</td></tr>';
 
     if (totalPag > 1) {
         pag.innerHTML = `

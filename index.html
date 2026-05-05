@@ -3815,6 +3815,7 @@
                                     <th>$/m²</th>
                                     <th>m² inicial</th>
                                     <th>m² restantes</th>
+                                    <th title="m² mínimo: avisa a admins cuando baja de este valor">m² min</th>
                                     <th>Inventario</th>
                                     <th>Activo</th>
                                     <th>Factura</th>
@@ -3921,7 +3922,7 @@
                         <div style="overflow-x:auto;max-height:70vh;overflow-y:auto;">
                             <table class="data-table">
                                 <thead style="position:sticky;top:0;background:white;z-index:1;">
-                                    <tr><th>Foto</th><th>Código</th><th>Nombre</th><th>Proveedor</th><th>Cat.</th><th>Costo</th><th>Stock</th><th>Técnicas</th><th>Activo</th><th></th></tr>
+                                    <tr><th>Foto</th><th>Código</th><th>Nombre</th><th>Proveedor</th><th>Cat.</th><th>Costo</th><th>Stock</th><th title="Stock mínimo: avisa a admins cuando baja de este valor">Min</th><th>Técnicas</th><th>Activo</th><th></th></tr>
                                 </thead>
                                 <tbody id="promoAdminProductosBody"></tbody>
                             </table>
@@ -4044,6 +4045,7 @@
                                     <th>Nombre</th>
                                     <th>Rol</th>
                                     <th>Email</th>
+                                    <th title="Recibe notificaciones de stock bajo">Admin</th>
                                     <th>Activo</th>
                                     <th></th>
                                 </tr>
@@ -4234,6 +4236,14 @@
                 if (!n) return;
                 const idx = notifCache.findIndex(x => x.id === n.id);
                 if (idx >= 0) { notifCache[idx] = { ...notifCache[idx], ...n }; renderNotificaciones(); }
+            })
+            .on('postgres_changes', {
+                event: 'DELETE',
+                schema: 'public',
+                table: 'notificaciones'
+            }, (payload) => {
+                // DELETE no incluye filter porque OLD no se broadcast con RLS — recargar
+                cargarNotificaciones();
             })
             .subscribe();
     }
@@ -5315,6 +5325,7 @@
             <td><input type="text" value="${escapeHtml(s.nombre || '')}" onchange="updateStaff(${i},'nombre',this.value)"></td>
             <td><input type="text" value="${escapeHtml(s.rol || '')}" style="width:120px" onchange="updateStaff(${i},'rol',this.value)" placeholder="Diseñador, Prensista..."></td>
             <td><input type="email" value="${escapeHtml(s.email || '')}" onchange="updateStaff(${i},'email',this.value)"></td>
+            <td style="text-align:center;" title="Recibe alertas de stock bajo y otras notif administrativas"><input type="checkbox" ${s.es_admin ? 'checked' : ''} onchange="updateStaff(${i},'es_admin',this.checked)"></td>
             <td style="text-align:center;"><input type="checkbox" ${s.activo ? 'checked' : ''} onchange="updateStaff(${i},'activo',this.checked)"></td>
             <td><button class="btn btn-danger btn-sm" onclick="deleteStaff(${i})">X</button></td>
         </tr>`).join('');
