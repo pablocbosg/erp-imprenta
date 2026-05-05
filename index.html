@@ -4129,6 +4129,7 @@
     }
 
     async function doLogout() {
+        try { if (typeof cleanupNotificaciones === 'function') cleanupNotificaciones(); } catch(e) {}
         await db.auth.signOut();
         document.getElementById('appContainer').style.display = 'none';
         document.getElementById('loginScreen').style.display = 'flex';
@@ -4174,6 +4175,7 @@
     let notifStaffId = null;
     let notifCache = [];
     let notifPollTimer = null;
+    let notifChannel = null;
 
     async function initNotificaciones() {
         if (!currentUser?.email) return;
@@ -4185,8 +4187,13 @@
             return;
         }
         await cargarNotificaciones();
+
+        // Realtime: suscribirse a INSERT/UPDATE de mis notificaciones
+        suscribirNotificacionesRealtime();
+
+        // Polling fallback (si realtime se cae) cada 60s
         if (notifPollTimer) clearInterval(notifPollTimer);
-        notifPollTimer = setInterval(cargarNotificaciones, 30000);
+        notifPollTimer = setInterval(cargarNotificaciones, 60000);
 
         // Cerrar dropdown al click afuera
         document.addEventListener('click', (e) => {
@@ -4196,6 +4203,55 @@
             if (btn?.contains(e.target) || dd.contains(e.target)) return;
             dd.style.display = 'none';
         });
+    }
+
+    function suscribirNotificacionesRealtime() {
+        if (!notifStaffId) return;
+        // Cleanup canal anterior
+        if (notifChannel) { db.removeChannel(notifChannel); notifChannel = null; }
+
+        notifChannel = db.channel('notif-staff-' + notifStaffId)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'notificaciones',
+                filter: 'staff_id=eq.' + notifStaffId
+            }, (payload) => {
+                const n = payload.new;
+                if (!n || notifCache.find(x => x.id === n.id)) return;
+                notifCache.unshift(n);
+                if (notifCache.length > 20) notifCache.length = 20;
+                renderNotificaciones();
+                animarCampanita();
+            })
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'notificaciones',
+                filter: 'staff_id=eq.' + notifStaffId
+            }, (payload) => {
+                const n = payload.new;
+                if (!n) return;
+                const idx = notifCache.findIndex(x => x.id === n.id);
+                if (idx >= 0) { notifCache[idx] = { ...notifCache[idx], ...n }; renderNotificaciones(); }
+            })
+            .subscribe();
+    }
+
+    function animarCampanita() {
+        const btn = document.getElementById('notifBtn');
+        if (!btn) return;
+        btn.style.transition = 'transform 0.15s';
+        btn.style.transform = 'scale(1.25) rotate(-15deg)';
+        setTimeout(() => { btn.style.transform = 'scale(1.15) rotate(15deg)'; }, 150);
+        setTimeout(() => { btn.style.transform = 'scale(1) rotate(0)'; }, 350);
+    }
+
+    function cleanupNotificaciones() {
+        if (notifPollTimer) { clearInterval(notifPollTimer); notifPollTimer = null; }
+        if (notifChannel) { db.removeChannel(notifChannel); notifChannel = null; }
+        notifCache = [];
+        notifStaffId = null;
     }
 
     async function cargarNotificaciones() {
