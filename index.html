@@ -3437,6 +3437,11 @@
 
     <!-- ==================== TAB: ORDENES DE PRODUCCION ==================== -->
     <div id="tab-ordenes" class="tab-content">
+        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;">
+            <button id="ordenesBtnLista" class="tab-btn active" onclick="ordenesVista('lista')" style="padding:0.5rem 1rem;">📋 Lista de ordenes</button>
+            <button id="ordenesBtnReportes" class="tab-btn" onclick="ordenesVista('reportes')" style="padding:0.5rem 1rem;">📊 Reportes de tiempo</button>
+        </div>
+
         <div id="ordenesLista">
             <div class="panel" style="margin-bottom:1rem;">
                 <div class="panel-header" style="flex-wrap:wrap;gap:0.5rem;">
@@ -3523,6 +3528,81 @@
             <div class="panel">
                 <div class="panel-header">Produccion por item</div>
                 <div class="panel-body" id="ordenTareas" style="padding:0.75rem;"></div>
+            </div>
+        </div>
+
+        <div id="ordenesReportes" style="display:none;">
+            <div class="panel" style="margin-bottom:1rem;">
+                <div class="panel-header">Reportes de tiempo de produccion</div>
+                <div class="panel-body" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:end;">
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--gray-500);display:block;">Desde</label>
+                        <input type="date" id="ordRepDesde" onchange="cargarReportesTiempo()" style="padding:0.4rem;border-radius:6px;border:1px solid var(--gray-300);">
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem;color:var(--gray-500);display:block;">Hasta</label>
+                        <input type="date" id="ordRepHasta" onchange="cargarReportesTiempo()" style="padding:0.4rem;border-radius:6px;border:1px solid var(--gray-300);">
+                    </div>
+                    <div style="display:flex;gap:0.4rem;">
+                        <button class="btn" onclick="ordRepRango('semana')" style="padding:0.4rem 0.7rem;font-size:0.85rem;border:1px solid var(--gray-300);">Esta semana</button>
+                        <button class="btn" onclick="ordRepRango('mes')" style="padding:0.4rem 0.7rem;font-size:0.85rem;border:1px solid var(--gray-300);">Este mes</button>
+                        <button class="btn" onclick="ordRepRango('mesPasado')" style="padding:0.4rem 0.7rem;font-size:0.85rem;border:1px solid var(--gray-300);">Mes pasado</button>
+                        <button class="btn" onclick="ordRepRango('90d')" style="padding:0.4rem 0.7rem;font-size:0.85rem;border:1px solid var(--gray-300);">Ultimos 90 dias</button>
+                    </div>
+                    <div style="margin-left:auto;font-size:0.8rem;color:var(--gray-500);" id="ordRepMeta"></div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-bottom:1rem;">
+                <div class="panel-header">⏱ Tiempo promedio por etapa</div>
+                <div class="panel-body" style="padding:0;overflow-x:auto;">
+                    <table class="data-table" style="width:100%;">
+                        <thead><tr>
+                            <th>Etapa</th>
+                            <th style="width:90px;text-align:right;">Tareas</th>
+                            <th style="width:120px;text-align:right;">Promedio</th>
+                            <th style="width:120px;text-align:right;">Mediana</th>
+                            <th style="width:120px;text-align:right;">Max</th>
+                        </tr></thead>
+                        <tbody id="ordRepEtapasBody"></tbody>
+                    </table>
+                    <div id="ordRepEtapasEmpty" style="padding:1.5rem;text-align:center;color:var(--gray-400);display:none;">Sin tareas completadas en el rango</div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-bottom:1rem;">
+                <div class="panel-header">👤 Productividad por persona</div>
+                <div class="panel-body" style="padding:0;overflow-x:auto;">
+                    <table class="data-table" style="width:100%;">
+                        <thead><tr>
+                            <th>Persona</th>
+                            <th style="width:90px;text-align:right;">Completadas</th>
+                            <th style="width:120px;text-align:right;">Promedio/tarea</th>
+                            <th style="width:140px;text-align:right;">Tiempo total</th>
+                            <th>Etapas</th>
+                        </tr></thead>
+                        <tbody id="ordRepPersonasBody"></tbody>
+                    </table>
+                    <div id="ordRepPersonasEmpty" style="padding:1.5rem;text-align:center;color:var(--gray-400);display:none;">Sin tareas asignadas completadas</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">🚧 Cuellos de botella actuales <small style="color:var(--gray-500);font-weight:400;">(tareas no completadas en ordenes activas, ignora rango)</small></div>
+                <div class="panel-body" style="padding:0;overflow-x:auto;">
+                    <table class="data-table" style="width:100%;">
+                        <thead><tr>
+                            <th>Etapa</th>
+                            <th style="width:90px;text-align:right;">Pendiente</th>
+                            <th style="width:90px;text-align:right;">En proceso</th>
+                            <th style="width:90px;text-align:right;">Bloqueado</th>
+                            <th style="width:90px;text-align:right;">Total</th>
+                            <th style="width:140px;">Mas vieja</th>
+                        </tr></thead>
+                        <tbody id="ordRepCuellosBody"></tbody>
+                    </table>
+                    <div id="ordRepCuellosEmpty" style="padding:1.5rem;text-align:center;color:var(--gray-400);display:none;">Sin tareas pendientes en ordenes activas 🎉</div>
+                </div>
             </div>
         </div>
     </div>
@@ -9220,11 +9300,202 @@
     let ordenesProgresoCache = {};
     let ordenesAsignadosCache = {};
     let ordenesMiStaffId = null;
+    let ordenesVistaActual = 'lista';
+
+    function ordenesVista(v) {
+        ordenesVistaActual = v;
+        document.getElementById('ordenesBtnLista').classList.toggle('active', v === 'lista');
+        document.getElementById('ordenesBtnReportes').classList.toggle('active', v === 'reportes');
+        document.getElementById('ordenesLista').style.display = v === 'lista' ? 'block' : 'none';
+        document.getElementById('ordenEditor').style.display = 'none';
+        document.getElementById('ordenesReportes').style.display = v === 'reportes' ? 'block' : 'none';
+        if (v === 'reportes') {
+            // Default rango: ultimos 30 dias si esta vacio
+            const desde = document.getElementById('ordRepDesde');
+            const hasta = document.getElementById('ordRepHasta');
+            if (!desde.value || !hasta.value) ordRepRango('mes');
+            else cargarReportesTiempo();
+        }
+    }
+
+    function ordRepRango(tipo) {
+        const hoy = new Date();
+        let d, h;
+        if (tipo === 'semana') {
+            d = new Date(hoy); d.setDate(hoy.getDate() - hoy.getDay());
+            h = new Date(d); h.setDate(d.getDate() + 6);
+        } else if (tipo === 'mes') {
+            d = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+            h = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+        } else if (tipo === 'mesPasado') {
+            d = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+            h = new Date(hoy.getFullYear(), hoy.getMonth(), 0);
+        } else if (tipo === '90d') {
+            h = new Date(hoy);
+            d = new Date(hoy); d.setDate(hoy.getDate() - 90);
+        }
+        const fmt = dt => dt.toISOString().slice(0,10);
+        document.getElementById('ordRepDesde').value = fmt(d);
+        document.getElementById('ordRepHasta').value = fmt(h);
+        cargarReportesTiempo();
+    }
+
+    function _ordRepFmtDur(horas) {
+        if (!horas || isNaN(horas) || horas < 0) return '—';
+        if (horas < 1) return Math.round(horas * 60) + ' min';
+        if (horas < 24) return horas.toFixed(1) + ' h';
+        const dias = Math.floor(horas / 24);
+        const restoH = Math.round(horas - dias * 24);
+        return dias + 'd' + (restoH > 0 ? ' ' + restoH + 'h' : '');
+    }
+
+    function _ordRepStats(durs) {
+        if (!durs.length) return null;
+        const sorted = [...durs].sort((a, b) => a - b);
+        const sum = durs.reduce((a, b) => a + b, 0);
+        const avg = sum / durs.length;
+        const median = sorted.length % 2
+            ? sorted[(sorted.length - 1) >> 1]
+            : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+        const max = sorted[sorted.length - 1];
+        return { count: durs.length, sum, avg, median, max };
+    }
+
+    async function cargarReportesTiempo() {
+        const desdeStr = document.getElementById('ordRepDesde').value;
+        const hastaStr = document.getElementById('ordRepHasta').value;
+        if (!desdeStr || !hastaStr) return;
+        const desde = new Date(desdeStr); desde.setHours(0,0,0,0);
+        const hasta = new Date(hastaStr); hasta.setHours(23,59,59,999);
+
+        if (staffCache.length === 0) await loadStaff();
+        const staffById = {}; staffCache.forEach(s => { staffById[s.id] = s.nombre; });
+
+        // Tareas completadas en el rango (filtrar por fecha_fin)
+        const { data: completadas } = await db.from('orden_tareas')
+            .select('paso, asignado_a, fecha_inicio, fecha_fin, estado')
+            .eq('estado', 'completado')
+            .gte('fecha_fin', desde.toISOString())
+            .lte('fecha_fin', hasta.toISOString());
+
+        const tareasValidas = (completadas || []).filter(t => t.fecha_inicio && t.fecha_fin);
+
+        // === STATS POR ETAPA ===
+        const porEtapa = {};
+        tareasValidas.forEach(t => {
+            const horas = (new Date(t.fecha_fin) - new Date(t.fecha_inicio)) / 3600000;
+            if (horas < 0) return;
+            if (!porEtapa[t.paso]) porEtapa[t.paso] = [];
+            porEtapa[t.paso].push(horas);
+        });
+        const ordenWorkflow = [...new Set([...WORKFLOW_OFFSET, ...WORKFLOW_DIGITAL])];
+        const filasEtapas = ordenWorkflow.filter(p => porEtapa[p]).map(p => {
+            const s = _ordRepStats(porEtapa[p]);
+            return { paso: p, ...s };
+        }).concat(
+            Object.keys(porEtapa).filter(p => !ordenWorkflow.includes(p)).map(p => ({ paso: p, ..._ordRepStats(porEtapa[p]) }))
+        );
+        const tbE = document.getElementById('ordRepEtapasBody');
+        const emE = document.getElementById('ordRepEtapasEmpty');
+        if (!filasEtapas.length) {
+            tbE.innerHTML = ''; emE.style.display = 'block';
+        } else {
+            emE.style.display = 'none';
+            tbE.innerHTML = filasEtapas.map(f => `<tr>
+                <td><strong>${escapeHtml(f.paso)}</strong></td>
+                <td style="text-align:right;">${f.count}</td>
+                <td style="text-align:right;font-weight:600;">${_ordRepFmtDur(f.avg)}</td>
+                <td style="text-align:right;">${_ordRepFmtDur(f.median)}</td>
+                <td style="text-align:right;color:var(--gray-500);">${_ordRepFmtDur(f.max)}</td>
+            </tr>`).join('');
+        }
+
+        // === STATS POR PERSONA ===
+        const porStaff = {};
+        tareasValidas.filter(t => t.asignado_a).forEach(t => {
+            const horas = (new Date(t.fecha_fin) - new Date(t.fecha_inicio)) / 3600000;
+            if (horas < 0) return;
+            if (!porStaff[t.asignado_a]) porStaff[t.asignado_a] = { durs: [], pasos: {} };
+            porStaff[t.asignado_a].durs.push(horas);
+            porStaff[t.asignado_a].pasos[t.paso] = (porStaff[t.asignado_a].pasos[t.paso] || 0) + 1;
+        });
+        const filasPersonas = Object.entries(porStaff).map(([id, d]) => {
+            const s = _ordRepStats(d.durs);
+            const topPasos = Object.entries(d.pasos).sort((a,b) => b[1] - a[1]).slice(0, 3)
+                .map(([p, c]) => `${p} (${c})`).join(', ');
+            return { id, nombre: staffById[id] || ('Staff #' + id), ...s, topPasos };
+        }).sort((a, b) => b.count - a.count);
+        const tbP = document.getElementById('ordRepPersonasBody');
+        const emP = document.getElementById('ordRepPersonasEmpty');
+        if (!filasPersonas.length) {
+            tbP.innerHTML = ''; emP.style.display = 'block';
+        } else {
+            emP.style.display = 'none';
+            tbP.innerHTML = filasPersonas.map(f => `<tr>
+                <td><strong>${escapeHtml(f.nombre)}</strong></td>
+                <td style="text-align:right;font-weight:600;">${f.count}</td>
+                <td style="text-align:right;">${_ordRepFmtDur(f.avg)}</td>
+                <td style="text-align:right;color:var(--gray-500);">${_ordRepFmtDur(f.sum)}</td>
+                <td style="font-size:0.8rem;color:var(--gray-600);">${escapeHtml(f.topPasos)}</td>
+            </tr>`).join('');
+        }
+
+        // === CUELLOS DE BOTELLA (snapshot actual, no usa rango) ===
+        const { data: cuellos } = await db.from('orden_tareas')
+            .select('paso, estado, fecha_inicio, ordenes_produccion!inner(estado)')
+            .in('estado', ['pendiente','en_proceso','bloqueado'])
+            .not('ordenes_produccion.estado', 'in', '(finalizada,entregada,cancelada)');
+
+        const porEtapaCuello = {};
+        (cuellos || []).forEach(t => {
+            if (!porEtapaCuello[t.paso]) porEtapaCuello[t.paso] = { pendiente: 0, en_proceso: 0, bloqueado: 0, masVieja: null };
+            porEtapaCuello[t.paso][t.estado] = (porEtapaCuello[t.paso][t.estado] || 0) + 1;
+            if (t.fecha_inicio) {
+                const f = new Date(t.fecha_inicio);
+                if (!porEtapaCuello[t.paso].masVieja || f < porEtapaCuello[t.paso].masVieja) {
+                    porEtapaCuello[t.paso].masVieja = f;
+                }
+            }
+        });
+        const filasCuellos = ordenWorkflow.filter(p => porEtapaCuello[p]).map(p => ({ paso: p, ...porEtapaCuello[p] }))
+            .concat(Object.keys(porEtapaCuello).filter(p => !ordenWorkflow.includes(p)).map(p => ({ paso: p, ...porEtapaCuello[p] })));
+        const tbC = document.getElementById('ordRepCuellosBody');
+        const emC = document.getElementById('ordRepCuellosEmpty');
+        if (!filasCuellos.length) {
+            tbC.innerHTML = ''; emC.style.display = 'block';
+        } else {
+            emC.style.display = 'none';
+            const ahora = new Date();
+            tbC.innerHTML = filasCuellos.map(f => {
+                const total = f.pendiente + f.en_proceso + f.bloqueado;
+                let viejaTxt = '—';
+                if (f.masVieja) {
+                    const dias = Math.round((ahora - f.masVieja) / (1000*60*60*24));
+                    viejaTxt = dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : 'hace ' + dias + ' dias';
+                }
+                return `<tr>
+                    <td><strong>${escapeHtml(f.paso)}</strong></td>
+                    <td style="text-align:right;color:var(--gray-500);">${f.pendiente}</td>
+                    <td style="text-align:right;color:#92400e;font-weight:600;">${f.en_proceso}</td>
+                    <td style="text-align:right;color:#991b1b;font-weight:600;">${f.bloqueado}</td>
+                    <td style="text-align:right;font-weight:700;">${total}</td>
+                    <td style="font-size:0.82rem;color:var(--gray-500);">${viejaTxt}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // Meta
+        document.getElementById('ordRepMeta').textContent = `${tareasValidas.length} tareas completadas analizadas`;
+    }
 
     async function cargarOrdenes() {
-        // Ocultar editor, mostrar lista
+        // Ocultar editor + reportes, mostrar lista, sincronizar botonera
         document.getElementById('ordenEditor').style.display = 'none';
+        document.getElementById('ordenesReportes').style.display = 'none';
         document.getElementById('ordenesLista').style.display = 'block';
+        ordenesVistaActual = 'lista';
+        document.getElementById('ordenesBtnLista')?.classList.add('active');
+        document.getElementById('ordenesBtnReportes')?.classList.remove('active');
 
         const filtroEstado = document.getElementById('ordenesFiltroEstado')?.value || '';
         let q = db.from('ordenes_produccion').select('*, clientes(nombre, empresa), proformas(numero)');
