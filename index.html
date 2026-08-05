@@ -898,7 +898,7 @@
                         </div>
                         <div class="form-row-3">
                             <div class="form-group">
-                                <label>Cantidad final</label>
+                                <label>Cantidad de revistas</label>
                                 <input type="number" id="pub1Cantidad" min="1" value="1000" oninput="cotCalcPub()">
                             </div>
                             <div class="form-group">
@@ -1086,8 +1086,8 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Cantidad final</label>
-                                <input type="number" id="pub2Cantidad" min="1" value="1000" oninput="cotCalcPub()">
+                                <label>Cantidad (igual que portada)</label>
+                                <input type="number" id="pub2Cantidad" min="1" value="1000" readonly tabindex="-1" title="Misma cantidad que la portada — es la misma revista" style="background:var(--gray-50);cursor:not-allowed;">
                             </div>
                             <div class="form-group">
                                 <label>Sangrado por lado (cm)</label>
@@ -1827,7 +1827,7 @@
                         </div>
                         <div class="form-row-3">
                             <div class="form-group">
-                                <label>Cantidad final</label>
+                                <label>Cantidad de revistas</label>
                                 <input type="number" id="digPub1Cantidad" min="1" value="100" oninput="window._digPubMargenManual=false;digCalcPub()">
                             </div>
                             <div class="form-group">
@@ -1977,8 +1977,8 @@
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Cantidad final</label>
-                                <input type="number" id="digPub2Cantidad" min="1" value="100" oninput="digCalcPub()">
+                                <label>Cantidad (igual que portada)</label>
+                                <input type="number" id="digPub2Cantidad" min="1" value="100" readonly tabindex="-1" title="Misma cantidad que la portada — es la misma revista" style="background:var(--gray-50);cursor:not-allowed;">
                             </div>
                             <div class="form-group">
                                 <label>Sangrado por lado (cm)</label>
@@ -5881,7 +5881,10 @@
         const intProdW = +document.getElementById('pub2ProdW').value || 0;
         const intProdH = +document.getElementById('pub2ProdH').value || 0;
         const intSangrado = +document.getElementById('pub2Sangrado').value || 0;
-        const intCantidad = +document.getElementById('pub2Cantidad').value || 0;
+        // La cantidad de interiores SIEMPRE es la misma que la portada (es la misma revista).
+        const intCantidad = port.cantidad;
+        const _pub2CantEl = document.getElementById('pub2Cantidad');
+        if (_pub2CantEl && _pub2CantEl.value != port.cantidad) _pub2CantEl.value = port.cantidad;
         const totalPaginasInt = +document.getElementById('pub2Paginas').value || 0;
 
         // Pieza = pagina individual con sangrado
@@ -6765,7 +6768,10 @@
         const p2ProdW = +document.getElementById('digPub2ProdW').value || 0;
         const p2ProdH = +document.getElementById('digPub2ProdH').value || 0;
         const p2Sangrado = +document.getElementById('digPub2Sangrado').value || 0;
-        const p2Cantidad = +document.getElementById('digPub2Cantidad').value || 0;
+        // La cantidad de interiores SIEMPRE es la misma que la portada (es la misma revista).
+        const p2Cantidad = p1Cantidad;
+        const _p2CantEl = document.getElementById('digPub2Cantidad');
+        if (_p2CantEl && _p2CantEl.value != p1Cantidad) _p2CantEl.value = p1Cantidad;
         const totalPaginas = +document.getElementById('digPub2Paginas').value || 0;
         const p2Maquina = document.getElementById('digPub2Maquina').value;
         const p2Formato = document.getElementById('digPub2Formato').value;

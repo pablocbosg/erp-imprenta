@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["http-server", "/Users/pablocobos/Desktop/calculadora de cortes", "-p", "8080", "-c-1"],
       "port": 8080
+    },
+    {
+      "name": "ingenia-erp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/pablocobos/Desktop/ingenia-erp", "run", "dev"],
+      "port": 3000
     }
   ]
 }
