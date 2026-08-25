@@ -52,11 +52,19 @@
                 <td>${escapeHtml(c.email || '-')}</td>
                 <td>${escapeHtml(c.telefono || '-')}</td>
                 <td>${escapeHtml(c.direccion || '-')}</td>
-                <td>
+                <td style="white-space:nowrap;">
                     <button class="btn btn-sm" style="border:1px solid var(--gray-300);" onclick="editarCliente(${c.id})">Editar</button>
+                    <button class="btn btn-sm" style="border:1px solid var(--gray-300);" onclick="abrirHistorialCliente(${c.id})">Historial</button>
                 </td>
             </tr>`;
         }).join('');
+    }
+
+    // Abre el historial de productos del cliente. Recibe solo el id y resuelve
+    // el nombre desde cache, para no interpolar texto de DB dentro de un onclick.
+    function abrirHistorialCliente(id) {
+        const c = clientesTabCache.find(x => x.id === id);
+        histDesdeCliente(c ? (c.nombre || '') : '');
     }
 
     function editarCliente(id) {
