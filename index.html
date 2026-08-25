@@ -251,6 +251,23 @@
         .clientes-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--gray-100); }
         .clientes-table tr:hover { background: var(--primary-light); cursor: pointer; }
         .clientes-table .editing td { background: var(--warning-light); }
+        /* --- Sub-tabs del tab Clientes + Historial de productos --- */
+        .cli-subtabs { display: flex; gap: 0.3rem; margin-bottom: 1rem; border-bottom: 1px solid var(--gray-200); }
+        .cli-subtab-btn { background: none; border: none; padding: 0.5rem 0.9rem; font-size: 0.85rem; font-weight: 500; color: var(--gray-500); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+        .cli-subtab-btn:hover { color: var(--gray-700); }
+        .cli-subtab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .cli-sub { display: none; }
+        .cli-sub.active { display: block; }
+        .hist-filtros { display: grid; grid-template-columns: 1.3fr 1.7fr 0.85fr 0.85fr auto; gap: 0.6rem; align-items: end; margin-bottom: 1rem; }
+        .hist-filtros label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--gray-500); font-weight: 600; margin-bottom: 0.25rem; }
+        .hist-filtros input { width: 100%; padding: 0.5rem 0.6rem; border: 1px solid var(--gray-300); border-radius: 7px; font-size: 0.85rem; }
+        .hist-stats { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+        .hist-stat { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 0.45rem 0.75rem; }
+        .hist-stat .v { font-size: 1rem; font-weight: 600; color: var(--gray-800); }
+        .hist-stat .k { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--gray-500); }
+        .hist-vista-btn { background: none; border: 1px solid var(--gray-300); border-radius: 7px; padding: 0.3rem 0.7rem; font-size: 0.78rem; color: var(--gray-600); cursor: pointer; }
+        .hist-vista-btn.active { background: var(--primary); border-color: var(--primary); color: white; font-weight: 600; }
+        @media (max-width: 900px) { .hist-filtros { grid-template-columns: 1fr 1fr; } }
         .client-edit-row input { width: 100%; padding: 0.35rem 0.5rem; font-size: 0.85rem; border: 1.5px solid var(--primary); border-radius: 5px; }
 
         /* Proformas tab */
@@ -3063,19 +3080,71 @@
         <div class="clientes-layout">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                 <h2 style="font-size:1.15rem;color:var(--gray-800);">Clientes</h2>
-                <button class="btn btn-primary" onclick="openNewClientModal()">+ Nuevo Cliente</button>
+                <button class="btn btn-primary" id="cliBtnNuevo" onclick="openNewClientModal()">+ Nuevo Cliente</button>
             </div>
-            <div class="search-bar">
-                <input type="text" id="clientesBuscar" placeholder="Buscar por nombre, empresa o RUC..." oninput="buscarClientesTab()">
+
+            <div class="cli-subtabs">
+                <button class="cli-subtab-btn active" id="cliSubBtnDirectorio" onclick="cliSwitchSub('directorio')">Directorio</button>
+                <button class="cli-subtab-btn" id="cliSubBtnHistorial" onclick="cliSwitchSub('historial')">Historial de productos</button>
             </div>
-            <div class="panel" style="overflow-x:auto;">
-                <table class="clientes-table" style="min-width:900px;">
-                    <thead><tr>
-                        <th>Nombre</th><th>Empresa</th><th>RUC/CI</th><th>Email</th><th>Telefono</th><th>Direccion</th><th style="width:120px;"></th>
-                    </tr></thead>
-                    <tbody id="clientesTabBody"></tbody>
-                </table>
-                <div id="clientesEmpty" style="padding:2rem;text-align:center;color:var(--gray-400);font-size:0.9rem;">No se encontraron clientes.</div>
+
+            <!-- ---------- Sub-tab: Directorio ---------- -->
+            <div id="cli-sub-directorio" class="cli-sub active">
+                <div class="search-bar">
+                    <input type="text" id="clientesBuscar" placeholder="Buscar por nombre, empresa o RUC..." oninput="buscarClientesTab()">
+                </div>
+                <div class="panel" style="overflow-x:auto;">
+                    <table class="clientes-table" style="min-width:900px;">
+                        <thead><tr>
+                            <th>Nombre</th><th>Empresa</th><th>RUC/CI</th><th>Email</th><th>Telefono</th><th>Direccion</th><th style="width:190px;"></th>
+                        </tr></thead>
+                        <tbody id="clientesTabBody"></tbody>
+                    </table>
+                    <div id="clientesEmpty" style="padding:2rem;text-align:center;color:var(--gray-400);font-size:0.9rem;">No se encontraron clientes.</div>
+                </div>
+            </div>
+
+            <!-- ---------- Sub-tab: Historial de productos ---------- -->
+            <div id="cli-sub-historial" class="cli-sub">
+                <p style="font-size:0.8rem;color:var(--gray-500);margin-bottom:0.9rem;">
+                    Que le hemos facturado a un cliente, a que precio y cuando. Busca en el detalle linea a linea
+                    de las facturas importadas; ignora acentos y mayusculas, y si no hay coincidencia exacta reintenta tolerando erratas.
+                </p>
+
+                <div class="hist-filtros">
+                    <div>
+                        <label for="histCliente">Cliente</label>
+                        <input type="text" id="histCliente" list="histClientesList" placeholder="Ej: Fenix" onkeydown="if(event.key==='Enter')histBuscar()">
+                        <datalist id="histClientesList"></datalist>
+                    </div>
+                    <div>
+                        <label for="histProducto">Producto o detalle</label>
+                        <input type="text" id="histProducto" placeholder="Ej: stickers benu" onkeydown="if(event.key==='Enter')histBuscar()">
+                    </div>
+                    <div>
+                        <label for="histDesde">Desde</label>
+                        <input type="date" id="histDesde">
+                    </div>
+                    <div>
+                        <label for="histHasta">Hasta</label>
+                        <input type="date" id="histHasta">
+                    </div>
+                    <div style="display:flex;gap:0.4rem;">
+                        <button class="btn btn-primary" onclick="histBuscar()">Buscar</button>
+                        <button class="btn" style="border:1px solid var(--gray-300);" onclick="histLimpiar()">Limpiar</button>
+                    </div>
+                </div>
+
+                <div id="histStatus" style="font-size:0.8rem;margin-bottom:0.75rem;min-height:1.1rem;"></div>
+                <div id="histStats" class="hist-stats"></div>
+
+                <div id="histVistaTabs" style="display:none;gap:0.4rem;align-items:center;margin-bottom:0.75rem;">
+                    <button class="hist-vista-btn active" id="histTabResumen" onclick="histSetVista('resumen')">Resumen por producto</button>
+                    <button class="hist-vista-btn" id="histTabDetalle" onclick="histSetVista('detalle')">Detalle de lineas</button>
+                    <button class="btn btn-sm" style="border:1px solid var(--gray-300);margin-left:auto;" onclick="histExportCSV()">Exportar CSV</button>
+                </div>
+
+                <div id="histResultados"></div>
             </div>
         </div>
     </div>
@@ -8094,5 +8163,6 @@
     <script src="ordenes.js"></script>
     <script src="proformas.js"></script>
     <script src="clientes.js"></script>
+    <script src="historial.js"></script>
 </body>
 </html>
