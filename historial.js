@@ -259,7 +259,7 @@
 
     // entrada desde el boton "Historial" del directorio de clientes
     function histDesdeCliente(nombre) {
-        cliSwitchSub('historial');
+        switchTab('historial');
         document.getElementById('histCliente').value = nombre || '';
         document.getElementById('histProducto').value = '';
         histBuscar();
@@ -455,15 +455,11 @@
     }
 
     // =====================================================
-    // Sub-tabs de Clientes
+    // Entrada del tab
     // =====================================================
 
-    function cliSwitchSub(sub) {
-        document.querySelectorAll('.cli-sub').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.cli-subtab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById('cli-sub-' + sub).classList.add('active');
-        document.getElementById('cliSubBtn' + sub.charAt(0).toUpperCase() + sub.slice(1)).classList.add('active');
-        const btnNuevo = document.getElementById('cliBtnNuevo');
-        if (btnNuevo) btnNuevo.style.display = sub === 'directorio' ? '' : 'none';
-        if (sub === 'historial') histCargarClientes();
+    // Llamado por switchTab('historial'). Precarga la lista de clientes facturados
+    // para el autocompletado; la busqueda en si la dispara el usuario.
+    function histInitTab() {
+        histCargarClientes();
     }
