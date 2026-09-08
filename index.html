@@ -6217,8 +6217,30 @@ Que le hemos facturado a un cliente, a que precio y cuando. Busca en el detalle 
         '48x33': { adhesivo: 0.70, papel: 1.40 }
     };
 
+    // Redondeo comercial (medio hacia arriba) a d decimales.
+    // Math.round(n*100)/100 y toFixed() no sirven: 13,725 se guarda en binario como
+    // 13,7249999... y ambos truncan a 13,72, cuando el SRI factura 13,73.
+    // Reescalamos via string (toExponential) para leer el decimal real, no el binario.
+    function roundTo(n, d) {
+        const v = +n;
+        if (!isFinite(v)) return 0;
+        const [mant, exp] = v.toExponential().split('e');
+        return Math.round(Number(mant + 'e' + (+exp + d))) / Math.pow(10, d);
+    }
+    function round2(n) { return roundTo(n, 2); }
+
+    // Monto de IVA al centavo, igual que lo calcula Contifico/SRI.
+    // Todo el calculo va en enteros: subtotal en centavos x porcentaje en centesimas de
+    // punto. En coma flotante hasta 4,10 * 15 da 61,4999... y redondearia a 0,61 en vez
+    // de 0,62.
+    function calcIVA(subtotal, pct) {
+        const cents = Math.round(round2(subtotal) * 100);
+        const pctBp = Math.round((+pct || 0) * 100);
+        return Math.floor((cents * pctBp + 5000) / 10000) / 100;
+    }
+
     // Formatear numero con coma decimal para display
-    function fmtN(n, d) { return n.toFixed(d).replace('.', ','); }
+    function fmtN(n, d) { return roundTo(n, d).toFixed(d).replace('.', ','); }
 
     function digGetMargenPct(cantidad) {
         for (const r of DIG_MARGEN) {

@@ -30,7 +30,7 @@
             proformasCache.forEach(p => {
                 const m = map[p.id] || { count: 0, sub: 0 };
                 p._itemsCount = m.count;
-                p._total = m.sub * (1 + (+p.iva_porcentaje || 15) / 100);
+                p._total = round2(m.sub) + calcIVA(m.sub, +p.iva_porcentaje || 15);
             });
         }
         renderProformasList(proformasCache);
@@ -231,8 +231,8 @@
             else subtotal15 += importe;
         });
 
-        const subtotal = subtotal0 + subtotal15;
-        const ivaMonto = subtotal15 * 0.15;
+        const subtotal = round2(subtotal0 + subtotal15);
+        const ivaMonto = calcIVA(subtotal15, 15);
         const total = subtotal + ivaMonto;
 
         document.getElementById('profSubtotal0Row').style.display = subtotal0 > 0 ? 'flex' : 'none';
@@ -1626,8 +1626,8 @@
             const importe = (it.cantidad || 0) * (it.precio_unitario || 0);
             if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _sub0 += importe; else _sub15 += importe;
         });
-        const subtotal = _sub0 + _sub15;
-        const iva = _sub15 * 0.15;
+        const subtotal = round2(_sub0 + _sub15);
+        const iva = calcIVA(_sub15, 15);
         const total = subtotal + iva;
         const fecha = new Date().toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const tiempoEntrega = document.getElementById('profTiempoEntrega')?.value || '';
@@ -1922,8 +1922,8 @@
             const importe = (it.cantidad || 0) * (it.precio_unitario || 0);
             if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _sub0 += importe; else _sub15 += importe;
         });
-        const subtotal = _sub0 + _sub15;
-        const iva = _sub15 * 0.15;
+        const subtotal = round2(_sub0 + _sub15);
+        const iva = calcIVA(_sub15, 15);
         const total = subtotal + iva;
         const fecha = new Date().toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const tiempoEntrega = document.getElementById('profTiempoEntrega')?.value || '';
@@ -2110,7 +2110,7 @@
         let _s0 = 0, _s15 = 0;
         items.forEach(it => { const imp = (it.cantidad||0)*(it.precio_unitario||0);
             if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _s0 += imp; else _s15 += imp; });
-        const total = _s0 + _s15 + _s15 * 0.15;
+        const total = round2(_s0 + _s15) + calcIVA(_s15, 15);
 
         let msg = `*PROFORMA #${proformaActiva.numero}*\n`;
         msg += `INGENIA - Experiencia Creativa\n\n`;
@@ -2143,7 +2143,7 @@
         let _s0 = 0, _s15 = 0;
         items.forEach(it => { const imp = (it.cantidad||0)*(it.precio_unitario||0);
             if ((it.iva_pct !== undefined ? it.iva_pct : 15) === 0) _s0 += imp; else _s15 += imp; });
-        const total = _s0 + _s15 + _s15 * 0.15;
+        const total = round2(_s0 + _s15) + calcIVA(_s15, 15);
 
         const subject = `Proforma #${proformaActiva.numero} - INGENIA`;
         let body = `Estimado/a ${proformaActiva.cliente_nombre || 'cliente'},\n\n`;
