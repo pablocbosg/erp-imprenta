@@ -709,7 +709,7 @@ async function _kanbanTotalProforma(proformaId) {
     ]);
     const sub = (itemsRes.data || []).reduce((s, i) => s + ((+i.cantidad || 0) * (+i.precio_unitario || 0)), 0);
     const ivaPct = (profRes.data?.iva_porcentaje ?? 15);
-    return sub + (sub * ivaPct / 100);
+    return round2(sub) + calcIVA(sub, ivaPct);
 }
 
 // Scan: cruza trabajos con facturas Contifico para mover estados
@@ -760,7 +760,7 @@ async function kanbanScanContifico() {
             });
             (profRes.data || []).forEach(p => {
                 const sub = subPorProf[p.id] || 0;
-                totalesProforma[p.id] = sub + (sub * ((p.iva_porcentaje ?? 15) / 100));
+                totalesProforma[p.id] = round2(sub) + calcIVA(sub, p.iva_porcentaje ?? 15);
             });
         }
 
